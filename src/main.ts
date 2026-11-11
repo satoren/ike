@@ -152,8 +152,8 @@ renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('keydown', (e) => {
   const keys: Record<string, Tool> = { '1': 'pan', '2': 'dig', '3': 'raise', '4': 'smooth', '5': 'tree' };
   if (keys[e.key]) setTool(keys[e.key]);
-  if (e.key === '[') hud.setBrush(Math.max(1, state.brushRadius - 1), true);
-  if (e.key === ']') hud.setBrush(Math.min(10, state.brushRadius + 1), true);
+  if (e.key === '[') hud.stepBrush(state.brushRadius, -1);
+  if (e.key === ']') hud.stepBrush(state.brushRadius, 1);
 });
 
 function pick(): THREE.Vector3 | null {
@@ -164,7 +164,7 @@ function pick(): THREE.Vector3 | null {
 
 function spend(cost: number): boolean {
   if (state.money < cost) {
-    hud.flash('資金が足りません');
+    hud.flash('資金が足りません', 'bad');
     return false;
   }
   state.money -= cost;
@@ -174,7 +174,7 @@ function spend(cost: number): boolean {
 function onTerrainEdited(region: BrushResult): void {
   terrain.refresh(region);
   const drowned = forest.onTerrainChanged(region);
-  if (drowned > 0) hud.flash(`木が ${drowned} 本 水に沈みました`);
+  if (drowned > 0) hud.flash(`木が ${drowned} 本、水に沈みました`, 'bad');
   statsDirty = true;
 }
 
@@ -247,7 +247,7 @@ function frame(): void {
     state.day++;
     const income = dailyIncome(stats);
     state.money += income;
-    hud.flash(`${state.day - 1} 日目の入園料 +${income}`);
+    hud.flash(`${state.day - 1}日目の入園料  +${income.toLocaleString()} G`, 'good');
   }
 
   hud.update({
