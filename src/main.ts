@@ -57,6 +57,10 @@ import { ReviewFeed } from './reviews';
 import { ReviewPanel } from './reviewview';
 import { BIRDS, FoodWeb, WEED, fishCapacity } from './foodweb';
 import { FoodWebPanel, FoodWebView } from './foodwebview';
+import { FACILITIES, FACILITY, FACILITY_ORDER, Facilities, type FacilityKind } from './facilities';
+import { FacilityView } from './facilityview';
+import { Progress, RANKS, type ParkStats } from './progress';
+import { RankBadge, rewardText } from './progressview';
 
 // ---- ワールドの設定 ----
 const MAP_SIZE = 128; // マス数（一辺）
@@ -186,6 +190,12 @@ const poachers = new Poachers(map, WATER_LEVEL);
 const poacherView = new PoacherView(map, WATER_LEVEL);
 scene.add(poacherView.group);
 
+// 施設（休憩所・売店・展望台）と園のランク
+const facilities = new Facilities(map, WATER_LEVEL);
+const facilityView = new FacilityView(map);
+scene.add(facilityView.group);
+const progress = new Progress();
+
 const cursor = new BrushCursor(map);
 scene.add(cursor.line);
 
@@ -213,7 +223,11 @@ const state = {
   nightOpen: false,
   /** 夜営業に寄ってきた夜行性のキツネ（朝には去る） */
   nightFoxes: [] as number[],
+  /** 「施設」で建てるもの */
+  facility: 'rest' as FacilityKind,
 };
+/** 前のフレームの来園者数（施設の効き目は来園者数で決まるため） */
+let lastVisitors = 0;
 /** 今夜のうち、営業していた時間と夜の長さ（入園料の割合に使う） */
 let nightOpenTime = 0;
 let nightTime = 0;
@@ -251,6 +265,10 @@ const hud = new Hud({
   onToggleNight: () => toggleNight(),
   onReset: () => resetGame(),
   onPathErase: (on) => (pathErase = on),
+  onFacilityChange: (kind) => {
+    state.facility = kind;
+    refreshFacilityUi();
+  },
 });
 const seasonView = new SeasonView({
   scene,
@@ -267,6 +285,7 @@ seasonView.set(calendarOf(state.day).season, seasonState.weather, true);
 // HUD を組んだあとに足す（HUD は中身を作り直すため）
 const rareBadge = new RareBadge((kind) => focusRare(kind));
 const foodwebPanel = new FoodWebPanel(document.querySelector('#hud .basket'));
+const rankBadge = new RankBadge(document.querySelector<HTMLElement>('#hud .brand')!, document.getElementById('hud')!);
 hud.setTool(state.tool);
 const reviewPanel = new ReviewPanel(document.getElementById('hud')!);
 hud.setBrush(state.brushRadius);
@@ -298,6 +317,16 @@ function setTool(tool: Tool): void {
   };
   cursor.line.visible = tool !== 'pan';
   updateCursorRadius();
+  if (tool === 'build') refreshFacilityUi();
+}
+
+/** 施設の選択肢を、いまのランクで建てられるかに合わせて表示する */
+function refreshFacilityUi(): void {
+  const lockedBy: Partial<Record<FacilityKind, number>> = {};
+  for (const kind of FACILITY_ORDER) {
+    if (!progress.unlocked(kind)) lockedBy[kind] = Progress.unlockRank(kind)?.stars;
+  }
+  hud.setFacilities(state.facility, lockedBy);
 }
 setTool(state.tool);
 
@@ -343,6 +372,10 @@ function startTool(): void {
   if (state.tool === 'gun') {
     const hit = pick();
     if (hit) shoot(hit);
+  }
+  if (state.tool === 'build') {
+    const hit = pick();
+    if (hit) buildFacility(hit);
   }
 }
 
@@ -427,6 +460,7 @@ window.addEventListener('keydown', (e) => {
     '8': 'trap',
     '9': 'gun',
     '0': 'weed',
+    '-': 'build',
   };
   if (keys[e.key]) setTool(keys[e.key]);
   if (e.key === '[') hud.stepBrush(state.brushRadius, -1);
@@ -454,6 +488,8 @@ function onTerrainEdited(region: BrushResult): void {
   refreshLanterns();
   const drowned = forest.onTerrainChanged(region);
   if (drowned > 0) hud.flash(`木が ${drowned} 本、水に沈みました`, 'bad');
+  const sunk = facilities.removeDrowned();
+  if (sunk > 0) hud.flash(`施設が ${sunk} 軒、水に沈みました`, 'bad');
   statsDirty = true;
 }
 
@@ -528,6 +564,35 @@ function catchPoachers(caught: CreatureKind[][]): void {
   hud.flash(`密猟者を捕まえました！報奨金 +${reward.toLocaleString()} G ${back}`, 'good');
 }
 
+/** 施設を建てる（「撤去」のときは近くの施設を取り壊して半額戻す） */
+function buildFacility(at: THREE.Vector3): void {
+  if (pathErase || shiftDown) {
+    const removed = facilities.removeNear(at.x, at.z);
+    if (!removed) return;
+    const back = Math.floor(FACILITIES[removed.kind].cost * FACILITY.refund);
+    state.money += back;
+    hud.flash(`${FACILITIES[removed.kind].name}を取り壊しました（+${back}G）`);
+    statsDirty = true;
+    return;
+  }
+  const kind = state.facility;
+  const info = FACILITIES[kind];
+  if (!progress.unlocked(kind)) {
+    hud.flash(`${info.name}は園のランクが★${Progress.unlockRank(kind)?.stars}になると建てられます`, 'bad');
+    return;
+  }
+  const why = facilities.whyNot(at.x, at.z, paths);
+  if (why) {
+    hud.flash(why, 'bad');
+    return;
+  }
+  if (!spend(info.cost)) return;
+  const f = facilities.build(kind, at.x, at.z, forest.trees);
+  const extra = kind === 'tower' ? `（景色の良さ +${f.view}）` : '';
+  hud.flash(`${info.name}を建てました${extra}`, 'good');
+  statsDirty = true;
+}
+
 function placeTrap(at: THREE.Vector3): void {
   if (state.money < TRAP_COST) {
     hud.flash('資金が足りません', 'bad');
@@ -571,6 +636,7 @@ function sell(kind: ItemKind | 'all'): void {
   if (total === 0) return;
   for (const k of kinds) state.inventory[k] = 0;
   state.money += total;
+  progress.earn(total);
   hud.flash(`売り上げ +${total.toLocaleString()} G`, 'good');
 }
 
@@ -662,6 +728,8 @@ function snapshot(): SaveData {
     rare: rare.snapshot(),
     foodweb: { weeds: foodweb.weeds.map((w) => ({ ...w })), birds: foodweb.birds.map((b) => ({ ...b })) },
     poachers: poachers.poachers.map((p) => ({ ...p, loot: [...p.loot] })),
+    facilities: facilities.facilities.map((f) => ({ ...f })),
+    progress: progress.snapshot(),
     state: {
       money: state.money,
       day: state.day,
@@ -692,6 +760,8 @@ function restore(data: SaveData): void {
   rare.restore(data.rare);
   foodweb.restore(data.foodweb);
   poachers.restore(data.poachers ?? []);
+  facilities.restore(data.facilities);
+  progress.restore(data.progress);
   Object.assign(state, data.state, {
     inventory: { ...emptyInventory(), ...data.state.inventory },
     nightOpen: data.state.nightOpen ?? false,
@@ -776,6 +846,12 @@ if (new URLSearchParams(location.search).has('poacher')) {
   p.z *= 0.5;
 }
 
+// 確認用：URL に ?rank=3 のように付けると、そのランク（★）から始まる
+{
+  const r = Number(new URLSearchParams(location.search).get('rank'));
+  if (r >= 1 && r <= RANKS.length) progress.restore({ ...progress.snapshot(), rank: r - 1, done: [] });
+}
+
 /** 夜間営業の切り替え */
 function toggleNight(): void {
   state.nightOpen = !state.nightOpen;
@@ -837,8 +913,45 @@ function focusAt(x: number, z: number): void {
   camera.position.copy(controls.target).add(offset);
 }
 
+/** 目標の判定に使う、いまの園の数字 */
+function parkStats(visitors: number, wild: { rabbit: number; duck: number; fish: number }): ParkStats {
+  return {
+    visitors,
+    waterCells: habitat.waterCells,
+    treesNearWater: habitat.treesNearWater,
+    pathCells: paths.connectedCount,
+    earned: progress.state.earned,
+    wild,
+    birds: foodweb.birds.length,
+    reviewAvg: reviews.average(),
+    rareSeen: rare.state.sightings.length > 0,
+    facilities: facilities.counts(),
+  };
+}
+
+/** ランクが上がったとき：賞金を渡し、大きく知らせる */
+function onRankUp(): void {
+  const rank = progress.rank;
+  state.money += rank.reward;
+  const el = document.createElement('div');
+  el.className = 'rank-up card';
+  el.setAttribute('role', 'status');
+  el.innerHTML = `
+    <span class="rank-stars">${'★'.repeat(rank.stars)}<i>${'★'.repeat(RANKS.length - rank.stars)}</i></span>
+    <b>${rank.name}になりました</b>
+    <p>${rewardText(rank)}</p>`;
+  document.getElementById('hud')!.appendChild(el);
+  window.setTimeout(() => {
+    el.classList.add('out');
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+  }, 4200);
+  rankBadge.ping();
+  refreshFacilityUi();
+}
+
 // ---- メインループ ----
 const clock = new THREE.Clock();
+let progressTimer = 0.5;
 let statsTimer = 0;
 let saveTimer = 0;
 
@@ -855,6 +968,7 @@ function frame(): void {
   if (statsDirty && statsTimer > 0.25) {
     habitat = habitatNow();
     scenic = paths.scenicValue(WATER_LEVEL);
+    facilities.refreshViews(forest.trees);
     statsDirty = false;
     statsTimer = 0;
   }
@@ -931,6 +1045,7 @@ function frame(): void {
   }
   bearView.update(bears.bears, bears.traps, t);
   rareView.update(rare.state, t);
+  facilityView.update(facilities.facilities);
 
   // 密猟者：夜に忍び込んで魚や動物を盗む。来園者に見つかると逃げる
   const poacherEvents = poachers.update(
@@ -953,7 +1068,7 @@ function frame(): void {
 
   state.incident = decayIncident(state.incident, dt);
   const access = {
-    scenic: scenic + foodweb.appealBonus(),
+    scenic: scenic + foodweb.appealBonus() + facilities.appealBonus(lastVisitors),
     safetyFor: (v: number) => safety(paths.connectedCount, v),
     unsafePenalty: SAFETY.unsafePenalty,
   };
@@ -973,6 +1088,7 @@ function frame(): void {
       bonus,
     );
   let appeal = evaluate();
+  lastVisitors = appeal.visitors;
 
   // 昼と夜。夜は営業していなければ来園者は帰り、営業していればキツネが活発になる
   const dayProgress = state.dayTimer / SECONDS_PER_DAY;
@@ -1027,9 +1143,14 @@ function frame(): void {
   if (state.dayTimer >= SECONDS_PER_DAY) {
     state.dayTimer -= SECONDS_PER_DAY;
     state.day++;
-    const income = appeal.visitors * TICKET_PRICE;
-    state.money += income;
-    hud.flash(`${state.day - 1}日目の入園料  +${income.toLocaleString()} G`, 'good');
+    const income = Math.round(appeal.visitors * TICKET_PRICE * progress.rank.ticket);
+    const shopIncome = facilities.shopIncome(appeal.visitors);
+    state.money += income + shopIncome;
+    progress.earn(income + shopIncome);
+    hud.flash(
+      `${state.day - 1}日目の入園料  +${income.toLocaleString()} G${shopIncome > 0 ? `　売店 +${shopIncome.toLocaleString()} G` : ''}`,
+      'good',
+    );
     // 朝になると天気が決まる。季節が変わったら知らせる
     const next = calendarOf(state.day);
     const prevWeather = seasonState.weather;
@@ -1041,9 +1162,10 @@ function frame(): void {
     // 夜も営業していれば、営業していた時間の分だけ夜の部の入園料が入り、電気代を払う
     if (nightOpenTime > 0) {
       const share = Math.min(1, nightOpenTime / Math.max(nightTime, 0.001));
-      const nightIncome = Math.floor(nightVisitors(appeal.visitors, true) * share) * TICKET_PRICE;
+      const nightIncome = Math.round(Math.floor(nightVisitors(appeal.visitors, true) * share) * TICKET_PRICE * progress.rank.ticket);
       const cost = lightingCost(lanterns);
       state.money += nightIncome - cost;
+      progress.earn(nightIncome);
       hud.flash(`夜の部  +${nightIncome.toLocaleString()} G（電気代 -${cost} G）`, nightIncome >= cost ? 'good' : 'bad');
     }
     nightOpenTime = 0;
@@ -1081,6 +1203,21 @@ function frame(): void {
     kingfisher: foodweb.count('kingfisher'),
     heron: foodweb.count('heron'),
   });
+
+  // 園のランク：目標を判定し、全部達成したらランクアップ
+  progressTimer += dt;
+  if (progressTimer >= 0.5) {
+    progressTimer = 0;
+    const stats = parkStats(appeal.visitors, wild);
+    const result = progress.evaluate(stats);
+    for (const g of result.achieved) {
+      if (result.rankedUp) break;
+      hud.flash(`目標達成：${g.label}`, 'good');
+      rankBadge.ping();
+    }
+    if (result.rankedUp) onRankUp();
+    rankBadge.update(progress, progress.goals(stats));
+  }
 
   hud.update({
     money: state.money,

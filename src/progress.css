@@ -1,0 +1,276 @@
+/* ---------- 園のランク ---------- */
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 3px;
+  padding: 4px 9px 4px 6px;
+  border-radius: 999px;
+  background: #fbefd2;
+  color: #9a6a12;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.rank-badge .rank-star svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: var(--coin);
+  stroke: var(--coin);
+}
+
+.rank-badge small {
+  margin-left: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank-badge[aria-expanded='true'] {
+  background: var(--coin);
+  color: #fff;
+}
+.rank-badge[aria-expanded='true'] .rank-star svg {
+  fill: #fff;
+  stroke: #fff;
+}
+
+.rank-badge.ping {
+  animation: rank-ping 1.2s ease-out 2;
+}
+
+@keyframes rank-ping {
+  0% {
+    box-shadow: 0 0 0 0 rgba(210, 154, 38, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 12px rgba(210, 154, 38, 0);
+  }
+}
+
+.rank-panel {
+  position: absolute;
+  top: 92px;
+  left: calc(16px + var(--sa-l, 0px));
+  z-index: 5;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  padding: 12px 14px;
+}
+
+.rank-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  column-gap: 8px;
+}
+
+.rank-stars {
+  color: var(--coin);
+  font-size: 15px;
+  letter-spacing: -1px;
+}
+.rank-stars i {
+  font-style: normal;
+  color: var(--line);
+}
+
+.rank-name {
+  font-size: 16px;
+}
+
+.rank-close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink-soft);
+}
+.rank-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.rank-sub {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.rank-goals {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rank-goal {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 3px;
+  font-size: 13px;
+}
+
+.rank-check {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+}
+.rank-goal.done .rank-check {
+  border-color: var(--leaf);
+  background: var(--leaf) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 8 3 3 5-6' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px no-repeat;
+}
+
+.rank-goal.done .rank-label {
+  color: var(--ink-soft);
+}
+
+.rank-value {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.rank-goal.done .rank-value {
+  color: var(--leaf-deep);
+}
+
+.rank-bar {
+  grid-column: 2 / -1;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.rank-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--leaf), var(--coin));
+}
+
+.rank-max {
+  font-size: 13px;
+  color: var(--leaf-deep);
+}
+
+.rank-foot {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.rank-foot:empty {
+  display: none;
+}
+
+/* ランクアップの知らせ */
+.rank-up {
+  position: absolute;
+  top: 34%;
+  left: 50%;
+  z-index: 10;
+  transform: translate(-50%, -50%);
+  padding: 18px 26px;
+  text-align: center;
+  animation: rank-up-in 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.rank-up.out {
+  animation: toast-out 0.4s ease-in forwards;
+}
+.rank-up .rank-stars {
+  display: block;
+  font-size: 26px;
+}
+.rank-up b {
+  display: block;
+  margin: 4px 0;
+  font-size: 22px;
+}
+.rank-up p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+@keyframes rank-up-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+}
+
+/* 施設の選択（道具「施設」のとき、ブラシの代わりに出す） */
+.facility-row {
+  display: flex;
+  gap: 3px;
+}
+.facility-row[hidden] {
+  display: none;
+}
+
+.facility {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 56px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  background: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.facility svg {
+  width: 20px;
+  height: 20px;
+}
+.facility small {
+  font-size: 10px;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.facility.active {
+  background: var(--leaf-tint);
+  color: var(--leaf-deep);
+}
+.facility.locked {
+  opacity: 0.5;
+}
+.facility.locked svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ランクの表示が増えた分、狭い画面ではタイトルの文字を省いて 1 行に収める */
+@media (max-width: 640px), (max-height: 500px) {
+  .brand .brand-name {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .rank-badge {
+    padding: 3px 7px 3px 4px;
+    font-size: 13px;
+  }
+  .rank-badge small {
+    display: none;
+  }
+}
+
+.sizes-row[hidden] {
+  display: none;
+}
