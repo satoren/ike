@@ -33,6 +33,8 @@ import { RARE, RareLife, applyRareBoost, rareBoost, type RareKind } from './rare
 import { RareBadge, RareView } from './rareview';
 import { POACHER, POACHER_TARGETS, Poachers } from './poachers';
 import { PoacherView } from './poacherview';
+import { RANGER, Rangers, type Threat } from './rangers';
+import { RangerPanel, RangerView } from './rangerview';
 import { SAVE_VERSION, SaveSlot, decodeFloats, base64ToBytes, bytesToBase64, encodeFloats, type SaveData } from './save';
 import { Hud, type Tool } from './ui';
 import {
@@ -186,6 +188,10 @@ scene.add(foodwebView.group);
 const poachers = new Poachers(map, WATER_LEVEL);
 const poacherView = new PoacherView(map, WATER_LEVEL);
 scene.add(poacherView.group);
+// 雇った害獣駆除係
+const rangers = new Rangers(map, WATER_LEVEL);
+const rangerView = new RangerView(map, WATER_LEVEL);
+scene.add(rangerView.group);
 
 const cursor = new BrushCursor(map);
 scene.add(cursor.line);
@@ -277,6 +283,10 @@ function cycleSpeed(): void {
 // HUD を組んだあとに足す（HUD は中身を作り直すため）
 const rareBadge = new RareBadge((kind) => focusRare(kind));
 const foodwebPanel = new FoodWebPanel(document.querySelector('#hud .basket'));
+const rangerPanel = new RangerPanel(document.querySelector('#hud .basket'), {
+  onHire: () => hireRanger(),
+  onDismiss: () => dismissRanger(),
+});
 hud.setTool(state.tool);
 const reviewPanel = new ReviewPanel(document.getElementById('hud')!);
 hud.setBrush(state.brushRadius);
@@ -377,9 +387,18 @@ renderer.domElement.addEventListener('pointerleave', (e) => {
   pointerOnCanvas = false;
   stopTool();
 });
+// 地図を触っている間はパネルを薄くして、下の地面が見えるようにする
+const hudEl = document.getElementById('hud')!;
+let mouseDown = false;
+function updateGesturing(): void {
+  hudEl.classList.toggle('gesturing', touchIds.size > 0 || mouseDown);
+}
+
 renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'touch') mouseDown = true;
+  if (e.pointerType === 'touch') touchIds.add(e.pointerId);
+  updateGesturing();
   if (e.pointerType === 'touch') {
-    touchIds.add(e.pointerId);
     if (touchIds.size > 1) {
       // 2 本目の指：カメラ操作に切り替え、道具は止める
       cancelPendingTouch();
@@ -418,7 +437,10 @@ function onPointerEnd(e: PointerEvent): void {
       }
     }
     pointerOnCanvas = false;
+  } else {
+    mouseDown = false;
   }
+  updateGesturing();
   stopTool();
 }
 window.addEventListener('pointerup', onPointerEnd);
@@ -528,7 +550,7 @@ function collect(at: THREE.Vector3): void {
 }
 
 /** 捕まえた密猟者の報奨金を受け取り、盗まれた生き物を自然へ戻す */
-function catchPoachers(caught: CreatureKind[][]): void {
+function catchPoachers(caught: CreatureKind[][], who = ''): void {
   const reward = caught.length * POACHER.reward;
   state.money += reward;
   let released = 0;
@@ -536,7 +558,7 @@ function catchPoachers(caught: CreatureKind[][]): void {
     for (const kind of loot) if (ecosystem.spawn(kind, forest.trees)) released++;
   }
   const back = released > 0 ? `盗まれた生き物 ${released} 匹を自然へ戻しました` : '';
-  hud.flash(`密猟者を捕まえました！報奨金 +${reward.toLocaleString()} G ${back}`, 'good');
+  hud.flash(`${who}密猟者を捕まえました！報奨金 +${reward.toLocaleString()} G ${back}`, 'good');
 }
 
 function placeTrap(at: THREE.Vector3): void {
@@ -555,9 +577,7 @@ function shoot(at: THREE.Vector3): void {
   if (!spend(SHOT_COST)) return;
   const result = bears.shoot(at.x, at.z);
   if (result === 'killed') {
-    state.inventory.bear++;
-    hud.flash('クマを仕留めました！かごに入れました', 'good');
-    reviews.note('bearHunted');
+    onBearKilled('クマを仕留めました！かごに入れました');
     return;
   }
   if (result === 'hit') {
@@ -572,6 +592,66 @@ function shoot(at: THREE.Vector3): void {
     return;
   }
   hud.flash('外れました');
+}
+
+function onBearKilled(message: string): void {
+  state.inventory.bear++;
+  hud.flash(message, 'good');
+  reviews.note('bearHunted');
+}
+
+/** 害獣駆除係を 1 人雇う */
+function hireRanger(): void {
+  if (rangers.count >= RANGER.max) return;
+  if (!spend(RANGER.hireCost)) return;
+  rangers.hire();
+  hud.flash(`駆除係を雇いました（日給 ${RANGER.wage}G）。遊歩道を巡回してクマ・キツネ・密猟者に対処します`, 'good');
+}
+
+function dismissRanger(): void {
+  if (rangers.dismiss()) hud.flash('駆除係に辞めてもらいました');
+}
+
+/** 駆除係の巡回先：半分は出入口とつながった遊歩道のどこか、残りは園内の陸地のどこか */
+function patrolPoint(): { x: number; z: number } {
+  const half = map.worldSize / 2 - 3;
+  if (paths.connectedCount < 20 || Math.random() < 0.5) {
+    for (let i = 0; i < 50; i++) {
+      const x = (Math.random() * 2 - 1) * half;
+      const z = (Math.random() * 2 - 1) * half;
+      if (map.heightAt(x, z) > WATER_LEVEL) return { x, z };
+    }
+  }
+  for (let i = 0; i < 200; i++) {
+    const cx = Math.floor(Math.random() * paths.size);
+    const cz = Math.floor(Math.random() * paths.size);
+    if (paths.distance[cz * paths.size + cx] >= 0) return paths.center(cx, cz);
+  }
+  return { x: (Math.random() - 0.5) * 10, z: map.worldSize / 2 - 4 };
+}
+
+/** 駆除係の見回り：クマを撃ち、キツネと密猟者を捕まえる */
+function updateRangers(dt: number): void {
+  if (rangers.count === 0) return;
+  const threats: Threat[] = [
+    ...bears.bears.map((b) => ({ kind: 'bear' as const, id: b.id, x: b.x, z: b.z })),
+    ...poachers.poachers.map((p) => ({ kind: 'poacher' as const, id: p.id, x: p.x, z: p.z })),
+    ...ecosystem.creatures.filter((c) => c.kind === 'fox').map((c) => ({ kind: 'fox' as const, id: c.id, x: c.x, z: c.z })),
+  ];
+  for (const { kind, target } of rangers.update(dt, threats, patrolPoint)) {
+    if (kind === 'shoot') {
+      const result = bears.shoot(target.x, target.z);
+      if (result === 'killed') onBearKilled('駆除係がクマを仕留めました！かごに入れました');
+      else if (result === 'hit') hud.flash('駆除係がクマを撃ちました');
+    } else if (target.kind === 'poacher') {
+      const caught = poachers.catchWithin(target.x, target.z, 0);
+      if (caught.length > 0) catchPoachers(caught, '駆除係が');
+    } else if (target.kind === 'fox') {
+      removeCreature(target.id);
+      state.inventory.fox++;
+      hud.flash('駆除係がキツネを捕まえました', 'good');
+    }
+  }
 }
 
 function sell(kind: ItemKind | 'all'): void {
@@ -673,6 +753,7 @@ function snapshot(): SaveData {
     rare: rare.snapshot(),
     foodweb: { weeds: foodweb.weeds.map((w) => ({ ...w })), birds: foodweb.birds.map((b) => ({ ...b })) },
     poachers: poachers.poachers.map((p) => ({ ...p, loot: [...p.loot] })),
+    rangers: rangers.rangers.map((r) => ({ ...r })),
     state: {
       money: state.money,
       day: state.day,
@@ -704,6 +785,7 @@ function restore(data: SaveData): void {
   rare.restore(data.rare);
   foodweb.restore(data.foodweb);
   poachers.restore(data.poachers ?? []);
+  rangers.restore(data.rangers ?? []);
   Object.assign(state, data.state, {
     inventory: { ...emptyInventory(), ...data.state.inventory },
     nightOpen: data.state.nightOpen ?? false,
@@ -789,6 +871,9 @@ if (new URLSearchParams(location.search).has('poacher')) {
   p.x *= 0.5;
   p.z *= 0.5;
 }
+
+// 確認用：URL に ?ranger を付けると、最初から駆除係が 1 人いる
+if (new URLSearchParams(location.search).has('ranger') && rangers.count === 0) rangers.hire();
 
 /** 夜間営業の切り替え */
 function toggleNight(): void {
@@ -966,6 +1051,8 @@ function frame(): void {
     hud.flash(`密猟者に逃げられました（${loot.length} 匹を持ち去られました）`, 'bad');
   }
   poacherView.update(poachers.poachers, t);
+  updateRangers(dt);
+  rangerView.update(rangers.rangers, t);
 
   state.incident = decayIncident(state.incident, dt);
   const access = {
@@ -1064,6 +1151,16 @@ function frame(): void {
     }
     nightOpenTime = 0;
     nightTime = 0;
+    // 駆除係の日給。払えなければ 1 人辞めていく
+    if (rangers.count > 0) {
+      if (state.money >= rangers.payroll) {
+        state.money -= rangers.payroll;
+        hud.flash(`駆除係の日給  -${rangers.payroll} G`);
+      } else {
+        rangers.dismiss();
+        hud.flash('給料が払えず、駆除係が 1 人辞めてしまいました', 'bad');
+      }
+    }
     // 日が変わるとき、森が育っているほどクマが出やすい（冬は冬眠して出ない）
     if (
       SEASONS[next.season].bears &&
@@ -1098,6 +1195,7 @@ function frame(): void {
     heron: foodweb.count('heron'),
   });
 
+  rangerPanel.update(rangers.count, state.money);
   hud.update({
     money: state.money,
     day: state.day,

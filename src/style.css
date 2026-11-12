@@ -1068,6 +1068,72 @@ kbd {
 }
 
 
+/* ---------- 害獣駆除係（かごの下） ---------- */
+.rangers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 7px 6px 9px;
+  border-radius: 10px;
+  background: var(--leaf-tint);
+  font-size: 12px;
+}
+
+.rg-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  color: var(--leaf-deep);
+}
+
+.rg-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.rg-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.rg-text small {
+  color: var(--ink-soft);
+  font-size: 10.5px;
+}
+
+.rangers button {
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rg-hire {
+  padding: 4px 10px;
+  background: var(--leaf);
+  color: #fff;
+}
+
+.rg-hire:disabled {
+  background: var(--line);
+  color: var(--ink-soft);
+  cursor: default;
+}
+
+.rg-fire {
+  width: 24px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--ink);
+}
+
+.rg-fire[hidden] {
+  display: none;
+}
+
 /* ---------- 珍しい生き物の「話題」バッジ ---------- */
 .rare-badge {
   position: absolute;
@@ -1178,7 +1244,8 @@ kbd {
 .basket.collapsed .basket-hint,
 .basket.collapsed .basket-list,
 .basket.collapsed .sell-all,
-.basket.collapsed .foodweb {
+.basket.collapsed .foodweb,
+.basket.collapsed .rangers {
   display: none;
 }
 
@@ -1457,5 +1524,82 @@ kbd {
   }
   .reviews {
     left: calc(16px + var(--sa-l));
+  }
+}
+
+/* ---------- パネルを隠す（地図を広く見る） ---------- */
+.map-btn {
+  position: absolute;
+  right: calc(68px + var(--sa-r));
+  bottom: calc(18px + var(--sa-b));
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--ink-soft);
+}
+
+.map-btn[aria-pressed='true'] {
+  background: var(--leaf);
+  color: #fff;
+}
+
+#hud .chips,
+#hud .basket,
+#hud .reviews,
+#hud .rare-badge,
+#hud .hint,
+#hud .help {
+  transition: opacity 0.2s;
+}
+
+/* 地図を触っている間は薄く、触れても邪魔しない */
+#hud.gesturing .chips,
+#hud.gesturing .basket,
+#hud.gesturing .reviews,
+#hud.gesturing .rare-badge,
+#hud.gesturing .hint {
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+#hud.map-mode .chips,
+#hud.map-mode .basket,
+#hud.map-mode .reviews,
+#hud.map-mode .rare-badge,
+#hud.map-mode .hint,
+#hud.map-mode .help,
+#hud.map-mode .divider,
+#hud.map-mode .sizes {
+  display: none !important;
+}
+
+@media (max-width: 640px) {
+  /* 右上は遊び方ボタン用に空けておく */
+  .brand {
+    max-width: calc(100% - 54px);
+  }
+  .brand .brand-name {
+    display: none;
+  }
+  .map-btn {
+    right: calc(10px + var(--sa-r));
+    bottom: calc(200px + var(--sa-b));
+  }
+  .basket {
+    bottom: calc(254px + var(--sa-b));
+  }
+  /* パネルを隠しているときは、ボタンをドックのすぐ上に */
+  #hud.map-mode .map-btn {
+    bottom: calc(100px + var(--sa-b));
+  }
+}
+
+@media (max-height: 500px) and (min-width: 641px) {
+  .map-btn {
+    top: calc(58px + var(--sa-t));
+    bottom: auto;
+    right: calc(12px + var(--sa-r));
   }
 }

@@ -200,9 +200,10 @@ export class Hud {
       </footer>
 
       <button class="help-btn card" type="button" aria-label="操作方法">${icons.help}</button>
+      <button class="map-btn card" type="button" aria-pressed="false" aria-label="パネルを隠して地図を広く見る" title="パネルを隠す">${icons.expand}</button>
       <div class="help card" hidden>
         <div class="help-head"><b>遊び方</b><button type="button" class="help-close" aria-label="閉じる">${icons.close}</button></div>
-        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります（つながっていない道は灰色になり、使われません）。ときどきクマが現れ、柵と道を壊して来園者を襲います。罠を仕掛けるか銃で狩りましょう。夜には密猟者が忍び込んで魚や動物を盗んでいきます。紫の目印の人を「集める」でなぞると捕まえられ、報奨金がもらえます。来園者に見つかると逃げ出すので、遊歩道を広く巡らせておくと被害を減らせます。左上の「夜間営業」で遊歩道をライトアップすると夜も客が来て入園料が増えますが、電気代がかかり、夜行性のキツネが寄ってきて遊歩道の外が危険になります。水辺の木を増やし、池を深くして荒らさずにいると、ホタルやオオサンショウウオがまれに現れて話題になり、来園者が一気に増えます（捕まえることはできません）。</p>
+        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります（つながっていない道は灰色になり、使われません）。ときどきクマが現れ、柵と道を壊して来園者を襲います。罠を仕掛けるか銃で狩りましょう。夜には密猟者が忍び込んで魚や動物を盗んでいきます。紫の目印の人を「集める」でなぞると捕まえられ、報奨金がもらえます。来園者に見つかると逃げ出すので、遊歩道を広く巡らせておくと被害を減らせます。かごの下の「駆除係」で係を雇うと、日給と引き換えに園内を巡回し、クマを撃ち、キツネや密猟者を捕まえてくれます（給料が払えないと辞めてしまいます）。左上の「夜間営業」で遊歩道をライトアップすると夜も客が来て入園料が増えますが、電気代がかかり、夜行性のキツネが寄ってきて遊歩道の外が危険になります。水辺の木を増やし、池を深くして荒らさずにいると、ホタルやオオサンショウウオがまれに現れて話題になり、来園者が一気に増えます（捕まえることはできません）。</p>
         <dl class="help-mouse">
           <dt>左ドラッグ</dt><dd>道具を使う（移動ではカメラ移動）</dd>
           <dt>右ドラッグ</dt><dd>カメラ移動</dd>
@@ -300,6 +301,15 @@ export class Hud {
     this.nightToggle.addEventListener('click', () => handlers.onToggleNight());
     this.root.querySelector('.bear-focus')!.addEventListener('click', () => handlers.onFocusBear());
     this.root.querySelector('.reset')!.addEventListener('click', () => handlers.onReset());
+
+    // 地図を広く見たいときは、数字やかごなどのパネルを隠す（道具とこのボタンは残す）
+    const mapBtn = this.root.querySelector<HTMLButtonElement>('.map-btn')!;
+    mapBtn.addEventListener('click', () => {
+      const on = this.root.classList.toggle('map-mode');
+      mapBtn.setAttribute('aria-pressed', String(on));
+      mapBtn.title = on ? 'パネルを表示' : 'パネルを隠す';
+      mapBtn.innerHTML = on ? icons.shrink : icons.expand;
+    });
 
     const help = this.root.querySelector<HTMLElement>('.help')!;
     this.root.querySelector('.help-btn')!.addEventListener('click', () => (help.hidden = !help.hidden));
