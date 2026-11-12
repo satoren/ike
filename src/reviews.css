@@ -1,0 +1,165 @@
+/* ---------- 客の口コミ ---------- */
+.reviews {
+  position: absolute;
+  top: 92px;
+  left: 16px;
+  width: 268px;
+  padding: 10px 12px;
+}
+
+.reviews-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  text-align: left;
+}
+
+.reviews-head b {
+  font-size: 15px;
+}
+
+.reviews-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--leaf-tint);
+  color: var(--leaf-deep);
+}
+
+.reviews-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.reviews-avg {
+  margin-left: auto;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.reviews-toggle::before {
+  content: '';
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--ink-soft);
+  border-bottom: 2px solid var(--ink-soft);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.2s;
+}
+
+.reviews.open .reviews-toggle::before {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+.reviews .stars {
+  color: var(--coin);
+  letter-spacing: -1px;
+}
+
+.reviews .stars i {
+  font-style: normal;
+  color: var(--line);
+}
+
+.reviews-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reviews:not(.open) .reviews-list > :nth-child(n + 2) {
+  display: none;
+}
+
+.reviews-empty {
+  color: var(--ink-soft);
+  font-size: 12.5px;
+}
+
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.55);
+  border-left: 3px solid var(--leaf);
+}
+
+.review.bad {
+  border-left-color: var(--bad);
+}
+
+.review.fresh {
+  animation: review-in 0.45s ease-out;
+}
+
+@keyframes review-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.review-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.review-factor {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--leaf-tint);
+  color: var(--leaf-deep);
+  font-weight: 700;
+}
+
+.review.bad .review-factor {
+  background: #f8e1da;
+  color: var(--bad);
+}
+
+.review-day {
+  margin-left: auto;
+}
+
+.review-text {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+@media (max-width: 1180px) and (min-width: 641px) {
+  .reviews {
+    top: 150px;
+  }
+}
+
+@media (max-width: 640px) {
+  .reviews {
+    top: auto;
+    bottom: 196px;
+    left: 10px;
+    width: auto;
+    max-width: calc(100vw - 198px);
+    padding: 8px;
+  }
+  .reviews-icon {
+    width: 24px;
+    height: 24px;
+  }
+  .review-text {
+    font-size: 12px;
+  }
+}
