@@ -1,4 +1,5 @@
 import type { Heightmap } from './heightmap';
+import { fishCapacity } from './foodweb';
 
 /**
  * 生態系のロジック（描画から独立）。
@@ -89,6 +90,8 @@ export interface Habitat {
   deepCells: number;
   trees: number;
   treesNearWater: number;
+  /** 育った水草の株数。多いほど魚が棲める（foodweb.ts） */
+  weeds?: number;
 }
 
 /**
@@ -100,7 +103,7 @@ export function capacity(h: Habitat, rabbits = 0): Record<CreatureKind, number> 
     fox: Math.floor(rabbits / 5),
     rabbit: Math.floor(h.trees / 25 + h.treesNearWater / 6),
     duck: Math.floor(Math.min(h.waterCells / 120, h.treesNearWater / 5)),
-    fish: Math.floor(h.deepCells / 12),
+    fish: fishCapacity(h.deepCells, h.weeds ?? 0),
   };
 }
 

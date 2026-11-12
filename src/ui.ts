@@ -3,8 +3,9 @@ import { ITEMS, ITEM_ORDER, inventoryValue, type Inventory, type ItemKind } from
 import { icons } from './icons';
 import { SAFETY } from './paths';
 import { SHOT_COST, TRAP_COST } from './bears';
+import { WEED } from './foodweb';
 
-export type Tool = 'pan' | 'dig' | 'raise' | 'smooth' | 'tree' | 'path' | 'collect' | 'trap' | 'gun';
+export type Tool = 'pan' | 'dig' | 'raise' | 'smooth' | 'tree' | 'path' | 'collect' | 'trap' | 'gun' | 'weed';
 
 const TOOLS: { id: Tool; label: string; key: string; hint: string; cost: string }[] = [
   { id: 'pan', label: '移動', key: '1', hint: '左ドラッグでカメラを動かします', cost: '' },
@@ -33,6 +34,13 @@ const TOOLS: { id: Tool; label: string; key: string; hint: string; cost: string 
     key: '9',
     hint: 'クリックした場所を撃ちます。クマは2発、キツネは1発で狩れます',
     cost: `${SHOT_COST}G/発`,
+  },
+  {
+    id: 'weed',
+    label: '水草',
+    key: '0',
+    hint: '池の中に植えます。育つと魚のすみかになって魚が増え、魚を食べにカワセミやサギが来ます。魚を採りすぎると鳥は去ります',
+    cost: `${WEED.cost}G/株`,
   },
 ];
 
@@ -176,7 +184,7 @@ export class Hud {
           <dt>中ドラッグ</dt><dd>カメラ回転</dd>
           <dt>ホイール</dt><dd>ズーム</dd>
           <dt>Shift+ドラッグ</dt><dd>遊歩道を撤去</dd>
-          <dt><kbd>1</kbd>〜<kbd>9</kbd></dt><dd>道具の切り替え</dd>
+          <dt><kbd>1</kbd>〜<kbd>0</kbd></dt><dd>道具の切り替え</dd>
           <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>ブラシの大きさ</dd>
         </dl>
         <div class="help-save">
