@@ -34,5 +34,7 @@ export const icons = {
   tower: svg('<path d="M7 7 12 3l5 4z"/><path d="M8 7v3h8V7"/><path d="M9 10 7 21M15 10l2 11M8.2 15h7.6"/>'),
   star: svg('<path d="m12 3.5 2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/>'),
   lock: svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
+  expand: svg('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'),
+  shrink: svg('<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>'),
   close: svg('<path d="M6 6l12 12M18 6 6 18"/>'),
 };

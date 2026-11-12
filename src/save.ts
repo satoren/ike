@@ -7,6 +7,7 @@ import type { Bird, Weed } from './foodweb';
 import type { Poacher } from './poachers';
 import type { Facility } from './facilities';
 import type { ProgressState } from './progress';
+import type { Ranger } from './rangers';
 
 /**
  * ゲームの進捗の保存と読み込み。
@@ -39,6 +40,8 @@ export interface SaveData {
   facilities?: Facility[];
   /** 園のランクと目標（古い保存データには無い） */
   progress?: ProgressState;
+  /** 雇った駆除係（古い保存データには無い） */
+  rangers?: Ranger[];
   state: {
     money: number;
     day: number;
@@ -48,6 +51,8 @@ export interface SaveData {
     incident: number;
     /** 夜間営業（古い保存データには無い） */
     nightOpen?: boolean;
+    /** 時間の速さ（古い保存データには無い） */
+    speed?: number;
     nightFoxes?: number[];
   };
   /** 天気と水位（古い保存データには無い） */
