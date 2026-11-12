@@ -13,7 +13,7 @@ export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 export type Weather = 'sunny' | 'cloudy' | 'rain' | 'snow';
 
 export const SEASON_ORDER: Season[] = ['spring', 'summer', 'autumn', 'winter'];
-export const DAYS_PER_SEASON = 7;
+export const DAYS_PER_SEASON = 5;
 
 export interface SeasonInfo {
   name: string;
@@ -128,7 +128,7 @@ export function waterTarget(season: Season, weather: Weather): number {
 }
 
 /** 水位の変わる速さ（1 秒あたり） */
-export const WATER_RATE = 0.02;
+export const WATER_RATE = 0.003;
 
 /** 水位を目標へ少しずつ近づける */
 export function stepWater(current: number, target: number, dt: number): number {

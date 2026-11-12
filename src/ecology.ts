@@ -436,7 +436,7 @@ export interface Appeal {
 }
 
 /** 入園料 1 人あたり */
-export const TICKET_PRICE = 2;
+export const TICKET_PRICE = 12;
 
 /**
  * 景観の魅力。池や水辺の木といった「環境」に加え、いま実っている果物や

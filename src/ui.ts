@@ -220,6 +220,7 @@ export class Hud {
         <dl class="help-keys">
           <dt><kbd>1</kbd>〜<kbd>0</kbd></dt><dd>道具の切り替え</dd>
           <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>ブラシの大きさ</dd>
+          <dt><kbd>T</kbd></dt><dd>時間の速さ（ゆっくり・ふつう・はやい）</dd>
         </dl>
         <div class="help-save">
           <span>進捗はこのブラウザに自動で保存されます</span>
