@@ -377,9 +377,18 @@ renderer.domElement.addEventListener('pointerleave', (e) => {
   pointerOnCanvas = false;
   stopTool();
 });
+// 地図を触っている間はパネルを薄くして、下の地面が見えるようにする
+const hudEl = document.getElementById('hud')!;
+let mouseDown = false;
+function updateGesturing(): void {
+  hudEl.classList.toggle('gesturing', touchIds.size > 0 || mouseDown);
+}
+
 renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'touch') mouseDown = true;
+  if (e.pointerType === 'touch') touchIds.add(e.pointerId);
+  updateGesturing();
   if (e.pointerType === 'touch') {
-    touchIds.add(e.pointerId);
     if (touchIds.size > 1) {
       // 2 本目の指：カメラ操作に切り替え、道具は止める
       cancelPendingTouch();
@@ -418,7 +427,10 @@ function onPointerEnd(e: PointerEvent): void {
       }
     }
     pointerOnCanvas = false;
+  } else {
+    mouseDown = false;
   }
+  updateGesturing();
   stopTool();
 }
 window.addEventListener('pointerup', onPointerEnd);
