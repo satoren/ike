@@ -33,6 +33,8 @@ import { RARE, RareLife, applyRareBoost, rareBoost, type RareKind } from './rare
 import { RareBadge, RareView } from './rareview';
 import { SAVE_VERSION, SaveSlot, decodeFloats, base64ToBytes, bytesToBase64, encodeFloats, type SaveData } from './save';
 import { Hud, type Tool } from './ui';
+import { BIRDS, FoodWeb, WEED, fishCapacity } from './foodweb';
+import { FoodWebPanel, FoodWebView } from './foodwebview';
 
 // ---- ワールドの設定 ----
 const MAP_SIZE = 128; // マス数（一辺）
@@ -126,6 +128,10 @@ scene.add(bearView.group);
 const rare = new RareLife(map, WATER_LEVEL);
 const rareView = new RareView(map, WATER_LEVEL);
 scene.add(rareView.group);
+// 水草 → 魚 → カワセミ・サギ のつながり
+const foodweb = new FoodWeb(map, WATER_LEVEL);
+const foodwebView = new FoodWebView(map, WATER_LEVEL);
+scene.add(foodwebView.group);
 
 const cursor = new BrushCursor(map);
 scene.add(cursor.line);
@@ -151,7 +157,11 @@ const state = {
   /** キツネの襲撃事件の影響（1 = 起きた直後）。時間で薄れる */
   incident: 0,
 };
-let habitat: Habitat = computeHabitat(map, WATER_LEVEL, forest.trees);
+/** すみかの状態。育った水草の数も入れる（魚の数の上限が決まる） */
+function habitatNow(): Habitat {
+  return { ...computeHabitat(map, WATER_LEVEL, forest.trees), weeds: foodweb.matureWeeds };
+}
+let habitat: Habitat = habitatNow();
 let scenic = 0;
 let statsDirty = false;
 
@@ -159,6 +169,12 @@ let statsDirty = false;
 for (const kind of ['rabbit', 'rabbit', 'rabbit', 'duck', 'fish', 'fish', 'fish', 'fish'] as CreatureKind[]) {
   ecosystem.spawn(kind, forest.trees);
 }
+// 池に少し水草を生やしておく（植えた水草でつながりが育つことが分かるように）
+for (let i = 0, n = 0; i < 4000 && n < 12; i++) {
+  const half = map.worldSize / 2 - 2;
+  if (foodweb.plantWeed((Math.random() * 2 - 1) * half, (Math.random() * 2 - 1) * half, true)) n++;
+}
+habitat = habitatNow();
 
 const hud = new Hud({
   onToolChange: (tool) => setTool(tool),
@@ -172,6 +188,7 @@ const hud = new Hud({
 });
 // HUD を組んだあとに足す（HUD は中身を作り直すため）
 const rareBadge = new RareBadge((kind) => focusRare(kind));
+const foodwebPanel = new FoodWebPanel(document.querySelector('#hud .basket'));
 hud.setTool(state.tool);
 hud.setBrush(state.brushRadius);
 updateCursorRadius();
@@ -230,6 +247,10 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
     const hit = pick();
     if (hit) plantTrees(hit);
   }
+  if (state.tool === 'weed') {
+    const hit = pick();
+    if (hit) plantWeeds(hit);
+  }
   if (state.tool === 'trap') {
     const hit = pick();
     if (hit) placeTrap(hit);
@@ -256,6 +277,7 @@ window.addEventListener('keydown', (e) => {
     '7': 'collect',
     '8': 'trap',
     '9': 'gun',
+    '0': 'weed',
   };
   if (keys[e.key]) setTool(keys[e.key]);
   if (e.key === '[') hud.stepBrush(state.brushRadius, -1);
@@ -300,6 +322,23 @@ function plantTrees(at: THREE.Vector3): void {
     planted++;
   }
   if (planted > 0) statsDirty = true;
+}
+
+/** ブラシの範囲の水の中に水草をまとめて植える */
+function plantWeeds(at: THREE.Vector3): void {
+  const n = Math.max(2, Math.round(state.brushRadius * 1.5));
+  let planted = 0;
+  for (let i = 0; i < n * 4 && planted < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = i === 0 ? 0 : Math.sqrt(Math.random()) * state.brushRadius;
+    const x = at.x + Math.cos(a) * r;
+    const z = at.z + Math.sin(a) * r;
+    if (!foodweb.canPlantWeed(x, z)) continue;
+    if (!spend(WEED.cost)) break;
+    foodweb.plantWeed(x, z);
+    planted++;
+  }
+  if (planted === 0 && state.money >= WEED.cost) hud.flash('水草は池の浅いところ〜中くらいの深さに植えられます', 'bad');
 }
 
 /** なぞった範囲の果物と生き物をかごに入れる */
@@ -453,6 +492,7 @@ function snapshot(): SaveData {
     bears: bears.bears.map((b) => ({ ...b })),
     traps: bears.traps.map((t) => ({ ...t })),
     rare: rare.snapshot(),
+    foodweb: { weeds: foodweb.weeds.map((w) => ({ ...w })), birds: foodweb.birds.map((b) => ({ ...b })) },
     state: {
       money: state.money,
       day: state.day,
@@ -478,10 +518,11 @@ function restore(data: SaveData): void {
   ecosystem.restore(data.creatures);
   bears.restore(data.bears ?? [], data.traps ?? []);
   rare.restore(data.rare);
+  foodweb.restore(data.foodweb);
   Object.assign(state, data.state, { inventory: { ...emptyInventory(), ...data.state.inventory } });
   camera.position.fromArray(data.camera.position);
   controls.target.fromArray(data.camera.target);
-  habitat = computeHabitat(map, WATER_LEVEL, forest.trees);
+  habitat = habitatNow();
   scenic = paths.scenicValue(WATER_LEVEL);
 }
 
@@ -566,7 +607,7 @@ function frame(): void {
   // 統計は重めなので、変化があったときだけ間引いて計算する
   statsTimer += dt;
   if (statsDirty && statsTimer > 0.25) {
-    habitat = computeHabitat(map, WATER_LEVEL, forest.trees);
+    habitat = habitatNow();
     scenic = paths.scenicValue(WATER_LEVEL);
     statsDirty = false;
     statsTimer = 0;
@@ -580,6 +621,20 @@ function frame(): void {
     if (kind === 'fox') hud.flash('キツネが現れました。来園者が襲われるかもしれません', 'bad');
   }
   creatureView.update(ecosystem.creatures);
+
+  // 水草が育つと魚が増え、魚が増えると鳥が食べに来る。魚が減ると鳥は去る
+  const web = foodweb.update(
+    dt,
+    {
+      fish: () => ecosystem.creatures.filter((c) => c.kind === 'fish'),
+      eat: (x, z) => Object.keys(ecosystem.catchWithin(x, z, 1.2, 1, ['fish'])).length > 0,
+    },
+    habitat.treesNearWater,
+  );
+  if (web.weedsChanged) statsDirty = true;
+  for (const kind of new Set(web.arrived)) hud.flash(`${BIRDS[kind].name}が魚を食べにやってきました`, 'good');
+  for (const kind of new Set(web.left)) hud.flash(`魚が減って${BIRDS[kind].name}が去っていきました`, 'bad');
+  foodwebView.update(foodweb.weeds, foodweb.birds, t);
   state.pressure = decayPressure(state.pressure, dt);
 
   const wild = {
@@ -617,7 +672,7 @@ function frame(): void {
 
   state.incident = decayIncident(state.incident, dt);
   const access = {
-    scenic,
+    scenic: scenic + foodweb.appealBonus(),
     safetyFor: (v: number) => safety(paths.connectedCount, v),
     unsafePenalty: SAFETY.unsafePenalty,
   };
@@ -665,6 +720,15 @@ function frame(): void {
       if (e.type === 'left') hud.flash(`${RARE[e.kind].name}はどこかへ去っていきました`);
     }
   }
+
+  foodwebPanel.update({
+    weeds: foodweb.matureWeeds,
+    weedsGrowing: foodweb.weeds.length - foodweb.matureWeeds,
+    fish: wild.fish,
+    fishCap: fishCapacity(habitat.deepCells, habitat.weeds ?? 0),
+    kingfisher: foodweb.count('kingfisher'),
+    heron: foodweb.count('heron'),
+  });
 
   hud.update({
     money: state.money,
