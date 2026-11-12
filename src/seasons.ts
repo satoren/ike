@@ -146,8 +146,8 @@ export function isFrozen(season: Season): boolean {
 export function seasonalHabitat(h: Habitat, season: Season): Habitat {
   const m = SEASONS[season].habitat;
   return {
+    ...h,
     waterCells: Math.floor(h.waterCells * m.waterCells),
-    deepCells: h.deepCells,
     trees: Math.floor(h.trees * m.trees),
     treesNearWater: Math.floor(h.treesNearWater * m.treesNearWater),
   };

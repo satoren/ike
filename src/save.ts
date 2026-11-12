@@ -2,6 +2,7 @@ import type { Creature, Inventory } from './ecology';
 import type { Tree } from './trees';
 import type { Bear, Trap } from './bears';
 import type { Weather } from './seasons';
+import type { Bird, Weed } from './foodweb';
 
 /**
  * ゲームの進捗の保存と読み込み。
@@ -24,6 +25,8 @@ export interface SaveData {
   creatures: Creature[];
   bears: Bear[];
   traps: Trap[];
+  /** 水草と鳥（古い保存データには無い） */
+  foodweb?: { weeds: Weed[]; birds: Bird[] };
   state: {
     money: number;
     day: number;
