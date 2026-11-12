@@ -1,6 +1,7 @@
 import './reviews.css';
 import { icons } from './icons';
 import { FACTOR_LABEL, type Review, type ReviewFeed } from './reviews';
+import { COMPACT_QUERY } from './ui';
 
 const SHOWN = 4;
 
@@ -26,7 +27,7 @@ export class ReviewPanel {
     this.avg = this.root.querySelector('.reviews-avg')!;
     const head = this.root.querySelector<HTMLButtonElement>('.reviews-head')!;
     // 狭い画面では最新の 1 件だけ見せ、押すと広げる
-    const narrow = window.matchMedia('(max-width: 640px)').matches;
+    const narrow = window.matchMedia(COMPACT_QUERY).matches;
     this.root.classList.toggle('open', !narrow);
     head.setAttribute('aria-expanded', String(!narrow));
     head.addEventListener('click', () => {

@@ -205,6 +205,8 @@ for (let i = 0, n = 0; i < 4000 && n < 12; i++) {
 }
 habitat = habitatNow();
 
+/** タッチでも遊歩道を撤去できるよう、ドックの「撤去」ボタンで切り替える */
+let pathErase = false;
 const reviews = new ReviewFeed();
 const hud = new Hud({
   onToolChange: (tool) => setTool(tool),
@@ -216,6 +218,7 @@ const hud = new Hud({
   onFocusBear: () => focusBear(),
   onToggleNight: () => toggleNight(),
   onReset: () => resetGame(),
+  onPathErase: (on) => (pathErase = on),
 });
 // HUD を組んだあとに足す（HUD は中身を作り直すため）
 const rareBadge = new RareBadge((kind) => focusRare(kind));
@@ -243,9 +246,11 @@ function setTool(tool: Tool): void {
     MIDDLE: THREE.MOUSE.ROTATE,
     RIGHT: THREE.MOUSE.PAN,
   };
+  // タッチ：「移動」では 1 本指で移動・2 本指で回転と拡大縮小。
+  // 他の道具では 1 本指を道具に使うので、2 本指で移動と拡大縮小（地図アプリと同じ）
   controls.touches = {
     ONE: tool === 'pan' ? THREE.TOUCH.PAN : null,
-    TWO: THREE.TOUCH.DOLLY_ROTATE,
+    TWO: tool === 'pan' ? THREE.TOUCH.DOLLY_ROTATE : THREE.TOUCH.DOLLY_PAN,
   };
   cursor.line.visible = tool !== 'pan';
   updateCursorRadius();
@@ -261,20 +266,24 @@ let lastHit: THREE.Vector3 | null = null;
 /** 遊歩道を敷いている途中の、前回の地点（線でつなぐため） */
 let lastPathPoint: { x: number; z: number } | null = null;
 
-renderer.domElement.addEventListener('pointermove', (e) => {
+// iOS Safari：ピンチでページ自体が拡大されないようにする（地図のズームは 2 本指で別に扱う）
+for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+  document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+}
+
+function setPointer(e: PointerEvent): void {
   pointer.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
-  pointerOnCanvas = true;
-});
-renderer.domElement.addEventListener('pointerleave', () => {
-  pointerOnCanvas = false;
-  toolActive = false;
-});
-renderer.domElement.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0 || state.tool === 'pan') return;
-  pointer.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+}
+
+// タッチでは 1 本指で道具、2 本指でカメラ（ピンチで拡大縮小・ドラッグで移動）。
+// 2 本目の指が少し遅れて触れても地形をいじってしまわないよう、1 本指の操作は少し待ってから始める
+const TOUCH_DELAY_MS = 90;
+const touchIds = new Set<number>();
+let pendingTouch: { id: number; timer: number } | null = null;
+
+function startTool(): void {
   pointerOnCanvas = true;
   toolActive = true;
-  renderer.domElement.setPointerCapture(e.pointerId);
   if (state.tool === 'tree') {
     const hit = pick();
     if (hit) plantTrees(hit);
@@ -291,11 +300,75 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
     const hit = pick();
     if (hit) shoot(hit);
   }
-});
-window.addEventListener('pointerup', () => {
+}
+
+function stopTool(): void {
   toolActive = false;
   lastPathPoint = null;
+}
+
+function cancelPendingTouch(): void {
+  if (pendingTouch) window.clearTimeout(pendingTouch.timer);
+  pendingTouch = null;
+}
+
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (e.pointerType === 'touch' && (touchIds.size > 1 || (pendingTouch && pendingTouch.id !== e.pointerId))) return;
+  setPointer(e);
+  // タッチは指が離れているときにカーソルを出さない
+  if (e.pointerType !== 'touch' || toolActive) pointerOnCanvas = true;
 });
+renderer.domElement.addEventListener('pointerleave', (e) => {
+  if (e.pointerType === 'touch') return;
+  pointerOnCanvas = false;
+  stopTool();
+});
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'touch') {
+    touchIds.add(e.pointerId);
+    if (touchIds.size > 1) {
+      // 2 本目の指：カメラ操作に切り替え、道具は止める
+      cancelPendingTouch();
+      stopTool();
+      pointerOnCanvas = false;
+      return;
+    }
+  }
+  if (e.button !== 0 || state.tool === 'pan') return;
+  setPointer(e);
+  if (e.pointerType === 'touch') {
+    const id = e.pointerId;
+    pendingTouch = {
+      id,
+      timer: window.setTimeout(() => {
+        pendingTouch = null;
+        if (touchIds.size === 1 && touchIds.has(id)) startTool();
+      }, TOUCH_DELAY_MS),
+    };
+    return;
+  }
+  renderer.domElement.setPointerCapture(e.pointerId);
+  startTool();
+});
+function onPointerEnd(e: PointerEvent): void {
+  if (e.pointerType === 'touch') {
+    const wasOnlyFinger = touchIds.size === 1 && touchIds.has(e.pointerId);
+    touchIds.delete(e.pointerId);
+    // 待っている間に指を離した＝素早いタップ。植える・罠などはその場で使う
+    if (pendingTouch?.id === e.pointerId) {
+      cancelPendingTouch();
+      if (wasOnlyFinger && e.type === 'pointerup') {
+        startTool();
+        lastHit = pick();
+        applyTool(1 / 30);
+      }
+    }
+    pointerOnCanvas = false;
+  }
+  stopTool();
+}
+window.addEventListener('pointerup', onPointerEnd);
+window.addEventListener('pointercancel', onPointerEnd);
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
 window.addEventListener('keydown', (e) => {
@@ -488,7 +561,7 @@ function applyTool(dt: number): void {
       const x0 = jump ? x : from.x;
       const z0 = jump ? z : from.z;
       lastPathPoint = { x, z };
-      if (shiftDown) {
+      if (shiftDown || pathErase) {
         const before = paths.connectedCount;
         if (paths.paintSegment(x0, z0, x, z, width, true) > 0) {
           onPathsChanged();
