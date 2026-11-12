@@ -4,7 +4,7 @@ import type { Creature, CreatureKind } from './ecology';
 
 const MAX_PER_KIND = 400;
 
-interface Part {
+export interface Part {
   geometry: THREE.BufferGeometry;
   color: THREE.ColorRepresentation;
 }
@@ -97,15 +97,15 @@ function fishParts(): Part[] {
 }
 
 /** 1 種類の生き物を、部位ごとの InstancedMesh で描く */
-class CreatureMeshes {
+export class CreatureMeshes {
   readonly meshes: THREE.InstancedMesh[];
 
-  constructor(parts: Part[]) {
+  constructor(parts: Part[], max = MAX_PER_KIND) {
     this.meshes = parts.map((p) => {
       const mesh = new THREE.InstancedMesh(
         p.geometry,
         new THREE.MeshStandardMaterial({ color: p.color, roughness: 0.8 }),
-        MAX_PER_KIND,
+        max,
       );
       mesh.count = 0;
       mesh.castShadow = true;
@@ -180,4 +180,34 @@ export class CreatureView {
     }
     for (const kind of Object.keys(this.kinds) as CreatureKind[]) this.kinds[kind].finish(counts[kind]);
   }
+}
+
+/** クマの形（頭が +X 方向）。ほかの生き物よりずっと大きい */
+export function bearParts(): Part[] {
+  const body = new THREE.SphereGeometry(0.5, 12, 10);
+  body.scale(1.5, 0.95, 0.95);
+  body.translate(0, 0.75, 0);
+  const head = new THREE.SphereGeometry(0.32, 12, 10);
+  head.translate(0.78, 1.0, 0);
+  const snout = new THREE.SphereGeometry(0.14, 8, 6);
+  snout.scale(1.3, 0.9, 1);
+  snout.translate(1.06, 0.94, 0);
+  const earL = new THREE.SphereGeometry(0.1, 6, 5);
+  earL.translate(0.72, 1.3, 0.2);
+  const earR = earL.clone();
+  earR.translate(0, 0, -0.4);
+  const legs: THREE.BufferGeometry[] = [];
+  for (const [lx, lz] of [[0.45, 0.28], [0.45, -0.28], [-0.45, 0.28], [-0.45, -0.28]]) {
+    const leg = new THREE.CylinderGeometry(0.13, 0.13, 0.5, 8);
+    leg.translate(lx, 0.25, lz);
+    legs.push(leg);
+  }
+  return [
+    { geometry: body, color: '#4a3324' },
+    { geometry: head, color: '#533a29' },
+    { geometry: snout, color: '#b58f6b' },
+    { geometry: earL, color: '#3d2a1d' },
+    { geometry: earR, color: '#3d2a1d' },
+    ...legs.map((geometry) => ({ geometry, color: '#3a281b' })),
+  ];
 }

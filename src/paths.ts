@@ -135,6 +135,18 @@ export class PathGrid {
     return changed;
   }
 
+  /** 線分に沿って道を敷く（速くなぞっても途切れないよう、細かい間隔で押していく） */
+  paintSegment(x0: number, z0: number, x1: number, z1: number, radius: number, remove = false): number {
+    const len = Math.hypot(x1 - x0, z1 - z0);
+    const steps = Math.max(1, Math.ceil(len / (this.map.cellSize * 0.4)));
+    let changed = 0;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      changed += this.paint(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, radius, remove);
+    }
+    return changed;
+  }
+
   /** マスの中心の世界座標 */
   center(cx: number, cz: number): { x: number; z: number } {
     const half = this.map.worldSize / 2;
@@ -191,7 +203,8 @@ const DISCONNECTED = new THREE.Color('#8f8a80');
 /** 遊歩道を描く。板の床と、外周に柵の杭を立てる */
 export class PathView {
   readonly group = new THREE.Group();
-  private readonly floor: THREE.InstancedMesh;
+  /** 床は地形に沿って曲がるよう、マスごとの四角形をまとめた 1 つのメッシュにする */
+  private readonly floor: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
   private readonly posts: THREE.InstancedMesh;
   private readonly rails: THREE.InstancedMesh;
   private readonly gate = new THREE.Group();
@@ -204,15 +217,30 @@ export class PathView {
     this.map = map;
     this.waterLevel = waterLevel;
     const max = grid.size * grid.size;
-    const floorGeo = new THREE.BoxGeometry(map.cellSize * 1.001, 0.08, map.cellSize * 1.001);
-    this.floor = new THREE.InstancedMesh(floorGeo, new THREE.MeshStandardMaterial({ roughness: 0.9 }), max);
+    this.floor = new THREE.Mesh(
+      new THREE.BufferGeometry(),
+      new THREE.MeshStandardMaterial({
+        roughness: 0.9,
+        vertexColors: true,
+        // 地面とほぼ同じ高さでもちらつかないよう、手前に描く
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
+      }),
+    );
+    this.floor.receiveShadow = true;
+    this.floor.frustumCulled = false;
+    this.group.add(this.floor);
     const postGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.42, 5);
     postGeo.translate(0, 0.21, 0);
-    this.posts = new THREE.InstancedMesh(postGeo, new THREE.MeshStandardMaterial({ color: '#7a5634' }), max);
-    const railGeo = new THREE.BoxGeometry(map.cellSize, 0.04, 0.04);
+    // 杭は格子点に 1 本まで、横木はマスの辺に 1 本まで
+    const corners = (grid.size + 1) * (grid.size + 1);
+    this.posts = new THREE.InstancedMesh(postGeo, new THREE.MeshStandardMaterial({ color: '#7a5634' }), corners);
+    // 長さ 1 の横木。置くときに辺の長さと傾きに合わせて伸ばす
+    const railGeo = new THREE.BoxGeometry(1, 0.04, 0.04);
     railGeo.translate(0, 0.36, 0);
     this.rails = new THREE.InstancedMesh(railGeo, new THREE.MeshStandardMaterial({ color: '#8a6440' }), max * 2);
-    for (const m of [this.floor, this.posts, this.rails]) {
+    for (const m of [this.posts, this.rails]) {
       m.count = 0;
       m.frustumCulled = false;
       m.castShadow = true;
@@ -266,66 +294,109 @@ export class PathView {
   private gateBaseX = 0;
   private gateBaseZ = 0;
 
-  /** 道の床の高さ。池の上では水面より少し上の木道になる */
+  /** 床の浮かせ量。地形の三角形と同じ分け方で張るので、これだけ浮かせれば埋まらない */
+  private static readonly LIFT = 0.07;
+
+  /** 格子点（マスの角）での床の高さ。池の上では水面より上の木道になる */
+  private cornerY(ix: number, iz: number): number {
+    return Math.max(this.map.get(ix, iz), this.waterLevel + 0.08) + PathView.LIFT;
+  }
+
+  /** 任意の地点での床の高さ（来園者などを立たせる用） */
   floorY(x: number, z: number): number {
-    return Math.max(this.map.heightAt(x, z), this.waterLevel + 0.06) + 0.04;
+    // マスの中の高さを、床と同じ三角形で補間する
+    const { gx, gz } = this.map.toGrid(x, z);
+    const ix = Math.min(Math.max(Math.floor(gx), 0), this.map.size - 1);
+    const iz = Math.min(Math.max(Math.floor(gz), 0), this.map.size - 1);
+    const fx = Math.min(Math.max(gx - ix, 0), 1);
+    const fz = Math.min(Math.max(gz - iz, 0), 1);
+    const a = this.cornerY(ix, iz);
+    const b = this.cornerY(ix, iz + 1);
+    const c = this.cornerY(ix + 1, iz + 1);
+    const d = this.cornerY(ix + 1, iz);
+    // 三角形 (a, b, d) と (b, c, d)。対角線は b-d
+    return fx + fz <= 1 ? a + (d - a) * fx + (b - a) * fz : c + (b - c) * (1 - fx) + (d - c) * (1 - fz);
   }
 
   rebuild(): void {
+    const half = this.map.worldSize / 2;
+    const cs = this.map.cellSize;
+    const wx = (ix: number) => ix * cs - half;
+    const positions: number[] = [];
+    const colors: number[] = [];
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
-    const qRot = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
     const one = new THREE.Vector3(1, 1, 1);
     const p = new THREE.Vector3();
-    const half = this.map.cellSize / 2;
-    let nf = 0;
+    const xAxis = new THREE.Vector3(1, 0, 0);
+    const dir = new THREE.Vector3();
+    const scale = new THREE.Vector3();
     let np = 0;
     let nr = 0;
+    const postAt = new Set<string>();
+
     for (let cz = 0; cz < this.grid.size; cz++) {
       for (let cx = 0; cx < this.grid.size; cx++) {
         if (!this.grid.has(cx, cz)) continue;
+        // マスの 4 つの角（地形の PlaneGeometry と同じ並び・同じ対角線）
+        const A: [number, number, number] = [wx(cx), this.cornerY(cx, cz), wx(cz)];
+        const B: [number, number, number] = [wx(cx), this.cornerY(cx, cz + 1), wx(cz + 1)];
+        const C: [number, number, number] = [wx(cx + 1), this.cornerY(cx + 1, cz + 1), wx(cz + 1)];
+        const D: [number, number, number] = [wx(cx + 1), this.cornerY(cx + 1, cz), wx(cz)];
+        positions.push(...A, ...B, ...D, ...B, ...C, ...D);
+
         const { x, z } = this.grid.center(cx, cz);
-        const y = this.floorY(x, z);
-        p.set(x, y - 0.04, z);
-        m.compose(p, q, one);
-        this.floor.setMatrixAt(nf, m);
         const color = !this.grid.isConnected(cx, cz)
           ? DISCONNECTED
           : this.map.heightAt(x, z) < this.waterLevel
             ? BOARDWALK
             : PLANK;
-        this.floor.setColorAt(nf, color);
-        nf++;
-        // 隣が道でない辺に柵を立てる
-        const edges: [number, number, number, number, boolean][] = [
-          [1, 0, half, 0, true],
-          [-1, 0, -half, 0, true],
-          [0, 1, 0, half, false],
-          [0, -1, 0, -half, false],
+        for (let k = 0; k < 6; k++) colors.push(color.r, color.g, color.b);
+
+        // 隣が道でない辺に柵を立てる（辺の両端の角を結ぶ）
+        const edges: [number, number, [number, number, number], [number, number, number]][] = [
+          [1, 0, D, C],
+          [-1, 0, A, B],
+          [0, 1, B, C],
+          [0, -1, A, D],
         ];
-        for (const [dx, dz, ox, oz, alongZ] of edges) {
+        for (const [dx, dz, e0, e1] of edges) {
           if (this.grid.has(cx + dx, cz + dz)) continue;
           // 出入口の外側（地図の端）は開けておく
           if (dz === 1 && this.grid.isEntrance(cx, cz)) continue;
-          p.set(x + ox, y, z + oz);
-          m.compose(p, alongZ ? qRot : q, one);
+          dir.set(e1[0] - e0[0], e1[1] - e0[1], e1[2] - e0[2]);
+          const len = dir.length();
+          dir.normalize();
+          q.setFromUnitVectors(xAxis, dir);
+          p.set((e0[0] + e1[0]) / 2, (e0[1] + e1[1]) / 2, (e0[2] + e1[2]) / 2);
+          scale.set(len, 1, 1);
+          m.compose(p, q, scale);
           this.rails.setMatrixAt(nr++, m);
-          // 杭は辺の端に。重なっても見た目は変わらないので簡単に置く
-          const px = alongZ ? x + ox : x + ox - half;
-          const pz = alongZ ? z + oz - half : z + oz;
-          p.set(px, y, pz);
-          m.compose(p, q, one);
-          this.posts.setMatrixAt(np++, m);
+          // 杭は辺の両端に。同じ角には 1 本だけ
+          for (const e of [e0, e1]) {
+            const key = `${e[0]},${e[2]}`;
+            if (postAt.has(key)) continue;
+            postAt.add(key);
+            p.set(e[0], e[1], e[2]);
+            m.compose(p, q.identity(), one);
+            this.posts.setMatrixAt(np++, m);
+          }
         }
       }
     }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geo.computeVertexNormals();
+    this.floor.geometry.dispose();
+    this.floor.geometry = geo;
+
     // 門は地面の高さに合わせる
-    this.gate.position.y = this.floorY(this.gateBaseX, this.gateBaseZ - 0.5) - 0.04;
-    this.floor.count = nf;
+    this.gate.position.y = this.floorY(this.gateBaseX, this.gateBaseZ - 0.5) - PathView.LIFT;
     this.posts.count = np;
     this.rails.count = nr;
-    for (const mesh of [this.floor, this.posts, this.rails]) mesh.instanceMatrix.needsUpdate = true;
-    if (this.floor.instanceColor) this.floor.instanceColor.needsUpdate = true;
+    for (const mesh of [this.posts, this.rails]) mesh.instanceMatrix.needsUpdate = true;
   }
 }
 
@@ -375,6 +446,28 @@ export class Strollers {
 
   get count(): number {
     return this.walkers.length;
+  }
+
+  /** 来園者のいまの位置 */
+  positions(): { x: number; z: number }[] {
+    return this.walkers.map((w) => this.posOf(w));
+  }
+
+  /** 地点の近くの来園者を 1 人取り除く（クマに襲われた）。取り除けたら true */
+  removeNear(x: number, z: number, r: number): boolean {
+    const i = this.walkers.findIndex((w) => {
+      const p = this.posOf(w);
+      return (p.x - x) ** 2 + (p.z - z) ** 2 < r * r;
+    });
+    if (i < 0) return false;
+    this.walkers.splice(i, 1);
+    return true;
+  }
+
+  private posOf(w: Walker): { x: number; z: number } {
+    const a = this.grid.center(w.cx, w.cz);
+    const b = this.grid.center(w.tx, w.tz);
+    return { x: a.x + (b.x - a.x) * w.t, z: a.z + (b.z - a.z) * w.t };
   }
 
   update(dt: number, visitors: number): void {
@@ -435,10 +528,7 @@ export class Strollers {
     if (exited.size > 0) this.walkers = this.walkers.filter((w) => !exited.has(w));
 
     this.walkers.forEach((w, i) => {
-      const a = this.grid.center(w.cx, w.cz);
-      const b = this.grid.center(w.tx, w.tz);
-      const x = a.x + (b.x - a.x) * w.t;
-      const z = a.z + (b.z - a.z) * w.t;
+      const { x, z } = this.posOf(w);
       p.set(x, this.view.floorY(x, z), z);
       m.compose(p, q, one);
       this.bodies.setMatrixAt(i, m);

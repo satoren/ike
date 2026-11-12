@@ -8,6 +8,7 @@ import { Forest } from './trees';
 import { BrushCursor } from './cursor';
 import { COSTS, computeHabitat } from './economy';
 import {
+  ATTACK,
   Ecosystem,
   ITEMS,
   ITEM_ORDER,
@@ -26,6 +27,8 @@ import {
 } from './ecology';
 import { CreatureView } from './creatures';
 import { PathGrid, PathView, SAFETY, Strollers, safety } from './paths';
+import { BEAR, Bears, SHOT_COST, TRAP_COST } from './bears';
+import { BearView } from './bearview';
 import { Hud, type Tool } from './ui';
 
 // ---- ワールドの設定 ----
@@ -112,6 +115,10 @@ const ecosystem = new Ecosystem(map, WATER_LEVEL, Math.random, (kind, x, z) => k
 const creatureView = new CreatureView(map, WATER_LEVEL);
 scene.add(creatureView.group);
 
+const bears = new Bears(map, WATER_LEVEL);
+const bearView = new BearView(map, WATER_LEVEL);
+scene.add(bearView.group);
+
 const cursor = new BrushCursor(map);
 scene.add(cursor.line);
 
@@ -152,6 +159,7 @@ const hud = new Hud({
     updateCursorRadius();
   },
   onSell: (kind) => sell(kind),
+  onFocusBear: () => focusBear(),
 });
 hud.setTool(state.tool);
 hud.setBrush(state.brushRadius);
@@ -190,6 +198,8 @@ const pointer = new THREE.Vector2();
 let pointerOnCanvas = false;
 let toolActive = false;
 let lastHit: THREE.Vector3 | null = null;
+/** 遊歩道を敷いている途中の、前回の地点（線でつなぐため） */
+let lastPathPoint: { x: number; z: number } | null = null;
 
 renderer.domElement.addEventListener('pointermove', (e) => {
   pointer.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
@@ -209,9 +219,18 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
     const hit = pick();
     if (hit) plantTrees(hit);
   }
+  if (state.tool === 'trap') {
+    const hit = pick();
+    if (hit) placeTrap(hit);
+  }
+  if (state.tool === 'gun') {
+    const hit = pick();
+    if (hit) shoot(hit);
+  }
 });
 window.addEventListener('pointerup', () => {
   toolActive = false;
+  lastPathPoint = null;
 });
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -224,6 +243,8 @@ window.addEventListener('keydown', (e) => {
     '5': 'tree',
     '6': 'path',
     '7': 'collect',
+    '8': 'trap',
+    '9': 'gun',
   };
   if (keys[e.key]) setTool(keys[e.key]);
   if (e.key === '[') hud.stepBrush(state.brushRadius, -1);
@@ -291,6 +312,40 @@ function collect(at: THREE.Vector3): void {
   if (parts.length > 0) hud.flash(`かごへ: ${parts.join('、')}`);
 }
 
+function placeTrap(at: THREE.Vector3): void {
+  if (state.money < TRAP_COST) {
+    hud.flash('資金が足りません', 'bad');
+    return;
+  }
+  if (!bears.placeTrap(at.x, at.z)) {
+    hud.flash('ここには罠を置けません（水の中や、ほかの罠のすぐ近く）', 'bad');
+    return;
+  }
+  state.money -= TRAP_COST;
+}
+
+function shoot(at: THREE.Vector3): void {
+  if (!spend(SHOT_COST)) return;
+  const result = bears.shoot(at.x, at.z);
+  if (result === 'killed') {
+    state.inventory.bear++;
+    hud.flash('クマを仕留めました！かごに入れました', 'good');
+    return;
+  }
+  if (result === 'hit') {
+    hud.flash('命中！もう1発で仕留められます');
+    return;
+  }
+  // クマに当たらなければキツネを狙う
+  const fox = ecosystem.catchWithin(at.x, at.z, 1.2, 1, ['fox']);
+  if (fox.fox) {
+    state.inventory.fox++;
+    hud.flash('キツネを仕留めました', 'good');
+    return;
+  }
+  hud.flash('外れました');
+}
+
 function sell(kind: ItemKind | 'all'): void {
   const kinds = kind === 'all' ? ITEM_ORDER : [kind];
   const sold = emptyInventory();
@@ -327,9 +382,15 @@ function applyTool(dt: number): void {
     case 'path': {
       // Shift を押しながらなぞると撤去
       const width = pathWidth();
+      const from = lastPathPoint ?? { x, z };
+      // 前回の地点から一気に遠くへ飛んだ（斜面の向こうを指したなど）ときは線でつながない
+      const jump = Math.hypot(x - from.x, z - from.z) > 6;
+      const x0 = jump ? x : from.x;
+      const z0 = jump ? z : from.z;
+      lastPathPoint = { x, z };
       if (shiftDown) {
         const before = paths.connectedCount;
-        if (paths.paint(x, z, width, true) > 0) {
+        if (paths.paintSegment(x0, z0, x, z, width, true) > 0) {
           onPathsChanged();
           if (paths.connectedCount < before - 1 && paths.count > paths.connectedCount) {
             hud.flash('出入口から切り離された道は使われません', 'bad');
@@ -342,7 +403,7 @@ function applyTool(dt: number): void {
         return;
       }
       const before = paths.count;
-      paths.paint(x, z, width);
+      paths.paintSegment(x0, z0, x, z, width);
       const added = paths.count - before;
       if (added > 0) {
         state.money -= added * SAFETY.cost;
@@ -364,6 +425,23 @@ function onPathsChanged(): void {
 let shiftDown = false;
 window.addEventListener('keydown', (e) => (shiftDown = e.shiftKey));
 window.addEventListener('keyup', (e) => (shiftDown = e.shiftKey));
+
+// 確認用：URL に ?bear を付けると、最初からクマが 1 頭出る
+if (new URLSearchParams(location.search).has('bear')) {
+  const b = bears.spawn();
+  b.x *= 0.45;
+  b.z *= 0.45;
+}
+
+/** クマの居る場所へカメラを向ける */
+function focusBear(): void {
+  const b = bears.bears[0];
+  if (!b) return;
+  // 少し寄って見えるようにする
+  const offset = camera.position.clone().sub(controls.target).setLength(28);
+  controls.target.set(b.x, 0, b.z);
+  camera.position.copy(controls.target).add(offset);
+}
 
 // ---- メインループ ----
 const clock = new THREE.Clock();
@@ -402,7 +480,32 @@ function frame(): void {
     duck: ecosystem.count('duck'),
     fish: ecosystem.count('fish'),
     fox: ecosystem.count('fox'),
+    bear: bears.bears.length,
   };
+
+  // クマ：柵と道を壊し、来園者を襲う。罠にかかれば狩れる
+  const bearEvents = bears.update(dt, paths, strollers);
+  if (bearEvents.smashed > 0) onPathsChanged();
+  if (bearEvents.attacked > 0) {
+    state.incident = Math.min(2, state.incident + ATTACK.bearSeverity * bearEvents.attacked);
+    hud.flash('クマが来園者を襲いました！魅力が大幅に下がります', 'bad');
+  }
+  if (bearEvents.trapped > 0) {
+    state.inventory.bear += bearEvents.trapped;
+    hud.flash('クマが罠にかかりました！かごに入れました', 'good');
+  }
+  // 罠にはキツネもかかる
+  for (const c of ecosystem.creatures) {
+    if (c.kind !== 'fox') continue;
+    if (bears.springTrapNear(c.x, c.z, BEAR.trapRange)) {
+      ecosystem.catchWithin(c.x, c.z, 0.01, 1, ['fox']);
+      state.inventory.fox++;
+      hud.flash('キツネが罠にかかりました', 'good');
+      break;
+    }
+  }
+  bearView.update(bears.bears, bears.traps, t);
+
   state.incident = decayIncident(state.incident, dt);
   const access = {
     scenic,
@@ -428,6 +531,11 @@ function frame(): void {
     const income = appeal.visitors * TICKET_PRICE;
     state.money += income;
     hud.flash(`${state.day - 1}日目の入園料  +${income.toLocaleString()} G`, 'good');
+    // 日が変わるとき、森が育っているほどクマが出やすい
+    if (state.day >= BEAR.firstDay && bears.bears.length === 0 && Math.random() < BEAR.chance(forest.trees.length)) {
+      bears.spawn();
+      hud.flash('クマが現れました！罠を仕掛けるか、銃で狩りましょう', 'bad');
+    }
   }
 
   hud.update({
@@ -446,6 +554,8 @@ function frame(): void {
     pathCellsTotal: paths.count,
     visitors: appeal.visitors,
     inventory: state.inventory,
+    bears: bears.bears.length,
+    traps: bears.traps.length,
   });
 
   water.update(t);

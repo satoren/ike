@@ -364,6 +364,10 @@ kbd {
   color: #c55c22;
   background: #fbe5d6;
 }
+.item-bear .item-icon {
+  color: #5a3d28;
+  background: #ece2d8;
+}
 
 .item-name {
   display: flex;
@@ -439,6 +443,67 @@ kbd {
   color: var(--ink-soft);
   box-shadow: none;
   cursor: default;
+}
+
+/* ---------- クマ出没の警報 ---------- */
+.bear-alert {
+  position: absolute;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 8px 10px;
+  border-radius: 999px;
+  background: var(--bad);
+  color: #fff;
+  font-weight: 500;
+  box-shadow: 0 6px 20px rgba(200, 85, 61, 0.45);
+  white-space: nowrap;
+  animation: alert-pulse 1.2s ease-in-out infinite;
+}
+
+.bear-alert {
+  pointer-events: auto;
+}
+
+.bear-focus {
+  margin-left: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.bear-focus:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.bear-alert[hidden] {
+  display: none;
+}
+
+.bear-alert-icon {
+  display: grid;
+  place-items: center;
+}
+
+.bear-alert-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+@keyframes alert-pulse {
+  50% {
+    box-shadow: 0 6px 28px rgba(200, 85, 61, 0.85);
+    background: #d9604a;
+  }
+}
+
+.bear-alert:not([hidden]) ~ .toasts {
+  top: 132px;
 }
 
 /* ---------- 通知 ---------- */
@@ -795,6 +860,9 @@ kbd {
   }
   .tools {
     gap: 2px;
+    max-width: calc(100vw - 40px);
+    overflow-x: auto;
+    scrollbar-width: none;
   }
   .tool {
     width: 48px;

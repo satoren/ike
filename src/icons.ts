@@ -21,6 +21,10 @@ export const icons = {
   fox: svg('<path d="M4 4l3.5 6M20 4l-3.5 6"/><path d="M4 4c0 5 2 7.5 3.5 9L12 20l4.5-7c1.5-1.5 3.5-4 3.5-9l-5 4h-6z"/><path d="M10 12.5v.1M14 12.5v.1"/>'),
   path: svg('<path d="M8 21c0-4 2-6 4-9s4-5 4-9"/><path d="M4 21c0-4 2-6 4-9s4-5 4-9" opacity=".45"/><path d="M12 21c0-4 2-6 4-9s4-5 4-9" opacity=".45"/>'),
   shield: svg('<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/>'),
+  bear: svg('<circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="6.5" r="2.5"/><path d="M5 13a7 7 0 0 1 14 0c0 4-3.1 7-7 7s-7-3-7-7z"/><path d="M10 12.5v.1M14 12.5v.1"/><path d="M10.5 16c.9.7 2.1.7 3 0"/>'),
+  trap: svg('<path d="M3 17h18"/><path d="M5 17a7 7 0 0 1 14 0"/><path d="m7 12 1.2 2M10 10.2l.5 2.3M14 10.2l-.5 2.3M17 12l-1.2 2"/>'),
+  gun: svg('<circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/><circle cx="12" cy="12" r="1.2"/>'),
+  alert: svg('<path d="M12 3 2 20h20z"/><path d="M12 10v4.5M12 17.3v.1"/>'),
   help: svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6v.6"/><path d="M12 17.2v.1"/>'),
   close: svg('<path d="M6 6l12 12M18 6 6 18"/>'),
 };

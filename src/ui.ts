@@ -2,8 +2,9 @@ import { COSTS } from './economy';
 import { ITEMS, ITEM_ORDER, inventoryValue, type Inventory, type ItemKind } from './ecology';
 import { icons } from './icons';
 import { SAFETY } from './paths';
+import { SHOT_COST, TRAP_COST } from './bears';
 
-export type Tool = 'pan' | 'dig' | 'raise' | 'smooth' | 'tree' | 'path' | 'collect';
+export type Tool = 'pan' | 'dig' | 'raise' | 'smooth' | 'tree' | 'path' | 'collect' | 'trap' | 'gun';
 
 const TOOLS: { id: Tool; label: string; key: string; hint: string; cost: string }[] = [
   { id: 'pan', label: '移動', key: '1', hint: '左ドラッグでカメラを動かします', cost: '' },
@@ -19,6 +20,20 @@ const TOOLS: { id: Tool; label: string; key: string; hint: string; cost: string 
     cost: `${SAFETY.cost}G/マス`,
   },
   { id: 'collect', label: '集める', key: '7', hint: 'なぞった範囲の木の実・動物・魚をかごに入れます', cost: '無料' },
+  {
+    id: 'trap',
+    label: '罠',
+    key: '8',
+    hint: 'クリックで罠を置きます。近づいたクマやキツネがかかります（1回で壊れます）',
+    cost: `${TRAP_COST}G/個`,
+  },
+  {
+    id: 'gun',
+    label: '銃',
+    key: '9',
+    hint: 'クリックした場所を撃ちます。クマは2発、キツネは1発で狩れます',
+    cost: `${SHOT_COST}G/発`,
+  },
 ];
 
 const ITEM_ICON: Record<ItemKind, keyof typeof icons> = {
@@ -27,6 +42,7 @@ const ITEM_ICON: Record<ItemKind, keyof typeof icons> = {
   duck: 'duck',
   fish: 'fish',
   fox: 'fox',
+  bear: 'bear',
 };
 
 const BRUSH_SIZES = [
@@ -41,6 +57,8 @@ interface HudHandlers {
   onBrushChange: (radius: number) => void;
   /** かごの中身を売る。'all' はまとめて */
   onSell: (kind: ItemKind | 'all') => void;
+  /** クマの居る場所を見に行く */
+  onFocusBear: () => void;
 }
 
 export interface HudData {
@@ -65,6 +83,9 @@ export interface HudData {
   waterCells: number;
   treesNearWater: number;
   inventory: Inventory;
+  /** いま出没しているクマの数 */
+  bears: number;
+  traps: number;
 }
 
 type ToastKind = 'info' | 'good' | 'bad';
@@ -123,6 +144,12 @@ export class Hud {
         <button type="button" class="sell-all"></button>
       </aside>
 
+      <div class="bear-alert" hidden role="alert">
+        <span class="bear-alert-icon">${icons.alert}</span>
+        <span><b>クマ出没中</b> <span data-v="bears"></span> 罠か銃で狩ってください</span>
+        <button type="button" class="bear-focus">見に行く</button>
+      </div>
+
       <div class="toasts" aria-live="polite"></div>
 
       <footer class="dock-wrap">
@@ -140,14 +167,14 @@ export class Hud {
       <button class="help-btn card" type="button" aria-label="操作方法">${icons.help}</button>
       <div class="help card" hidden>
         <div class="help-head"><b>遊び方</b><button type="button" class="help-close" aria-label="閉じる">${icons.close}</button></div>
-        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります（つながっていない道は灰色になり、使われません）。</p>
+        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります（つながっていない道は灰色になり、使われません）。ときどきクマが現れ、柵と道を壊して来園者を襲います。罠を仕掛けるか銃で狩りましょう。</p>
         <dl>
           <dt>左ドラッグ</dt><dd>道具を使う（移動ではカメラ移動）</dd>
           <dt>右ドラッグ</dt><dd>カメラ移動</dd>
           <dt>中ドラッグ</dt><dd>カメラ回転</dd>
           <dt>ホイール</dt><dd>ズーム</dd>
           <dt>Shift+ドラッグ</dt><dd>遊歩道を撤去</dd>
-          <dt><kbd>1</kbd>〜<kbd>7</kbd></dt><dd>道具の切り替え</dd>
+          <dt><kbd>1</kbd>〜<kbd>9</kbd></dt><dd>道具の切り替え</dd>
           <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>ブラシの大きさ</dd>
         </dl>
       </div>
@@ -206,6 +233,8 @@ export class Hud {
     }
     this.sellAll = this.root.querySelector('.sell-all')!;
     this.sellAll.addEventListener('click', () => handlers.onSell('all'));
+
+    this.root.querySelector('.bear-focus')!.addEventListener('click', () => handlers.onFocusBear());
 
     const help = this.root.querySelector<HTMLElement>('.help')!;
     this.root.querySelector('.help-btn')!.addEventListener('click', () => (help.hidden = !help.hidden));
@@ -267,12 +296,15 @@ export class Hud {
     const inv = d.inventory;
     const key = [
       d.money, d.day, d.visitors, d.appeal, Math.round(d.penalty * 100), Math.round(d.incidentPenalty * 100), Math.round(d.safety * 100), d.pathCells, d.pathCellsTotal, d.waterCells, d.trees, d.treesNearWater,
-      ...ITEM_ORDER.map((k) => `${inv[k]}/${d.wild[k]}`),
+      ...ITEM_ORDER.map((k) => `${inv[k]}/${d.wild[k]}`), d.bears, d.traps,
     ].join('|');
     if (key === this.lastKey) return;
     this.lastKey = key;
 
     this.values.day.textContent = `${d.day}日目`;
+    const alert = this.root.querySelector<HTMLElement>('.bear-alert')!;
+    alert.hidden = d.bears === 0;
+    this.values.bears.textContent = `${d.bears}頭`;
     this.set('money', d.money, d.money.toLocaleString(), 'G');
     this.set('visitors', d.visitors, String(d.visitors), '人');
     const pct = Math.round(d.penalty * 100);

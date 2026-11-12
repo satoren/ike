@@ -8,8 +8,9 @@ import type { Heightmap } from './heightmap';
  * - プレイヤーはそれらを集めて売り、収入にする
  */
 
-export type ItemKind = 'fruit' | 'rabbit' | 'duck' | 'fish' | 'fox';
-export type CreatureKind = Exclude<ItemKind, 'fruit'>;
+export type ItemKind = 'fruit' | 'rabbit' | 'duck' | 'fish' | 'fox' | 'bear';
+/** 生態系の中で暮らす生き物（クマは出没イベントとして別に扱う） */
+export type CreatureKind = Exclude<ItemKind, 'fruit' | 'bear'>;
 
 export interface ItemInfo {
   name: string;
@@ -24,9 +25,10 @@ export const ITEMS: Record<ItemKind, ItemInfo> = {
   duck: { name: 'カモ', price: 70, group: '動物' },
   fish: { name: 'サカナ', price: 30, group: '水生生物' },
   fox: { name: 'キツネ', price: 120, group: '動物' },
+  bear: { name: 'クマ', price: 300, group: '動物' },
 };
 
-export const ITEM_ORDER: ItemKind[] = ['fruit', 'rabbit', 'duck', 'fish', 'fox'];
+export const ITEM_ORDER: ItemKind[] = ['fruit', 'rabbit', 'duck', 'fish', 'fox', 'bear'];
 
 /** 木の実り方 */
 export const FRUIT = {
@@ -62,7 +64,7 @@ export interface Creature {
 export type Inventory = Record<ItemKind, number>;
 
 export function emptyInventory(): Inventory {
-  return { fruit: 0, rabbit: 0, duck: 0, fish: 0, fox: 0 };
+  return { fruit: 0, rabbit: 0, duck: 0, fish: 0, fox: 0, bear: 0 };
 }
 
 export function inventoryValue(inv: Inventory): number {
@@ -305,11 +307,18 @@ export class Ecosystem {
   }
 
   /** 半径内の生き物を捕まえて取り除く。捕まえた種類ごとの数を返す */
-  catchWithin(x: number, z: number, radius: number, max = Infinity): Partial<Record<CreatureKind, number>> {
+  catchWithin(
+    x: number,
+    z: number,
+    radius: number,
+    max = Infinity,
+    kinds?: readonly CreatureKind[],
+  ): Partial<Record<CreatureKind, number>> {
     const caught: Partial<Record<CreatureKind, number>> = {};
     let n = 0;
     for (let i = this.creatures.length - 1; i >= 0 && n < max; i--) {
       const c = this.creatures[i];
+      if (kinds && !kinds.includes(c.kind)) continue;
       if ((c.x - x) ** 2 + (c.z - z) ** 2 > radius * radius) continue;
       caught[c.kind] = (caught[c.kind] ?? 0) + 1;
       this.creatures.splice(i, 1);
@@ -335,7 +344,7 @@ export function harvestFruit(trees: readonly FruitTree[], x: number, z: number, 
 /** 採取するたびにたまる「荒らされ度」。時間がたつと自然に回復する */
 export const PRESSURE = {
   /** 1 つ採るごとに増える量 */
-  weight: { fruit: 1, rabbit: 8, duck: 10, fish: 4, fox: 0 } as Record<ItemKind, number>,
+  weight: { fruit: 1, rabbit: 8, duck: 10, fish: 4, fox: 0, bear: 0 } as Record<ItemKind, number>,
   /** 半分に戻るまでの秒数 */
   halfLife: 25,
   /** 魅力が最大で何割まで下がるか */
@@ -368,8 +377,12 @@ export interface Wildlife {
 export const ATTACK = {
   /** キツネ 1 匹・来園者 1 人あたり、1 秒に事件が起きる確率 */
   ratePerFoxVisitor: 1 / 12000,
-  /** 事件直後に魅力が下がる割合 */
+  /** キツネの事件直後に魅力が下がる割合 */
   penalty: 0.6,
+  /** クマに襲われたときの事件の重さ（キツネを 1 として） */
+  bearSeverity: 1.5,
+  /** 事件で魅力が下がる上限 */
+  maxPenalty: 0.9,
   /** 影響が半分に戻るまでの秒数 */
   halfLife: 45,
 } as const;
@@ -437,7 +450,7 @@ export function computeAppeal(
       w.fish * 2,
   );
   const penalty = pressurePenalty(pressure);
-  const incidentPenalty = Math.min(1, incident) * ATTACK.penalty;
+  const incidentPenalty = Math.min(ATTACK.maxPenalty, incident * ATTACK.penalty);
   const before = base * (1 - penalty) * (1 - incidentPenalty);
   // 安全度は「安全対策の前に来るはずの人数」に対して道が足りているかで決める
   const safety = access.safetyFor(Math.floor(before * 0.8));
