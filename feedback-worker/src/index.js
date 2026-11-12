@@ -202,5 +202,93 @@ async function api(request, env, url) {
     const s = await digestDay(env, day, start);
     return json(200, { day, total: s.total });
   }
+  if (url.pathname === '/api/backlog' || url.pathname.startsWith('/api/backlog/')) return backlogApi(request, env, url);
   return json(404, { error: 'path' });
+}
+
+// ---------- 改善リスト ----------
+
+export const STATUSES = { open: '未対応', doing: '対応中', done: '済', wontfix: '見送り' };
+const SAMPLES_MAX = 5;
+
+/** 改善リストの項目に、新しい件数・日付・例・状態などを足す（DB に依らない部分） */
+export function mergeBacklog(item, patch, now) {
+  const next = { ...item, samples: [...(item.samples ?? [])] };
+  if (patch.title != null) next.title = String(patch.title).slice(0, 200);
+  if (patch.kind != null && Object.hasOwn(KINDS, patch.kind)) next.kind = patch.kind;
+  if (patch.status != null) {
+    if (!Object.hasOwn(STATUSES, patch.status)) throw new Error('status');
+    next.status = patch.status;
+  }
+  const add = Math.max(0, Math.floor(Number(patch.add_count) || 0));
+  if (add) {
+    next.count += add;
+    // 済・見送りのものに同じ話がまた来たら、未対応に戻して気づけるようにする
+    if (patch.status == null && (next.status === 'done' || next.status === 'wontfix') && patch.day && patch.day > item.last_day) next.status = 'open';
+  }
+  if (patch.day) {
+    if (!next.first_day || patch.day < next.first_day) next.first_day = patch.day;
+    if (!next.last_day || patch.day > next.last_day) next.last_day = patch.day;
+  }
+  for (const s of patch.samples ?? []) {
+    const t = String(s).slice(0, 300);
+    if (t && !next.samples.includes(t)) next.samples.push(t);
+  }
+  next.samples = next.samples.slice(-SAMPLES_MAX);
+  if (patch.note != null) next.note = String(patch.note).slice(0, 2000);
+  if (patch.pr != null) next.pr = String(patch.pr).slice(0, 300);
+  next.updated_at = now;
+  return next;
+}
+
+const rowToItem = (r) => ({ ...r, samples: JSON.parse(r.samples || '[]') });
+
+async function backlogApi(request, env, url) {
+  const id = Number(url.pathname.split('/')[3]);
+  // 一覧（状態で絞れる。件数の多い順）
+  if (request.method === 'GET' && !id) {
+    const status = url.searchParams.get('status');
+    const q = status
+      ? env.DB.prepare('SELECT * FROM backlog WHERE status = ? ORDER BY count DESC, last_day DESC').bind(status)
+      : env.DB.prepare("SELECT * FROM backlog ORDER BY CASE status WHEN 'doing' THEN 0 WHEN 'open' THEN 1 ELSE 2 END, count DESC, last_day DESC");
+    const { results } = await q.all();
+    return json(200, results.map(rowToItem));
+  }
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    return json(400, { error: 'json' });
+  }
+  const now = Date.now();
+  // 新しい項目
+  if (request.method === 'POST' && !id) {
+    if (!body.title || !Object.hasOwn(KINDS, body.kind) || !/^\d{4}-\d{2}-\d{2}$/.test(body.day ?? '')) return json(400, { error: 'fields' });
+    let item;
+    try {
+      item = mergeBacklog({ title: '', kind: body.kind, status: 'open', count: 0, first_day: body.day, last_day: body.day, samples: [], note: '', pr: '' }, { ...body, add_count: body.count ?? 1 }, now);
+    } catch {
+      return json(400, { error: 'status' });
+    }
+    const { meta } = await env.DB.prepare('INSERT INTO backlog (title, kind, status, count, first_day, last_day, samples, note, pr, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(item.title, item.kind, item.status, item.count, item.first_day, item.last_day, JSON.stringify(item.samples), item.note, item.pr, now)
+      .run();
+    return json(200, { id: meta.last_row_id, ...item });
+  }
+  // 既にある項目に足す・状態を変える
+  if ((request.method === 'PATCH' || request.method === 'POST') && id) {
+    const row = await env.DB.prepare('SELECT * FROM backlog WHERE id = ?').bind(id).first();
+    if (!row) return json(404, { error: 'none' });
+    let item;
+    try {
+      item = mergeBacklog(rowToItem(row), body, now);
+    } catch {
+      return json(400, { error: 'status' });
+    }
+    await env.DB.prepare('UPDATE backlog SET title = ?, kind = ?, status = ?, count = ?, first_day = ?, last_day = ?, samples = ?, note = ?, pr = ?, updated_at = ? WHERE id = ?')
+      .bind(item.title, item.kind, item.status, item.count, item.first_day, item.last_day, JSON.stringify(item.samples), item.note, item.pr, now, id)
+      .run();
+    return json(200, item);
+  }
+  return json(405, { error: 'method' });
 }

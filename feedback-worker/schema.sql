@@ -18,3 +18,19 @@ CREATE TABLE IF NOT EXISTS digests (
   counts TEXT NOT NULL,
   data TEXT NOT NULL
 );
+
+-- 改善リスト：日をまたいで持ち越す、似た投稿をまとめた項目（毎日のルーチンや管理ページで更新する）
+CREATE TABLE IF NOT EXISTS backlog (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open',
+  count INTEGER NOT NULL DEFAULT 0,
+  first_day TEXT NOT NULL,
+  last_day TEXT NOT NULL,
+  samples TEXT NOT NULL DEFAULT '[]',
+  note TEXT NOT NULL DEFAULT '',
+  pr TEXT NOT NULL DEFAULT '',
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS backlog_status ON backlog (status, count);

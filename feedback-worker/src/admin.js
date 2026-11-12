@@ -32,6 +32,13 @@ export const ADMIN_HTML = `<!doctype html>
   .meta { font-size: 12px; color: var(--soft); margin-top: 2px; }
   .muted { color: var(--soft); font-size: 13px; }
   .err { color: var(--bad); }
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .bl-title { font-weight: 700; }
+  .bl-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .s-open { background: #fbe9e4; color: var(--bad); } .s-doing { background: #fdf1d6; color: #9a6a00; } .s-done { background: var(--tint); color: #2a7552; } .s-wontfix { background: #ececec; color: var(--soft); }
+  select { align-self: flex-start; font: inherit; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; padding: 2px 6px; background: #fff; }
+  details summary { cursor: pointer; font-size: 12px; color: var(--soft); }
+  a { color: var(--idea); }
 </style>
 </head>
 <body>
@@ -42,8 +49,15 @@ export const ADMIN_HTML = `<!doctype html>
     <button class="on">見る</button> <span class="err" id="loginErr"></span>
   </form>
   <div id="app" hidden>
-    <div class="card"><div class="days" id="days"></div></div>
-    <div id="view"></div>
+    <div class="tabs"><button id="tabDays" class="on">日ごとのまとめ</button><button id="tabBacklog">改善リスト</button></div>
+    <div id="daysPane">
+      <div class="card"><div class="days" id="days"></div></div>
+      <div id="view"></div>
+    </div>
+    <div id="backlogPane" hidden>
+      <div class="card"><div class="days" id="statuses"></div></div>
+      <div id="backlog"></div>
+    </div>
   </div>
 </main>
 <script>
@@ -53,8 +67,10 @@ try { key = localStorage.getItem('fb-key') || ''; } catch {}
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
-async function get(path) {
-  const r = await fetch(path, { headers: { Authorization: 'Bearer ' + key } });
+const STATUSES = { open: '未対応', doing: '対応中', done: '済', wontfix: '見送り' };
+
+async function get(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' } });
   if (r.status === 401) throw new Error('key');
   if (!r.ok) throw new Error(String(r.status));
   return r.json();
@@ -116,6 +132,63 @@ async function start() {
     if (key) $('#loginErr').textContent = e.message === 'key' ? '合言葉が違います' : '読み込めませんでした';
   }
 }
+
+let statusFilter = '';
+function renderBacklog(list) {
+  const v = $('#backlog'); v.replaceChildren();
+  if (!list.length) { v.append(el('p', 'muted', 'まだ項目はありません。毎日のルーチンがまとめを読んで足していきます')); return; }
+  const box = el('div', 'card');
+  for (const it of list) {
+    const row = el('div', 'item');
+    row.append(el('div', 'n' + (it.count >= 10 ? ' many' : ''), '×' + it.count));
+    const body = el('div'); body.style.flex = '1';
+    const head = el('div', 'bl-head');
+    head.append(el('span', 'pill k-' + it.kind, KINDS[it.kind] || it.kind), el('span', 'bl-title', it.title));
+    body.append(head);
+    body.append(el('div', 'meta', it.first_day + (it.last_day !== it.first_day ? ' 〜 ' + it.last_day : '')));
+    if (it.note) body.append(el('div', 'meta', it.note));
+    if (it.pr) {
+      const m = el('div', 'meta');
+      if (/^https:\\/\\/github\\.com\\//.test(it.pr)) { const a = el('a', '', it.pr); a.href = it.pr; a.target = '_blank'; a.rel = 'noopener'; m.append('PR: ', a); } else m.append('PR: ' + it.pr);
+      body.append(m);
+    }
+    if (it.samples && it.samples.length) {
+      const d = el('details'); d.append(el('summary', '', '投稿の例 ' + it.samples.length + ' 件'));
+      for (const smp of it.samples) d.append(el('div', 'msg meta', '・' + smp));
+      body.append(d);
+    }
+    const sel = el('select'); sel.className = 's-' + it.status;
+    for (const k in STATUSES) { const o = el('option', '', STATUSES[k]); o.value = k; o.selected = k === it.status; sel.append(o); }
+    sel.onchange = async () => {
+      try { await get('/api/backlog/' + it.id, { method: 'PATCH', body: JSON.stringify({ status: sel.value }) }); sel.className = 's-' + sel.value; }
+      catch { sel.value = it.status; alert('変えられませんでした'); }
+    };
+    row.append(body, sel); box.append(row);
+  }
+  v.append(box);
+}
+
+async function showBacklog() {
+  const bar = $('#statuses'); bar.replaceChildren();
+  for (const [k, label] of [['', 'すべて'], ...Object.entries(STATUSES)]) {
+    const b = el('button', k === statusFilter ? 'on' : '', label);
+    b.onclick = () => { statusFilter = k; showBacklog(); };
+    bar.append(b);
+  }
+  $('#backlog').replaceChildren(el('p', 'muted', '読み込み中…'));
+  try { renderBacklog(await get('/api/backlog' + (statusFilter ? '?status=' + statusFilter : ''))); }
+  catch (e) { $('#backlog').replaceChildren(el('p', 'err', '読み込めませんでした（' + e.message + '）')); }
+}
+
+function tab(which) {
+  $('#tabDays').classList.toggle('on', which === 'days');
+  $('#tabBacklog').classList.toggle('on', which === 'backlog');
+  $('#daysPane').hidden = which !== 'days';
+  $('#backlogPane').hidden = which !== 'backlog';
+  if (which === 'backlog') showBacklog();
+}
+$('#tabDays').onclick = () => tab('days');
+$('#tabBacklog').onclick = () => tab('backlog');
 
 $('#login').onsubmit = (e) => {
   e.preventDefault();

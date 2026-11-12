@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateFeedback, type FeedbackPayload } from './feedback';
 // @ts-expect-error 中継は素の JS
-import { jstDay, normalize, sameKey, summarize, toEntry } from '../feedback-worker/src/index.js';
+import { jstDay, mergeBacklog, normalize, sameKey, summarize, toEntry } from '../feedback-worker/src/index.js';
 
 const base: FeedbackPayload = { kind: 'bug', message: 'キツネが遊歩道で客を襲った', version: 'abc1234', userAgent: 'UA', screen: '390×844 @3x', context: { ランク: '★2' } };
 
@@ -45,5 +45,28 @@ describe('中継', () => {
     expect(sameKey('secre', 'secret')).toBe(false);
     expect(sameKey('', '')).toBe(false);
     expect(sameKey('x', undefined)).toBe(false);
+  });
+
+  describe('改善リスト', () => {
+    const item = { title: '橋をかけたい', kind: 'idea', status: 'open', count: 3, first_day: '2026-11-10', last_day: '2026-11-11', samples: ['橋がほしい'], note: '', pr: '' };
+
+    it('翌日も同じ話が来たら件数と日付を足し、例は重ならず 5 件まで', () => {
+      const n = mergeBacklog(item, { add_count: 4, day: '2026-11-12', samples: ['橋がほしい', 'a', 'b', 'c', 'd', 'e'] }, 1);
+      expect(n).toMatchObject({ count: 7, first_day: '2026-11-10', last_day: '2026-11-12', status: 'open' });
+      expect(n.samples).toEqual(['a', 'b', 'c', 'd', 'e']);
+      expect(item.count).toBe(3);
+    });
+
+    it('済にしたものにまた同じ話が来たら未対応に戻す', () => {
+      const done = mergeBacklog(item, { status: 'done', pr: 'https://github.com/satoren/ike/pull/99' }, 1);
+      expect(done.status).toBe('done');
+      expect(mergeBacklog(done, { add_count: 1, day: '2026-11-12' }, 2).status).toBe('open');
+      // 同じ日の残りを足しただけなら戻さない
+      expect(mergeBacklog(done, { add_count: 1, day: '2026-11-11' }, 2).status).toBe('done');
+    });
+
+    it('知らない状態は受け付けない', () => {
+      expect(() => mergeBacklog(item, { status: 'nope' }, 1)).toThrow();
+    });
   });
 });
