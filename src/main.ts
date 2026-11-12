@@ -61,7 +61,7 @@ import { FoodWebPanel, FoodWebView } from './foodwebview';
 // ---- ワールドの設定 ----
 const MAP_SIZE = 128; // マス数（一辺）
 const WATER_LEVEL = 0.5; // 地下水位。これより低い地面が池になる
-const SECONDS_PER_DAY = 10; // 実時間何秒でゲーム内 1 日か
+const SECONDS_PER_DAY = 60; // 実時間何秒でゲーム内 1 日か（昼が約 35 秒、夜が約 20 秒）
 const TERRAIN_BASE = 1.9; // 地形の基準の高さ（地図の縁もこの高さ）
 
 // ---- レンダラーとシーン ----

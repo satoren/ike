@@ -17,9 +17,9 @@ export const NIGHT = {
   /** 夜の部の来園者は、昼の来園者の何割か */
   visitorRatio: 0.6,
   /** ライトアップの電気代（1 晩あたりの基本料） */
-  baseCost: 30,
+  baseCost: 180,
   /** 灯り 1 基あたりの電気代（1 晩） */
-  lanternCost: 2,
+  lanternCost: 12,
   /** 灯りを何マスおきに立てるか */
   lanternSpacing: 4,
   /** 夜にキツネが来園者を襲う確率の倍率 */
