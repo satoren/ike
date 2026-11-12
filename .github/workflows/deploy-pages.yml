@@ -26,6 +26,10 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+        env:
+          # ゲーム内フィードバックの送り先（feedback-worker/）と、どの版から送られたか
+          VITE_FEEDBACK_ENDPOINT: ${{ vars.FEEDBACK_ENDPOINT }}
+          VITE_APP_VERSION: ${{ github.sha }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
