@@ -1,0 +1,964 @@
+:root {
+  /* 自然・水辺をイメージした、あたたかい生成り色ベースの配色 */
+  --card: rgba(252, 249, 240, 0.92);
+  --card-border: rgba(255, 255, 255, 0.7);
+  --ink: #24392d;
+  --ink-soft: #6b7d6f;
+  --line: rgba(36, 57, 45, 0.12);
+  --leaf: #3d9b6e;
+  --leaf-deep: #2a7552;
+  --leaf-tint: #e3f2e8;
+  --water: #3a8bb0;
+  --coin: #d29a26;
+  --bad: #c8553d;
+  --shadow: 0 6px 20px rgba(28, 52, 40, 0.18), 0 1px 3px rgba(28, 52, 40, 0.12);
+  --radius: 16px;
+  font-family: 'M PLUS Rounded 1c', system-ui, -apple-system, 'Hiragino Maru Gothic ProN', 'Hiragino Sans', sans-serif;
+  font-weight: 500;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #a9cfe3;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app canvas {
+  display: block;
+  touch-action: none;
+}
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  color: var(--ink);
+  font-size: 14px;
+  user-select: none;
+}
+
+/* :where で詳細度を 0 にして、.tool.active などの指定が必ず勝つようにする */
+:where(#hud button) {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: 0;
+  background: none;
+  padding: 0;
+}
+
+.card {
+  pointer-events: auto;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px) saturate(1.2);
+}
+
+kbd {
+  font: inherit;
+}
+
+/* ---------- 上部：タイトルとステータス ---------- */
+.topbar {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 12px;
+}
+
+.brand-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: linear-gradient(140deg, var(--leaf), var(--water));
+  color: #fff;
+}
+
+.brand-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.brand-name {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.day {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ring {
+  width: 22px;
+  height: 22px;
+  transform: rotate(-90deg);
+}
+
+.ring circle {
+  fill: none;
+  stroke-width: 5;
+}
+
+.ring-bg {
+  stroke: var(--line);
+}
+
+.ring-fg {
+  stroke: var(--coin);
+  stroke-linecap: round;
+  stroke-dasharray: 94.25;
+  stroke-dashoffset: 94.25;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 7px 8px;
+  border-radius: 999px;
+  min-width: 104px;
+}
+
+.chip-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chip-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.chip-money .chip-icon {
+  background: #fbefd2;
+  color: var(--coin);
+}
+.chip-visitors .chip-icon {
+  background: #f6e2dc;
+  color: #c0684f;
+}
+.chip-appeal .chip-icon {
+  background: #efe5f6;
+  color: #8a5fb0;
+}
+.chip-water .chip-icon {
+  background: #dcedf5;
+  color: var(--water);
+}
+.chip-safety .chip-icon {
+  background: #e4ecf7;
+  color: #3f6fb0;
+}
+.chip-trees .chip-icon {
+  background: var(--leaf-tint);
+  color: var(--leaf-deep);
+}
+
+.chip-body {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.chip-label {
+  font-size: 10.5px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.chip-value {
+  font-size: 17px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chip-value .unit {
+  margin-left: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.chip-value small {
+  font-size: 11px;
+}
+
+.chip.up {
+  animation: bump-up 0.6s ease;
+}
+.chip.down {
+  animation: bump-down 0.45s ease;
+}
+
+@keyframes bump-up {
+  30% {
+    transform: scale(1.06);
+    box-shadow: var(--shadow), 0 0 0 3px rgba(61, 155, 110, 0.35);
+  }
+}
+
+@keyframes bump-down {
+  30% {
+    box-shadow: var(--shadow), 0 0 0 2px rgba(200, 85, 61, 0.25);
+  }
+}
+
+/* 魅力が下がっている、安全が足りないなど注意が必要な状態 */
+.chip.stressed {
+  background: #fbe9e4;
+  border-color: #f3c7bb;
+}
+
+.chip-value .penalty {
+  display: block;
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--bad);
+  line-height: 1.2;
+}
+
+/* ---------- かご ---------- */
+.basket {
+  position: absolute;
+  top: 92px;
+  right: 16px;
+  width: 236px;
+  padding: 12px;
+}
+
+.basket-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.basket-head b {
+  font-size: 15px;
+}
+
+.basket-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: #fbefd2;
+  color: var(--coin);
+}
+
+.basket-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.basket-hint {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--ink-soft);
+}
+
+.basket-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.basket-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px;
+  border-radius: 10px;
+}
+
+.basket-row.pop {
+  animation: row-pop 0.5s ease;
+}
+
+@keyframes row-pop {
+  30% {
+    background: var(--leaf-tint);
+  }
+}
+
+.item-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(36, 57, 45, 0.06);
+}
+
+.item-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.item-fruit .item-icon {
+  color: #d1453a;
+  background: #fbe4e0;
+}
+.item-rabbit .item-icon {
+  color: #a5794f;
+  background: #f4ebe0;
+}
+.item-duck .item-icon {
+  color: #2f6b45;
+  background: var(--leaf-tint);
+}
+.item-fish .item-icon {
+  color: #e0782e;
+  background: #fdeedd;
+}
+.item-fox .item-icon {
+  color: #c55c22;
+  background: #fbe5d6;
+}
+.item-bear .item-icon {
+  color: #5a3d28;
+  background: #ece2d8;
+}
+
+.item-name {
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.item-name small {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.item-wild {
+  min-width: 2.2em;
+  text-align: right;
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.item-wild::after {
+  content: ' /';
+}
+
+.item-count {
+  min-width: 1.8em;
+  text-align: right;
+  font-weight: 800;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sell {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--leaf-deep);
+  background: var(--leaf-tint);
+}
+
+.sell:hover {
+  background: #cfe9d9;
+}
+
+.basket-row.empty .item-count {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.basket-row.empty .sell {
+  visibility: hidden;
+}
+
+.sell-all {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--leaf), var(--leaf-deep));
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 3px 10px rgba(42, 117, 82, 0.3);
+}
+
+.sell-all b {
+  margin-left: 4px;
+}
+
+.sell-all:disabled {
+  background: rgba(36, 57, 45, 0.08);
+  color: var(--ink-soft);
+  box-shadow: none;
+  cursor: default;
+}
+
+/* ---------- クマ出没の警報 ---------- */
+.bear-alert {
+  position: absolute;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 8px 10px;
+  border-radius: 999px;
+  background: var(--bad);
+  color: #fff;
+  font-weight: 500;
+  box-shadow: 0 6px 20px rgba(200, 85, 61, 0.45);
+  white-space: nowrap;
+  animation: alert-pulse 1.2s ease-in-out infinite;
+}
+
+.bear-alert {
+  pointer-events: auto;
+}
+
+.bear-focus {
+  margin-left: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.bear-focus:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.bear-alert[hidden] {
+  display: none;
+}
+
+.bear-alert-icon {
+  display: grid;
+  place-items: center;
+}
+
+.bear-alert-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+@keyframes alert-pulse {
+  50% {
+    box-shadow: 0 6px 28px rgba(200, 85, 61, 0.85);
+    background: #d9604a;
+  }
+}
+
+.bear-alert:not([hidden]) ~ .toasts {
+  top: 132px;
+}
+
+/* ---------- 通知 ---------- */
+.toasts {
+  position: absolute;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.toast {
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(36, 57, 45, 0.88);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+  animation: toast-in 0.25s ease-out;
+}
+
+.toast.good {
+  background: var(--leaf-deep);
+}
+.toast.bad {
+  background: var(--bad);
+}
+
+.toast.out {
+  animation: toast-out 0.3s ease-in forwards;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+}
+
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* ---------- 下部：道具のドック ---------- */
+.dock-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.hint {
+  margin: 0;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(36, 57, 45, 0.6);
+  color: #fff;
+  font-size: 12px;
+  backdrop-filter: blur(6px);
+}
+
+.dock {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 22px;
+  max-width: 100%;
+}
+
+.tools {
+  display: flex;
+  gap: 4px;
+}
+
+.tool {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 70px;
+  padding: 8px 4px 6px;
+  border-radius: 15px;
+  transition:
+    background 0.15s,
+    transform 0.15s,
+    color 0.15s;
+}
+
+.tool:hover {
+  background: rgba(36, 57, 45, 0.06);
+}
+
+.tool:active {
+  transform: scale(0.95);
+}
+
+.tool kbd {
+  position: absolute;
+  top: 5px;
+  right: 7px;
+  font-size: 10px;
+  color: var(--ink-soft);
+  opacity: 0.7;
+}
+
+.tool-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(36, 57, 45, 0.06);
+  transition: background 0.15s;
+}
+
+.tool-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tool-cost {
+  font-size: 10px;
+  color: var(--ink-soft);
+}
+
+.tool.active {
+  background: var(--leaf-tint);
+  color: var(--leaf-deep);
+}
+
+.tool.active .tool-icon {
+  background: var(--leaf);
+  color: #fff;
+  box-shadow: 0 3px 8px rgba(42, 117, 82, 0.35);
+}
+
+.tool.active kbd,
+.tool.active .tool-cost {
+  color: var(--leaf-deep);
+}
+
+.divider {
+  width: 1px;
+  margin: 6px 4px;
+  background: var(--line);
+}
+
+.sizes {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 4px;
+  transition: opacity 0.15s;
+}
+
+.sizes.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.sizes-label {
+  font-size: 11px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.sizes-row {
+  display: flex;
+  gap: 3px;
+}
+
+.size {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  width: 36px;
+  height: 52px;
+  padding-bottom: 4px;
+  border-radius: 11px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.size i {
+  display: block;
+  width: var(--d);
+  height: var(--d);
+  border-radius: 50%;
+  border: 2px solid currentColor;
+}
+
+.size:hover {
+  background: rgba(36, 57, 45, 0.06);
+}
+
+.size.active {
+  background: var(--leaf-tint);
+  color: var(--leaf-deep);
+}
+
+.size.active i {
+  background: rgba(61, 155, 110, 0.25);
+}
+
+/* ---------- ヘルプ ---------- */
+.help-btn {
+  position: absolute;
+  right: 16px;
+  bottom: 18px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--ink-soft);
+}
+
+.help-btn:hover {
+  color: var(--ink);
+}
+
+.help {
+  position: absolute;
+  right: 16px;
+  bottom: 72px;
+  width: 320px;
+  padding: 14px 16px;
+}
+
+.help-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.help-close svg {
+  width: 18px;
+  height: 18px;
+  color: var(--ink-soft);
+}
+
+.help dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.help dt {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.help dd {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.help kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  text-align: center;
+  font-size: 11px;
+}
+
+.help-save {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.reset {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bad);
+  background: #fbe9e4;
+}
+
+.reset:hover {
+  background: #f6d6cd;
+}
+
+/* ---------- 画面が狭いとき ---------- */
+@media (max-width: 900px) {
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .chips {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    gap: 8px;
+  }
+  .brand {
+    align-self: flex-start;
+    padding: 6px 10px 6px 8px;
+  }
+  .brand-icon {
+    width: 28px;
+    height: 28px;
+  }
+  .brand-name {
+    font-size: 15px;
+  }
+  .chips {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .chip {
+    min-width: 0;
+    padding: 5px 8px 5px 5px;
+    gap: 6px;
+  }
+  .chip-icon {
+    width: 24px;
+    height: 24px;
+  }
+  .chip-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+  .chip-value {
+    font-size: 14px;
+  }
+  .chip-label {
+    font-size: 9.5px;
+  }
+  .toasts {
+    top: auto;
+    bottom: 190px;
+  }
+  .dock-wrap {
+    bottom: 10px;
+    padding: 0 10px;
+  }
+  .dock {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .tools {
+    gap: 2px;
+    max-width: calc(100vw - 40px);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tool {
+    width: 48px;
+    padding: 6px 2px 4px;
+  }
+  .tool-icon {
+    width: 34px;
+    height: 34px;
+  }
+  .tool-label {
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .tool kbd,
+  .tool-cost {
+    display: none;
+  }
+  .divider {
+    display: none;
+  }
+  .sizes {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    justify-content: center;
+    border-top: 1px solid var(--line);
+    padding-top: 6px;
+    gap: 10px;
+  }
+  .size {
+    height: 34px;
+    flex-direction: row;
+    width: auto;
+    padding: 0 10px;
+    gap: 6px;
+    justify-content: center;
+  }
+  .help-btn {
+    display: none;
+  }
+  .basket {
+    top: auto;
+    bottom: 196px;
+    right: 10px;
+    width: 168px;
+    padding: 8px;
+  }
+  .basket-head {
+    margin-bottom: 4px;
+  }
+  .basket-hint,
+  .item-name {
+    display: none;
+  }
+  .basket-row {
+    grid-template-columns: 24px 1fr auto auto;
+    padding: 2px;
+  }
+  .sell-all {
+    padding: 7px 8px;
+    font-size: 12px;
+  }
+  .item-icon {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+@media (max-width: 1180px) and (min-width: 641px) {
+  .basket {
+    top: 150px;
+  }
+}
