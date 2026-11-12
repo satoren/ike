@@ -1,6 +1,7 @@
 import type { Creature, Inventory } from './ecology';
 import type { Tree } from './trees';
 import type { Bear, Trap } from './bears';
+import type { Weather } from './seasons';
 import type { RareState } from './rare';
 import type { Bird, Weed } from './foodweb';
 import type { Poacher } from './poachers';
@@ -43,6 +44,8 @@ export interface SaveData {
     nightOpen?: boolean;
     nightFoxes?: number[];
   };
+  /** 天気と水位（古い保存データには無い） */
+  seasons?: { weather: Weather; waterOffset: number };
   camera: { position: [number, number, number]; target: [number, number, number] };
 }
 

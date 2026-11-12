@@ -1,0 +1,85 @@
+/* 上部の季節と天気の表示 */
+.season-badge {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+  margin-left: 2px;
+  padding-left: 8px;
+  border-left: 1px solid var(--line);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.season-name,
+.season-weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px 3px 5px;
+  border-radius: 999px;
+}
+
+.season-name small {
+  margin-left: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+}
+
+.season-badge[data-season='spring'] .season-name {
+  background: #fbe3ea;
+  color: #b04a6a;
+}
+.season-badge[data-season='summer'] .season-name {
+  background: #e3f2e8;
+  color: var(--leaf-deep);
+}
+.season-badge[data-season='autumn'] .season-name {
+  background: #f8e6d3;
+  color: #b0561f;
+}
+.season-badge[data-season='winter'] .season-name {
+  background: #e4eff5;
+  color: #3a7194;
+}
+
+.season-weather {
+  padding: 3px;
+  color: var(--ink-soft);
+}
+.season-weather[data-weather='sunny'] {
+  color: var(--coin);
+}
+.season-weather[data-weather='rain'] {
+  color: var(--water);
+}
+
+@media (max-width: 640px) {
+  .season-badge {
+    gap: 2px;
+    padding-left: 6px;
+    font-size: 13px;
+  }
+  .season-name,
+  .season-weather {
+    padding: 2px 6px 2px 3px;
+  }
+  .season-badge svg {
+    width: 15px;
+    height: 15px;
+  }
+}
+
+/* 季節の表示が増えた分、中くらいの幅ではタイトルの文字を省いて 1 行に収める */
+.brand .brand-name,
+.brand .day {
+  white-space: nowrap;
+}
+@media (max-width: 1440px) and (min-width: 901px) {
+  .brand .brand-name {
+    display: none;
+  }
+}

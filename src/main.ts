@@ -35,6 +35,22 @@ import { POACHER, POACHER_TARGETS, Poachers } from './poachers';
 import { PoacherView } from './poacherview';
 import { SAVE_VERSION, SaveSlot, decodeFloats, base64ToBytes, bytesToBase64, encodeFloats, type SaveData } from './save';
 import { Hud, type Tool } from './ui';
+import {
+  DAYS_PER_SEASON,
+  SEASONS,
+  WEATHER,
+  applySeason,
+  calendarOf,
+  isFrozen,
+  rollWeather,
+  seasonalBonus,
+  seasonalHabitat,
+  stepWater,
+  waterBlocked,
+  waterTarget,
+  type Weather,
+} from './seasons';
+import { SeasonBadge, SeasonView } from './seasonview';
 import { darkness, foxDangerFactor, isNight, lanternCells, lightingCost, nightFoxCount, nightVisitors } from './night';
 import { NightView } from './nightview';
 import { ReviewFeed } from './reviews';
@@ -98,11 +114,9 @@ const terrain = new TerrainMesh(map, WATER_LEVEL);
 scene.add(terrain.mesh);
 
 // 地図の外に広がる地面（遊べる範囲の外。縁の高さに合わせて置く）
+const outerMaterial = new THREE.MeshStandardMaterial({ color: '#64a043', roughness: 1 });
 {
-  const outer = new THREE.Mesh(
-    new THREE.RingGeometry(map.worldSize * 0.7, 400, 4, 1, Math.PI / 4),
-    new THREE.MeshStandardMaterial({ color: '#64a043', roughness: 1 }),
-  );
+  const outer = new THREE.Mesh(new THREE.RingGeometry(map.worldSize * 0.7, 400, 4, 1, Math.PI / 4), outerMaterial);
   outer.rotation.x = -Math.PI / 2;
   outer.position.y = TERRAIN_BASE - 0.02;
   outer.receiveShadow = true;
@@ -133,8 +147,26 @@ function refreshLanterns(): void {
 }
 refreshLanterns();
 
-// キツネは柵付きの遊歩道に入れない
-const ecosystem = new Ecosystem(map, WATER_LEVEL, Math.random, (kind, x, z) => kind === 'fox' && paths.isPathAt(x, z));
+// ---- 季節と天気 ----
+const seasonState = {
+  weather: rollWeather('spring') as Weather,
+  /** 地下水位からの水面の差（夏の日照りで下がる） */
+  waterOffset: 0,
+  /** 最後にすみかを数えたときの水面の差 */
+  habitatOffset: 0,
+  droughtWarned: false,
+};
+const waterSurface = () => WATER_LEVEL + seasonState.waterOffset;
+
+// キツネは柵付きの遊歩道に入れない。カモと魚は、凍った池や水位が下がって浅くなった場所に居られない
+const ecosystem = new Ecosystem(
+  map,
+  WATER_LEVEL,
+  Math.random,
+  (kind, x, z) =>
+    (kind === 'fox' && paths.isPathAt(x, z)) ||
+    waterBlocked(kind, map.heightAt(x, z), waterSurface(), isFrozen(calendarOf(state.day).season)),
+);
 const creatureView = new CreatureView(map, WATER_LEVEL);
 scene.add(creatureView.group);
 
@@ -188,7 +220,7 @@ let nightTime = 0;
 let wasNight = false;
 /** すみかの状態。育った水草の数も入れる（魚の数の上限が決まる） */
 function habitatNow(): Habitat {
-  return { ...computeHabitat(map, WATER_LEVEL, forest.trees), weeds: foodweb.matureWeeds };
+  return { ...computeHabitat(map, waterSurface(), forest.trees), weeds: foodweb.matureWeeds };
 }
 let habitat: Habitat = habitatNow();
 let scenic = 0;
@@ -217,6 +249,18 @@ const hud = new Hud({
   onToggleNight: () => toggleNight(),
   onReset: () => resetGame(),
 });
+const seasonView = new SeasonView({
+  scene,
+  sun,
+  hemi,
+  water: water.mesh,
+  ground: [terrain.mesh.material as THREE.MeshStandardMaterial, outerMaterial],
+  foliage: forest.foliageMaterial,
+  map,
+  waterLevel: WATER_LEVEL,
+});
+const seasonBadge = new SeasonBadge(document.querySelector<HTMLElement>('#hud .brand')!);
+seasonView.set(calendarOf(state.day).season, seasonState.weather, true);
 // HUD を組んだあとに足す（HUD は中身を作り直すため）
 const rareBadge = new RareBadge((kind) => focusRare(kind));
 const foodwebPanel = new FoodWebPanel(document.querySelector('#hud .basket'));
@@ -555,6 +599,7 @@ function snapshot(): SaveData {
       nightOpen: state.nightOpen,
       nightFoxes: [...state.nightFoxes],
     },
+    seasons: { weather: seasonState.weather, waterOffset: seasonState.waterOffset },
     camera: {
       position: camera.position.toArray() as [number, number, number],
       target: controls.target.toArray() as [number, number, number],
@@ -582,6 +627,11 @@ function restore(data: SaveData): void {
   refreshLanterns();
   camera.position.fromArray(data.camera.position);
   controls.target.fromArray(data.camera.target);
+  if (data.seasons) {
+    seasonState.weather = data.seasons.weather;
+    seasonState.waterOffset = seasonState.habitatOffset = data.seasons.waterOffset;
+  }
+  seasonView.set(calendarOf(state.day).season, seasonState.weather, true);
   habitat = habitatNow();
   scenic = paths.scenicValue(WATER_LEVEL);
 }
@@ -614,6 +664,21 @@ if (new URLSearchParams(location.search).has('bear')) {
   const b = bears.spawn();
   b.x *= 0.45;
   b.z *= 0.45;
+}
+
+// 確認用：URL に ?season=winter のように付けると、その季節から始まる（&weather=snow で天気も）
+{
+  const q = new URLSearchParams(location.search);
+  const order = ['spring', 'summer', 'autumn', 'winter'];
+  const si = order.indexOf(q.get('season') ?? '');
+  if (si >= 0) {
+    state.day = si * DAYS_PER_SEASON + 1;
+    const w = q.get('weather') as Weather | null;
+    seasonState.weather = w && w in WEATHER ? w : rollWeather(calendarOf(state.day).season);
+    if (si === 1 && q.has('drought')) seasonState.waterOffset = -0.2;
+    seasonView.set(calendarOf(state.day).season, seasonState.weather, true);
+    statsDirty = true;
+  }
 }
 
 // 確認用：URL に ?firefly / ?salamander を付けると、最初からその生き物が現れる
@@ -721,9 +786,23 @@ function frame(): void {
     statsTimer = 0;
   }
 
-  // 自然の時間を進める：木が育って実り、生き物が集まって動き回る
-  forest.update(dt);
-  const arrived = ecosystem.update(dt, habitat, forest.trees);
+  // 季節と天気：夏の晴れが続くと池の水位が下がる
+  const cal = calendarOf(state.day);
+  seasonState.waterOffset = stepWater(seasonState.waterOffset, waterTarget(cal.season, seasonState.weather), dt);
+  if (Math.abs(seasonState.waterOffset - seasonState.habitatOffset) > 0.02) {
+    seasonState.habitatOffset = seasonState.waterOffset;
+    statsDirty = true;
+  }
+  if (seasonState.waterOffset < -0.15 && !seasonState.droughtWarned) {
+    seasonState.droughtWarned = true;
+    hud.flash('日照りで池の水位が下がっています。浅瀬のカモや魚が居られなくなります', 'bad');
+  }
+  if (seasonState.waterOffset > -0.05) seasonState.droughtWarned = false;
+  creatureView.waterLevel = waterSurface();
+
+  // 自然の時間を進める：木が育って実り、生き物が集まって動き回る（季節で速さや集まる生き物が変わる）
+  forest.update(dt * SEASONS[cal.season].growth);
+  const arrived = ecosystem.update(dt, seasonalHabitat(habitat, cal.season), forest.trees);
   for (const kind of new Set(arrived)) {
     if (kind === 'duck') hud.flash(`${ITEMS[kind].name}がやってきました`);
     if (kind === 'fox') hud.flash('キツネが現れました。来園者が襲われるかもしれません', 'bad');
@@ -812,8 +891,14 @@ function frame(): void {
     if (e.type === 'fled') hud.flash(`荒らされて、${RARE[e.kind].name}が去ってしまいました`, 'bad');
   }
   const boost = rareBoost(rare.state);
+  const bonus = seasonalBonus(cal.season, habitat);
   const evaluate = () =>
-    applyRareBoost(computeAppeal(habitat, wildlife, state.pressure, state.incident, access), boost);
+    applySeason(
+      applyRareBoost(computeAppeal(habitat, wildlife, state.pressure, state.incident, access), boost),
+      cal.season,
+      seasonState.weather,
+      bonus,
+    );
   let appeal = evaluate();
 
   // 昼と夜。夜は営業していなければ来園者は帰り、営業していればキツネが活発になる
@@ -872,6 +957,14 @@ function frame(): void {
     const income = appeal.visitors * TICKET_PRICE;
     state.money += income;
     hud.flash(`${state.day - 1}日目の入園料  +${income.toLocaleString()} G`, 'good');
+    // 朝になると天気が決まる。季節が変わったら知らせる
+    const next = calendarOf(state.day);
+    const prevWeather = seasonState.weather;
+    seasonState.weather = rollWeather(next.season);
+    if (next.season !== cal.season) hud.flash(SEASONS[next.season].arrival, 'good');
+    else if (seasonState.weather === 'rain' && prevWeather !== 'rain') hud.flash('雨が降ってきました。今日は客が少なめです');
+    else if (seasonState.weather === 'snow' && prevWeather !== 'snow') hud.flash('雪が降ってきました');
+    seasonView.set(next.season, seasonState.weather);
     // 夜も営業していれば、営業していた時間の分だけ夜の部の入園料が入り、電気代を払う
     if (nightOpenTime > 0) {
       const share = Math.min(1, nightOpenTime / Math.max(nightTime, 0.001));
@@ -882,8 +975,13 @@ function frame(): void {
     }
     nightOpenTime = 0;
     nightTime = 0;
-    // 日が変わるとき、森が育っているほどクマが出やすい
-    if (state.day >= BEAR.firstDay && bears.bears.length === 0 && Math.random() < BEAR.chance(forest.trees.length)) {
+    // 日が変わるとき、森が育っているほどクマが出やすい（冬は冬眠して出ない）
+    if (
+      SEASONS[next.season].bears &&
+      state.day >= BEAR.firstDay &&
+      bears.bears.length === 0 &&
+      Math.random() < BEAR.chance(forest.trees.length)
+    ) {
       bears.spawn();
       hud.flash('クマが現れました！罠を仕掛けるか、銃で狩りましょう', 'bad');
     }
@@ -935,6 +1033,8 @@ function frame(): void {
     lightingCost: lightingCost(lanterns),
   });
 
+  seasonBadge.update(cal, seasonState.weather, bonus);
+  seasonView.update(dt, t, seasonState.waterOffset, isFrozen(cal.season) ? Math.floor(appeal.visitors / 15) : 0, controls.target, darkness(dayProgress));
   rareBadge.update(rare.state, boost);
   water.update(t);
   controls.update();

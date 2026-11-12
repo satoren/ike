@@ -125,6 +125,11 @@ export class Forest {
     if (this.fruitDirty) this.rebuildFruit();
   }
 
+  /** 葉のマテリアル（季節で色を変えるのに使う） */
+  get foliageMaterial(): THREE.MeshStandardMaterial {
+    return this.leaves.material as THREE.MeshStandardMaterial;
+  }
+
   /** 実の数が外から変わったとき（収穫など）に呼ぶ */
   markFruitDirty(): void {
     this.fruitDirty = true;
