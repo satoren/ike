@@ -1603,3 +1603,160 @@ kbd {
     right: calc(12px + var(--sa-r));
   }
 }
+
+/* ---------- 道具のまとまり ---------- */
+/* 中に複数の道具があるボタンは、アイコンの右下に小さな印を付ける */
+.tool.has-sub .tool-icon {
+  position: relative;
+}
+.tool.has-sub .tool-icon::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-bottom: 5px solid currentColor;
+  opacity: 0.45;
+}
+
+/* 選んだまとまりの中の道具（ドックのすぐ上） */
+.subtools {
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 18px;
+  max-width: 100%;
+}
+.subtools[hidden] {
+  display: none;
+}
+
+.subtool {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 13px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.subtool svg {
+  width: 20px;
+  height: 20px;
+}
+.subtool small {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.subtool:hover {
+  background: rgba(36, 57, 45, 0.06);
+}
+.subtool.active {
+  background: var(--leaf);
+  color: #fff;
+}
+.subtool.active small {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+#hud .subtools {
+  transition: opacity 0.2s;
+}
+#hud.gesturing .subtools {
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+/* 狭い・低い画面では、道具の中身の選択を説明の吹き出しの代わりに出す（縦の場所を増やさない） */
+@media (max-width: 640px), (max-height: 500px) {
+  #hud .dock-wrap:has(.subtools:not([hidden])) .hint {
+    display: none;
+  }
+  .subtool {
+    padding: 3px 10px 3px 6px;
+  }
+}
+
+@media (max-width: 420px) {
+  /* 上部が 1 行に収まるよう、天気のアイコンは省く（雨や雪は画面で分かる） */
+  .brand .season-weather {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  /* まとまりにしたので 6 個がスクロールせずに並ぶ */
+  .tools {
+    justify-content: space-between;
+  }
+  .tool {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+  }
+  .subtools {
+    width: 100%;
+    justify-content: center;
+  }
+  .subtools {
+    padding: 3px;
+  }
+  .subtool {
+    flex: 1 1 0;
+    justify-content: center;
+    min-height: 36px;
+    padding: 2px 6px;
+  }
+  .subtool small {
+    display: none;
+  }
+}
+
+/* ドックの高さが道具で変わっても、狭い画面のパネルがドックに重ならないようにする */
+@media (max-width: 640px) {
+  #hud .reviews,
+  #hud .map-btn {
+    bottom: calc(var(--dock-top, 196px) + 8px);
+  }
+  #hud .basket {
+    bottom: calc(var(--dock-top, 196px) + 68px);
+  }
+  #hud .toasts {
+    bottom: calc(var(--dock-top, 196px) + 8px);
+  }
+  #hud.map-mode .map-btn {
+    bottom: calc(var(--dock-top, 92px) + 8px);
+  }
+}
+/* 横持ちのスマホ：縦の場所が足りないので、道具の中身はドックの左に縦に並べる */
+@media (max-height: 500px) and (min-width: 641px) {
+  #hud .dock-wrap {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  #hud .dock-wrap .hint {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  .subtools {
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .subtool {
+    min-height: 36px;
+  }
+  .subtool small {
+    display: none;
+  }
+}

@@ -5,6 +5,8 @@ import type { Weather } from './seasons';
 import type { RareState } from './rare';
 import type { Bird, Weed } from './foodweb';
 import type { Poacher } from './poachers';
+import type { Facility } from './facilities';
+import type { ProgressState } from './progress';
 import type { Ranger } from './rangers';
 
 /**
@@ -34,6 +36,10 @@ export interface SaveData {
   foodweb?: { weeds: Weed[]; birds: Bird[] };
   /** 忍び込んでいる密猟者（古い保存データには無い） */
   poachers?: Poacher[];
+  /** 建てた施設（古い保存データには無い） */
+  facilities?: Facility[];
+  /** 園のランクと目標（古い保存データには無い） */
+  progress?: ProgressState;
   /** 雇った駆除係（古い保存データには無い） */
   rangers?: Ranger[];
   state: {
