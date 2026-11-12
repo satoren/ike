@@ -51,9 +51,22 @@ const TOOLS: { id: Tool; label: string; key: string; hint: string; cost: string 
     label: '施設',
     key: '-',
     hint: '遊歩道のすぐ横に施設を建てます。園のランクが上がると建てられる施設が増えます（「撤去」で取り壊すと半額戻ります）',
-    cost: 'ランクで解放',
+    cost: '300G〜',
   },
 ];
+
+/** 道具を種類ごとにまとめたもの。ドックにはまとまりごとに 1 つのボタンを置く */
+const GROUPS: { id: string; label: string; tools: Tool[] }[] = [
+  { id: 'move', label: '移動', tools: ['pan'] },
+  { id: 'land', label: '地形', tools: ['dig', 'raise', 'smooth'] },
+  { id: 'nature', label: '自然', tools: ['tree', 'weed'] },
+  { id: 'build', label: '建てる', tools: ['path', 'build'] },
+  { id: 'collect', label: '集める', tools: ['collect'] },
+  { id: 'hunt', label: '狩り', tools: ['trap', 'gun'] },
+];
+
+const groupOf = (tool: Tool) => GROUPS.find((g) => g.tools.includes(tool))!;
+const toolInfo = (tool: Tool) => TOOLS.find((t) => t.id === tool)!;
 
 const ITEM_ICON: Record<ItemKind, keyof typeof icons> = {
   fruit: 'apple',
@@ -131,7 +144,12 @@ type ChipName = 'money' | 'visitors' | 'appeal' | 'safety' | 'water' | 'trees';
  */
 export class Hud {
   private readonly root: HTMLElement;
-  private readonly buttons = new Map<Tool, HTMLButtonElement>();
+  /** まとまりごとのボタン */
+  private readonly buttons = new Map<string, HTMLButtonElement>();
+  /** まとまりの中の道具を選ぶボタン（選んでいるまとまりの分だけ出す） */
+  private readonly subtools: HTMLElement;
+  /** まとまりごとに最後に使った道具（ボタンを押すとそれに戻る） */
+  private readonly lastInGroup = new Map<string, Tool>();
   private readonly sizeButtons: HTMLButtonElement[] = [];
   private readonly hint: HTMLElement;
   private readonly toasts: HTMLElement;
@@ -200,6 +218,7 @@ export class Hud {
 
       <footer class="dock-wrap">
         <p class="hint"></p>
+        <div class="subtools card" role="group" hidden></div>
         <nav class="dock card" aria-label="道具">
           <div class="tools"></div>
           <div class="divider"></div>
@@ -246,22 +265,24 @@ export class Hud {
     this.hint = this.root.querySelector('.hint')!;
     this.toasts = this.root.querySelector('.toasts')!;
 
-    // 道具
+    // 道具：まとまりごとのボタン。押すと、そのまとまりで最後に使った道具になる
     const tools = this.root.querySelector('.tools')!;
-    for (const t of TOOLS) {
+    for (const g of GROUPS) {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'tool';
-      b.title = `${t.label}（${t.key}）`;
-      b.innerHTML = `
-        <kbd>${t.key}</kbd>
-        <span class="tool-icon">${icons[t.id]}</span>
-        <span class="tool-label">${t.label}</span>
-        <span class="tool-cost">${t.cost || '&nbsp;'}</span>`;
-      b.addEventListener('click', () => handlers.onToolChange(t.id));
+      b.className = `tool${g.tools.length > 1 ? ' has-sub' : ''}`;
+      b.addEventListener('click', () => handlers.onToolChange(this.lastInGroup.get(g.id) ?? g.tools[0]));
       tools.appendChild(b);
-      this.buttons.set(t.id, b);
+      this.buttons.set(g.id, b);
     }
+    this.subtools = this.root.querySelector('.subtools')!;
+    // ドック（と上の吹き出し・道具の中身）の高さは道具で変わる。
+    // 狭い画面ではその上にパネルを積むので、ドックの上端の位置を CSS に渡す
+    const dockWrap = this.root.querySelector<HTMLElement>('.dock-wrap')!;
+    const syncDockTop = () =>
+      this.root.style.setProperty('--dock-top', `${Math.round(window.innerHeight - dockWrap.getBoundingClientRect().top)}px`);
+    new ResizeObserver(syncDockTop).observe(dockWrap);
+    window.addEventListener('resize', syncDockTop);
 
     // ブラシの大きさ
     const sizes = this.root.querySelector('.sizes-row')!;
@@ -341,9 +362,36 @@ export class Hud {
   }
 
   setTool(tool: Tool): void {
-    for (const [id, b] of this.buttons) {
-      b.classList.toggle('active', id === tool);
+    const group = groupOf(tool);
+    this.lastInGroup.set(group.id, tool);
+    for (const g of GROUPS) {
+      const b = this.buttons.get(g.id)!;
+      const t = toolInfo(this.lastInGroup.get(g.id) ?? g.tools[0]);
+      const active = g === group;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-pressed', String(active));
+      b.title = g.tools.length > 1 ? `${g.label}：${g.tools.map((id) => toolInfo(id).label).join('・')}` : `${t.label}（${t.key}）`;
+      // まとまりのボタンには、いま選ばれている（押すと使う）道具を出す
+      b.innerHTML = `
+        <kbd>${t.key}</kbd>
+        <span class="tool-icon">${icons[t.id]}</span>
+        <span class="tool-label">${g.tools.length > 1 ? g.label : t.label}</span>
+        <span class="tool-cost">${g.tools.length > 1 ? t.label : t.cost || '&nbsp;'}</span>`;
+    }
+    // 複数の道具があるまとまりを選んだら、その中の道具をドックの上に並べる
+    this.subtools.hidden = group.tools.length < 2;
+    this.subtools.setAttribute('aria-label', group.label);
+    this.subtools.innerHTML = '';
+    for (const id of group.tools) {
+      const t = toolInfo(id);
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = `subtool${id === tool ? ' active' : ''}`;
       b.setAttribute('aria-pressed', String(id === tool));
+      b.title = `${t.label}（${t.key}）`;
+      b.innerHTML = `${icons[id]}<span>${t.label}</span><small>${t.cost}</small>`;
+      b.addEventListener('click', () => this.handlers.onToolChange(id));
+      this.subtools.appendChild(b);
     }
     this.hint.textContent = TOOLS.find((t) => t.id === tool)?.hint ?? '';
     this.root.querySelector('.sizes')!.classList.toggle('disabled', tool === 'pan');
