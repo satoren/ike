@@ -154,7 +154,7 @@ kbd {
   gap: 8px;
   padding: 7px 14px 7px 8px;
   border-radius: 999px;
-  min-width: 112px;
+  min-width: 104px;
 }
 
 .chip-icon {
@@ -186,6 +186,10 @@ kbd {
 .chip-water .chip-icon {
   background: #dcedf5;
   color: var(--water);
+}
+.chip-safety .chip-icon {
+  background: #e4ecf7;
+  color: #3f6fb0;
 }
 .chip-trees .chip-icon {
   background: var(--leaf-tint);
@@ -240,6 +244,201 @@ kbd {
   30% {
     box-shadow: var(--shadow), 0 0 0 2px rgba(200, 85, 61, 0.25);
   }
+}
+
+/* 魅力が下がっている、安全が足りないなど注意が必要な状態 */
+.chip.stressed {
+  background: #fbe9e4;
+  border-color: #f3c7bb;
+}
+
+.chip-value .penalty {
+  display: block;
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--bad);
+  line-height: 1.2;
+}
+
+/* ---------- かご ---------- */
+.basket {
+  position: absolute;
+  top: 92px;
+  right: 16px;
+  width: 236px;
+  padding: 12px;
+}
+
+.basket-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.basket-head b {
+  font-size: 15px;
+}
+
+.basket-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: #fbefd2;
+  color: var(--coin);
+}
+
+.basket-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.basket-hint {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--ink-soft);
+}
+
+.basket-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.basket-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px;
+  border-radius: 10px;
+}
+
+.basket-row.pop {
+  animation: row-pop 0.5s ease;
+}
+
+@keyframes row-pop {
+  30% {
+    background: var(--leaf-tint);
+  }
+}
+
+.item-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(36, 57, 45, 0.06);
+}
+
+.item-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.item-fruit .item-icon {
+  color: #d1453a;
+  background: #fbe4e0;
+}
+.item-rabbit .item-icon {
+  color: #a5794f;
+  background: #f4ebe0;
+}
+.item-duck .item-icon {
+  color: #2f6b45;
+  background: var(--leaf-tint);
+}
+.item-fish .item-icon {
+  color: #e0782e;
+  background: #fdeedd;
+}
+.item-fox .item-icon {
+  color: #c55c22;
+  background: #fbe5d6;
+}
+
+.item-name {
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.item-name small {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.item-wild {
+  min-width: 2.2em;
+  text-align: right;
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.item-wild::after {
+  content: ' /';
+}
+
+.item-count {
+  min-width: 1.8em;
+  text-align: right;
+  font-weight: 800;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sell {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--leaf-deep);
+  background: var(--leaf-tint);
+}
+
+.sell:hover {
+  background: #cfe9d9;
+}
+
+.basket-row.empty .item-count {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.basket-row.empty .sell {
+  visibility: hidden;
+}
+
+.sell-all {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--leaf), var(--leaf-deep));
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 3px 10px rgba(42, 117, 82, 0.3);
+}
+
+.sell-all b {
+  margin-left: 4px;
+}
+
+.sell-all:disabled {
+  background: rgba(36, 57, 45, 0.08);
+  color: var(--ink-soft);
+  box-shadow: none;
+  cursor: default;
 }
 
 /* ---------- 通知 ---------- */
@@ -594,8 +793,20 @@ kbd {
     flex-wrap: wrap;
     justify-content: center;
   }
+  .tools {
+    gap: 2px;
+  }
   .tool {
-    width: 58px;
+    width: 48px;
+    padding: 6px 2px 4px;
+  }
+  .tool-icon {
+    width: 34px;
+    height: 34px;
+  }
+  .tool-label {
+    font-size: 11px;
+    white-space: nowrap;
   }
   .tool kbd,
   .tool-cost {
@@ -623,5 +834,37 @@ kbd {
   }
   .help-btn {
     display: none;
+  }
+  .basket {
+    top: auto;
+    bottom: 196px;
+    right: 10px;
+    width: 168px;
+    padding: 8px;
+  }
+  .basket-head {
+    margin-bottom: 4px;
+  }
+  .basket-hint,
+  .item-name {
+    display: none;
+  }
+  .basket-row {
+    grid-template-columns: 24px 1fr auto auto;
+    padding: 2px;
+  }
+  .sell-all {
+    padding: 7px 8px;
+    font-size: 12px;
+  }
+  .item-icon {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+@media (max-width: 1180px) and (min-width: 641px) {
+  .basket {
+    top: 150px;
   }
 }

@@ -6,7 +6,26 @@ import { TerrainMesh } from './terrain';
 import { Water } from './water';
 import { Forest } from './trees';
 import { BrushCursor } from './cursor';
-import { COSTS, computeStats, dailyIncome, type EcoStats } from './economy';
+import { COSTS, computeHabitat } from './economy';
+import {
+  Ecosystem,
+  ITEMS,
+  ITEM_ORDER,
+  TICKET_PRICE,
+  addPressure,
+  attackChance,
+  decayIncident,
+  computeAppeal,
+  decayPressure,
+  emptyInventory,
+  harvestFruit,
+  inventoryValue,
+  type CreatureKind,
+  type Habitat,
+  type ItemKind,
+} from './ecology';
+import { CreatureView } from './creatures';
+import { PathGrid, PathView, SAFETY, Strollers, safety } from './paths';
 import { Hud, type Tool } from './ui';
 
 // ---- ワールドの設定 ----
@@ -68,6 +87,17 @@ scene.add(water.mesh);
 const forest = new Forest(map, WATER_LEVEL);
 scene.add(forest.group);
 
+const paths = new PathGrid(map);
+const pathView = new PathView(paths, map, WATER_LEVEL);
+scene.add(pathView.group);
+const strollers = new Strollers(paths, pathView);
+scene.add(strollers.group);
+
+// キツネは柵付きの遊歩道に入れない
+const ecosystem = new Ecosystem(map, WATER_LEVEL, Math.random, (kind, x, z) => kind === 'fox' && paths.isPathAt(x, z));
+const creatureView = new CreatureView(map, WATER_LEVEL);
+scene.add(creatureView.group);
+
 const cursor = new BrushCursor(map);
 scene.add(cursor.line);
 
@@ -76,7 +106,7 @@ scene.add(cursor.line);
   let s = 12345;
   const rand = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 0xffffffff);
   const half = map.worldSize / 2 - 2;
-  for (let i = 0; i < 160; i++) forest.plant((rand() * 2 - 1) * half, (rand() * 2 - 1) * half, rand);
+  for (let i = 0; i < 160; i++) forest.plant((rand() * 2 - 1) * half, (rand() * 2 - 1) * half, rand, true);
 }
 
 // ---- 運営の状態 ----
@@ -86,20 +116,41 @@ const state = {
   dayTimer: 0,
   tool: 'dig' as Tool,
   brushRadius: 3,
+  inventory: emptyInventory(),
+  /** 採りすぎによる荒らされ度。時間で回復する */
+  pressure: 0,
+  /** キツネの襲撃事件の影響（1 = 起きた直後）。時間で薄れる */
+  incident: 0,
 };
-let stats: EcoStats = computeStats(map, WATER_LEVEL, forest.trees);
+let habitat: Habitat = computeHabitat(map, WATER_LEVEL, forest.trees);
+let scenic = 0;
 let statsDirty = false;
+
+// 最初から少し生き物がいる状態にする
+for (const kind of ['rabbit', 'rabbit', 'rabbit', 'duck', 'fish', 'fish', 'fish', 'fish'] as CreatureKind[]) {
+  ecosystem.spawn(kind, forest.trees);
+}
 
 const hud = new Hud({
   onToolChange: (tool) => setTool(tool),
   onBrushChange: (r) => {
     state.brushRadius = r;
-    cursor.setRadius(r);
+    updateCursorRadius();
   },
+  onSell: (kind) => sell(kind),
 });
 hud.setTool(state.tool);
 hud.setBrush(state.brushRadius);
-cursor.setRadius(state.brushRadius);
+updateCursorRadius();
+
+/** 遊歩道はブラシより細く敷くので、カーソルの円もそれに合わせる */
+function updateCursorRadius(): void {
+  cursor.setRadius(state.tool === 'path' ? pathWidth() : state.brushRadius);
+}
+
+function pathWidth(): number {
+  return Math.max(0.6, state.brushRadius / 3);
+}
 
 function setTool(tool: Tool): void {
   state.tool = tool;
@@ -115,6 +166,7 @@ function setTool(tool: Tool): void {
     TWO: THREE.TOUCH.DOLLY_ROTATE,
   };
   cursor.line.visible = tool !== 'pan';
+  updateCursorRadius();
 }
 setTool(state.tool);
 
@@ -150,7 +202,15 @@ window.addEventListener('pointerup', () => {
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
 window.addEventListener('keydown', (e) => {
-  const keys: Record<string, Tool> = { '1': 'pan', '2': 'dig', '3': 'raise', '4': 'smooth', '5': 'tree' };
+  const keys: Record<string, Tool> = {
+    '1': 'pan',
+    '2': 'dig',
+    '3': 'raise',
+    '4': 'smooth',
+    '5': 'tree',
+    '6': 'path',
+    '7': 'collect',
+  };
   if (keys[e.key]) setTool(keys[e.key]);
   if (e.key === '[') hud.stepBrush(state.brushRadius, -1);
   if (e.key === ']') hud.stepBrush(state.brushRadius, 1);
@@ -173,6 +233,7 @@ function spend(cost: number): boolean {
 
 function onTerrainEdited(region: BrushResult): void {
   terrain.refresh(region);
+  pathView.rebuild();
   const drowned = forest.onTerrainChanged(region);
   if (drowned > 0) hud.flash(`木が ${drowned} 本、水に沈みました`, 'bad');
   statsDirty = true;
@@ -195,6 +256,38 @@ function plantTrees(at: THREE.Vector3): void {
   if (planted > 0) statsDirty = true;
 }
 
+/** なぞった範囲の果物と生き物をかごに入れる */
+function collect(at: THREE.Vector3): void {
+  const r = state.brushRadius;
+  const got: Partial<Record<ItemKind, number>> = {};
+  const fruit = harvestFruit(forest.trees, at.x, at.z, r);
+  if (fruit > 0) {
+    got.fruit = fruit;
+    forest.markFruitDirty();
+  }
+  Object.assign(got, ecosystem.catchWithin(at.x, at.z, r));
+  const parts: string[] = [];
+  for (const kind of ITEM_ORDER) {
+    const n = got[kind] ?? 0;
+    if (n === 0) continue;
+    state.inventory[kind] += n;
+    state.pressure = addPressure(state.pressure, kind, n);
+    parts.push(`${ITEMS[kind].name} ×${n}`);
+  }
+  if (parts.length > 0) hud.flash(`かごへ: ${parts.join('、')}`);
+}
+
+function sell(kind: ItemKind | 'all'): void {
+  const kinds = kind === 'all' ? ITEM_ORDER : [kind];
+  const sold = emptyInventory();
+  for (const k of kinds) sold[k] = state.inventory[k];
+  const total = inventoryValue(sold);
+  if (total === 0) return;
+  for (const k of kinds) state.inventory[k] = 0;
+  state.money += total;
+  hud.flash(`売り上げ +${total.toLocaleString()} G`, 'good');
+}
+
 /** 押している間、毎フレーム少しずつ地形を変える */
 function applyTool(dt: number): void {
   if (!toolActive || !lastHit) return;
@@ -214,11 +307,43 @@ function applyTool(dt: number): void {
       if (!spend(COSTS.terraform)) return;
       region = map.smooth(x, z, r, Math.min(1, 6 * dt));
       break;
+    case 'collect':
+      collect(lastHit);
+      return;
+    case 'path': {
+      // Shift を押しながらなぞると撤去
+      const width = pathWidth();
+      if (shiftDown) {
+        if (paths.paint(x, z, width, true) > 0) onPathsChanged();
+        return;
+      }
+      if (state.money < SAFETY.cost) {
+        hud.flash('資金が足りません', 'bad');
+        return;
+      }
+      const before = paths.count;
+      paths.paint(x, z, width);
+      const added = paths.count - before;
+      if (added > 0) {
+        state.money -= added * SAFETY.cost;
+        onPathsChanged();
+      }
+      return;
+    }
     default:
       return;
   }
   if (region) onTerrainEdited(region);
 }
+
+function onPathsChanged(): void {
+  pathView.rebuild();
+  statsDirty = true;
+}
+
+let shiftDown = false;
+window.addEventListener('keydown', (e) => (shiftDown = e.shiftKey));
+window.addEventListener('keyup', (e) => (shiftDown = e.shiftKey));
 
 // ---- メインループ ----
 const clock = new THREE.Clock();
@@ -235,17 +360,52 @@ function frame(): void {
   // 統計は重めなので、変化があったときだけ間引いて計算する
   statsTimer += dt;
   if (statsDirty && statsTimer > 0.25) {
-    stats = computeStats(map, WATER_LEVEL, forest.trees);
+    habitat = computeHabitat(map, WATER_LEVEL, forest.trees);
+    scenic = paths.scenicValue(WATER_LEVEL);
     statsDirty = false;
     statsTimer = 0;
   }
+
+  // 自然の時間を進める：木が育って実り、生き物が集まって動き回る
+  forest.update(dt);
+  const arrived = ecosystem.update(dt, habitat, forest.trees);
+  for (const kind of new Set(arrived)) {
+    if (kind === 'duck') hud.flash(`${ITEMS[kind].name}がやってきました`);
+    if (kind === 'fox') hud.flash('キツネが現れました。来園者が襲われるかもしれません', 'bad');
+  }
+  creatureView.update(ecosystem.creatures);
+  state.pressure = decayPressure(state.pressure, dt);
+
+  const wild = {
+    fruit: forest.fruitCount,
+    rabbit: ecosystem.count('rabbit'),
+    duck: ecosystem.count('duck'),
+    fish: ecosystem.count('fish'),
+    fox: ecosystem.count('fox'),
+  };
+  state.incident = decayIncident(state.incident, dt);
+  const access = {
+    scenic,
+    safetyFor: (v: number) => safety(paths.count, v),
+    unsafePenalty: SAFETY.unsafePenalty,
+  };
+  const wildlife = { fruitOnTrees: wild.fruit, ...wild };
+  let appeal = computeAppeal(habitat, wildlife, state.pressure, state.incident, access);
+
+  // キツネがいると、遊歩道の外を歩く来園者が襲われることがある
+  if (wild.fox > 0 && Math.random() < attackChance(wild.fox, appeal.visitors, dt, appeal.safety)) {
+    state.incident = 1;
+    hud.flash('キツネが来園者を襲いました！魅力が大きく下がります', 'bad');
+    appeal = computeAppeal(habitat, wildlife, state.pressure, state.incident, access);
+  }
+  strollers.update(dt, appeal.visitors);
 
   // 1 日が過ぎるごとに入園料が入る
   state.dayTimer += dt;
   if (state.dayTimer >= SECONDS_PER_DAY) {
     state.dayTimer -= SECONDS_PER_DAY;
     state.day++;
-    const income = dailyIncome(stats);
+    const income = appeal.visitors * TICKET_PRICE;
     state.money += income;
     hud.flash(`${state.day - 1}日目の入園料  +${income.toLocaleString()} G`, 'good');
   }
@@ -255,7 +415,16 @@ function frame(): void {
     day: state.day,
     dayProgress: state.dayTimer / SECONDS_PER_DAY,
     trees: forest.trees.length,
-    ...stats,
+    treesNearWater: habitat.treesNearWater,
+    waterCells: habitat.waterCells,
+    wild,
+    appeal: appeal.appeal,
+    penalty: appeal.penalty,
+    incidentPenalty: appeal.incidentPenalty,
+    safety: appeal.safety,
+    pathCells: paths.count,
+    visitors: appeal.visitors,
+    inventory: state.inventory,
   });
 
   water.update(t);

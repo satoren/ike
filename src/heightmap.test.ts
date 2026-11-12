@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { Heightmap, generateGentleTerrain } from './heightmap';
-import { computeStats } from './economy';
 
 describe('Heightmap', () => {
   it('掘ると中心が一番深くなり、半径の外は変わらない', () => {
@@ -37,26 +36,3 @@ describe('Heightmap', () => {
   });
 });
 
-describe('computeStats', () => {
-  it('池を掘ると水面と魅力が増える', () => {
-    const map = new Heightmap(32);
-    map.heights.fill(2);
-    const before = computeStats(map, 0.5, []);
-    expect(before.waterCells).toBe(0);
-    map.applyBrush(0, 0, 5, -3);
-    const after = computeStats(map, 0.5, []);
-    expect(after.waterCells).toBeGreaterThan(0);
-    expect(after.appeal).toBeGreaterThan(before.appeal);
-  });
-
-  it('水辺の木を数える', () => {
-    const map = new Heightmap(32);
-    map.heights.fill(2);
-    map.applyBrush(0, 0, 4, -3);
-    const stats = computeStats(map, 0.5, [
-      { x: 4, z: 0, scale: 1, rotation: 0 },
-      { x: 14, z: 14, scale: 1, rotation: 0 },
-    ]);
-    expect(stats.treesNearWater).toBe(1);
-  });
-});

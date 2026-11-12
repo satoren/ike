@@ -1,16 +1,33 @@
-import type { EcoStats } from './economy';
 import { COSTS } from './economy';
+import { ITEMS, ITEM_ORDER, inventoryValue, type Inventory, type ItemKind } from './ecology';
 import { icons } from './icons';
+import { SAFETY } from './paths';
 
-export type Tool = 'pan' | 'dig' | 'raise' | 'smooth' | 'tree';
+export type Tool = 'pan' | 'dig' | 'raise' | 'smooth' | 'tree' | 'path' | 'collect';
 
 const TOOLS: { id: Tool; label: string; key: string; hint: string; cost: string }[] = [
   { id: 'pan', label: '移動', key: '1', hint: '左ドラッグでカメラを動かします', cost: '' },
-  { id: 'dig', label: '掘る', key: '2', hint: '水位より深く掘ると池になります', cost: `${COSTS.terraform}G/回` },
+  { id: 'dig', label: '掘る', key: '2', hint: '水位より深く掘ると池になり、カモや魚が集まります', cost: `${COSTS.terraform}G/回` },
   { id: 'raise', label: '盛る', key: '3', hint: '土を盛って丘や岸を作ります', cost: `${COSTS.terraform}G/回` },
   { id: 'smooth', label: 'ならす', key: '4', hint: 'でこぼこを滑らかにします', cost: `${COSTS.terraform}G/回` },
-  { id: 'tree', label: '植える', key: '5', hint: 'クリックで植樹。水辺の木ほど魅力が上がります', cost: `${COSTS.tree}G/本` },
+  { id: 'tree', label: '植える', key: '5', hint: '育つと実がなります。水辺の木にはウサギやカモが集まります', cost: `${COSTS.tree}G/本` },
+  {
+    id: 'path',
+    label: '遊歩道',
+    key: '6',
+    hint: '柵付きの道。客が安全に回れ、キツネは入れません。池の上は木道に（Shift でなぞると撤去）',
+    cost: `${SAFETY.cost}G/マス`,
+  },
+  { id: 'collect', label: '集める', key: '7', hint: 'なぞった範囲の木の実・動物・魚をかごに入れます', cost: '無料' },
 ];
+
+const ITEM_ICON: Record<ItemKind, keyof typeof icons> = {
+  fruit: 'apple',
+  rabbit: 'rabbit',
+  duck: 'duck',
+  fish: 'fish',
+  fox: 'fox',
+};
 
 const BRUSH_SIZES = [
   { label: 'S', radius: 2 },
@@ -22,16 +39,33 @@ const BRUSH_SIZES = [
 interface HudHandlers {
   onToolChange: (tool: Tool) => void;
   onBrushChange: (radius: number) => void;
+  /** かごの中身を売る。'all' はまとめて */
+  onSell: (kind: ItemKind | 'all') => void;
 }
 
-export interface HudData extends EcoStats {
+export interface HudData {
   money: number;
   day: number;
   dayProgress: number;
   trees: number;
+  /** 野外にいま居る数（果物は木に実っている数） */
+  wild: Record<ItemKind, number>;
+  appeal: number;
+  /** 採りすぎで魅力が下がっている割合（0〜1） */
+  penalty: number;
+  /** 襲撃事件で魅力が下がっている割合（0〜1） */
+  incidentPenalty: number;
+  /** 来園者のうち遊歩道で安全に回れる割合（0〜1） */
+  safety: number;
+  pathCells: number;
+  visitors: number;
+  waterCells: number;
+  treesNearWater: number;
+  inventory: Inventory;
 }
 
 type ToastKind = 'info' | 'good' | 'bad';
+type ChipName = 'money' | 'visitors' | 'appeal' | 'safety' | 'water' | 'trees';
 
 /**
  * 画面上の UI。運営ゲームは UI が多くなるので、three.js ではなく普通の HTML/CSS で組む。
@@ -44,8 +78,10 @@ export class Hud {
   private readonly toasts: HTMLElement;
   private readonly values: Record<string, HTMLElement> = {};
   private readonly dayRing: SVGCircleElement;
+  private readonly basketRows = new Map<ItemKind, HTMLElement>();
+  private readonly sellAll: HTMLButtonElement;
   private readonly handlers: HudHandlers;
-  private last: Partial<HudData> = {};
+  private lastNums: Partial<Record<ChipName, number>> = {};
   private lastKey = '';
 
   constructor(handlers: HudHandlers) {
@@ -56,7 +92,7 @@ export class Hud {
         <div class="brand card">
           <span class="brand-icon">${icons.leaf}</span>
           <span class="brand-name">池づくり</span>
-          <span class="day" title="ゲーム内の 1 日が終わると入園料が入ります">
+          <span class="day" title="ゲーム内の日数">
             <svg class="ring" viewBox="0 0 36 36" aria-hidden="true">
               <circle cx="18" cy="18" r="15" class="ring-bg"/>
               <circle cx="18" cy="18" r="15" class="ring-fg"/>
@@ -68,10 +104,21 @@ export class Hud {
           ${chip('money', 'coin', '資金')}
           ${chip('visitors', 'people', '来園者 / 日')}
           ${chip('appeal', 'sparkle', '景観の魅力')}
+          ${chip('safety', 'shield', '客の安全（遊歩道）')}
           ${chip('water', 'drop', '池の広さ')}
           ${chip('trees', 'tree', '木（うち水辺）')}
         </div>
       </header>
+
+      <aside class="basket card" aria-label="かご">
+        <div class="basket-head">
+          <span class="basket-icon">${icons.collect}</span>
+          <b>かご</b>
+          <span class="basket-hint">いま居る数 / かご</span>
+        </div>
+        <ul class="basket-list"></ul>
+        <button type="button" class="sell-all"></button>
+      </aside>
 
       <div class="toasts" aria-live="polite"></div>
 
@@ -89,13 +136,15 @@ export class Hud {
 
       <button class="help-btn card" type="button" aria-label="操作方法">${icons.help}</button>
       <div class="help card" hidden>
-        <div class="help-head"><b>操作方法</b><button type="button" class="help-close" aria-label="閉じる">${icons.close}</button></div>
+        <div class="help-head"><b>遊び方</b><button type="button" class="help-close" aria-label="閉じる">${icons.close}</button></div>
+        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。柵付きの遊歩道を来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります。</p>
         <dl>
           <dt>左ドラッグ</dt><dd>道具を使う（移動ではカメラ移動）</dd>
           <dt>右ドラッグ</dt><dd>カメラ移動</dd>
           <dt>中ドラッグ</dt><dd>カメラ回転</dd>
           <dt>ホイール</dt><dd>ズーム</dd>
-          <dt><kbd>1</kbd>〜<kbd>5</kbd></dt><dd>道具の切り替え</dd>
+          <dt>Shift+ドラッグ</dt><dd>遊歩道を撤去</dd>
+          <dt><kbd>1</kbd>〜<kbd>7</kbd></dt><dd>道具の切り替え</dd>
           <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>ブラシの大きさ</dd>
         </dl>
       </div>
@@ -105,6 +154,7 @@ export class Hud {
     this.hint = this.root.querySelector('.hint')!;
     this.toasts = this.root.querySelector('.toasts')!;
 
+    // 道具
     const tools = this.root.querySelector('.tools')!;
     for (const t of TOOLS) {
       const b = document.createElement('button');
@@ -121,6 +171,7 @@ export class Hud {
       this.buttons.set(t.id, b);
     }
 
+    // ブラシの大きさ
     const sizes = this.root.querySelector('.sizes-row')!;
     for (const s of BRUSH_SIZES) {
       const b = document.createElement('button');
@@ -133,6 +184,25 @@ export class Hud {
       sizes.appendChild(b);
       this.sizeButtons.push(b);
     }
+
+    // かご
+    const list = this.root.querySelector('.basket-list')!;
+    for (const kind of ITEM_ORDER) {
+      const info = ITEMS[kind];
+      const li = document.createElement('li');
+      li.className = `basket-row item-${kind}`;
+      li.innerHTML = `
+        <span class="item-icon">${icons[ITEM_ICON[kind]]}</span>
+        <span class="item-name">${info.name}<small>${info.price}G</small></span>
+        <span class="item-wild" data-wild title="野外にいま居る数">0</span>
+        <span class="item-count" data-count>0</span>
+        <button type="button" class="sell" title="${info.name}を売る">売る</button>`;
+      li.querySelector('.sell')!.addEventListener('click', () => handlers.onSell(kind));
+      list.appendChild(li);
+      this.basketRows.set(kind, li);
+    }
+    this.sellAll = this.root.querySelector('.sell-all')!;
+    this.sellAll.addEventListener('click', () => handlers.onSell('all'));
 
     const help = this.root.querySelector<HTMLElement>('.help')!;
     this.root.querySelector('.help-btn')!.addEventListener('click', () => (help.hidden = !help.hidden));
@@ -191,34 +261,64 @@ export class Hud {
     this.dayRing.style.strokeDashoffset = String(94.25 * (1 - d.dayProgress));
 
     // 値が変わったときだけ DOM を書き換える
-    const key = [d.money, d.day, d.waterCells, d.trees, d.treesNearWater, d.appeal, d.visitors].join('|');
+    const inv = d.inventory;
+    const key = [
+      d.money, d.day, d.visitors, d.appeal, Math.round(d.penalty * 100), Math.round(d.incidentPenalty * 100), Math.round(d.safety * 100), d.pathCells, d.waterCells, d.trees, d.treesNearWater,
+      ...ITEM_ORDER.map((k) => `${inv[k]}/${d.wild[k]}`),
+    ].join('|');
     if (key === this.lastKey) return;
     this.lastKey = key;
 
     this.values.day.textContent = `${d.day}日目`;
-    this.set('money', d.money, `${d.money.toLocaleString()}`, 'G');
-    this.set('visitors', d.visitors, `${d.visitors}`, '人');
-    this.set('appeal', d.appeal, `${d.appeal}`);
-    this.set('water', d.waterCells, `${d.waterCells}`, 'マス');
-    this.set('trees', d.trees, `${d.trees}`, `本 <small>(${d.treesNearWater})</small>`);
-    this.last = d;
+    this.set('money', d.money, d.money.toLocaleString(), 'G');
+    this.set('visitors', d.visitors, String(d.visitors), '人');
+    const pct = Math.round(d.penalty * 100);
+    const inc = Math.round(d.incidentPenalty * 100);
+    const notes = [
+      inc >= 3 ? `<em class="penalty">事件 -${inc}%</em>` : '',
+      pct >= 3 ? `<em class="penalty">採りすぎ -${pct}%</em>` : '',
+    ].join('');
+    this.set('appeal', d.appeal, String(d.appeal), notes);
+    this.values.appeal.closest('.chip')!.classList.toggle('stressed', pct >= 3 || inc >= 3);
+    const safe = Math.round(d.safety * 100);
+    this.set('safety', safe, String(safe), `% <small>(${d.pathCells}マス)</small>`);
+    this.values.safety.closest('.chip')!.classList.toggle('stressed', safe < 50);
+    this.set('water', d.waterCells, String(d.waterCells), 'マス');
+    this.set('trees', d.trees, String(d.trees), `本 <small>(${d.treesNearWater})</small>`);
+
+    for (const kind of ITEM_ORDER) {
+      const row = this.basketRows.get(kind)!;
+      const n = inv[kind];
+      row.querySelector<HTMLElement>('[data-wild]')!.textContent = String(d.wild[kind]);
+      const countEl = row.querySelector<HTMLElement>('[data-count]')!;
+      if (countEl.textContent !== String(n)) {
+        countEl.textContent = String(n);
+        row.classList.remove('pop');
+        void row.offsetWidth;
+        row.classList.add('pop');
+      }
+      row.classList.toggle('empty', n === 0);
+    }
+    const total = inventoryValue(inv);
+    this.sellAll.disabled = total === 0;
+    this.sellAll.innerHTML = total > 0 ? `まとめて売る <b>+${total.toLocaleString()}G</b>` : 'かごは空です';
   }
 
   /** 数値を書き換え、増減に応じてチップを一瞬光らせる */
-  private set(name: keyof HudData | 'water', value: number, text: string, unit = ''): void {
+  private set(name: ChipName, value: number, text: string, unit = ''): void {
     const el = this.values[name];
     el.innerHTML = `${text}${unit ? `<span class="unit">${unit}</span>` : ''}`;
-    const prevKey = name === 'water' ? 'waterCells' : name;
-    const prev = this.last[prevKey as keyof HudData];
-    if (typeof prev !== 'number' || prev === value) return;
-    const chipEl = el.closest('.chip')!;
+    const prev = this.lastNums[name];
+    this.lastNums[name] = value;
+    if (prev === undefined || prev === value) return;
+    const chipEl = el.closest('.chip') as HTMLElement;
     chipEl.classList.remove('up', 'down');
-    void (chipEl as HTMLElement).offsetWidth; // アニメーションをやり直すためのリフロー
+    void chipEl.offsetWidth; // アニメーションをやり直すためのリフロー
     chipEl.classList.add(value > prev ? 'up' : 'down');
   }
 }
 
-function chip(name: string, icon: keyof typeof icons, label: string): string {
+function chip(name: ChipName, icon: keyof typeof icons, label: string): string {
   return `
     <div class="chip card chip-${name}" title="${label}">
       <span class="chip-icon">${icons[icon]}</span>
