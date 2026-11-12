@@ -7,6 +7,9 @@ import { WEED } from './foodweb';
 
 export type Tool = 'pan' | 'dig' | 'raise' | 'smooth' | 'tree' | 'path' | 'collect' | 'trap' | 'gun' | 'weed';
 
+/** 狭い（縦持ちのスマホ）または低い（横持ち）画面。パネルを畳んで地図を広く見せる */
+export const COMPACT_QUERY = '(max-width: 640px), (max-height: 500px)';
+
 const TOOLS: { id: Tool; label: string; key: string; hint: string; cost: string }[] = [
   { id: 'pan', label: '移動', key: '1', hint: '左ドラッグでカメラを動かします', cost: '' },
   { id: 'dig', label: '掘る', key: '2', hint: '水位より深く掘ると池になり、カモや魚が集まります', cost: `${COSTS.terraform}G/回` },
@@ -17,7 +20,7 @@ const TOOLS: { id: Tool; label: string; key: string; hint: string; cost: string 
     id: 'path',
     label: '遊歩道',
     key: '6',
-    hint: '手前の出入口からつなげて敷く柵付きの道。客が安全に回れ、キツネは入れません（Shift でなぞると撤去）',
+    hint: '手前の出入口からつなげて敷く柵付きの道。客が安全に回れ、キツネは入れません（Shift か「撤去」でなぞると撤去）',
     cost: `${SAFETY.cost}G/マス`,
   },
   { id: 'collect', label: '集める', key: '7', hint: 'なぞった範囲の木の実・動物・魚をかごに入れます', cost: '無料' },
@@ -71,6 +74,8 @@ interface HudHandlers {
   onToggleNight: () => void;
   /** 保存データを消して最初からやり直す */
   onReset: () => void;
+  /** 遊歩道の「撤去」モードの切り替え（タッチでは Shift が使えないため） */
+  onPathErase: (on: boolean) => void;
 }
 
 export interface HudData {
@@ -124,6 +129,8 @@ export class Hud {
   private readonly dayRing: SVGCircleElement;
   private readonly basketRows = new Map<ItemKind, HTMLElement>();
   private readonly sellAll: HTMLButtonElement;
+  private readonly basketSum: HTMLElement;
+  private readonly pathErase: HTMLButtonElement;
   private readonly nightToggle: HTMLButtonElement;
   private readonly handlers: HudHandlers;
   private lastNums: Partial<Record<ChipName, number>> = {};
@@ -160,11 +167,13 @@ export class Hud {
       </header>
 
       <aside class="basket card" aria-label="かご">
-        <div class="basket-head">
+        <button type="button" class="basket-head" aria-expanded="true">
           <span class="basket-icon">${icons.collect}</span>
           <b>かご</b>
           <span class="basket-hint">いま居る数 / かご</span>
-        </div>
+          <span class="basket-sum"></span>
+          <span class="basket-toggle" aria-hidden="true"></span>
+        </button>
         <ul class="basket-list"></ul>
         <button type="button" class="sell-all"></button>
       </aside>
@@ -185,6 +194,7 @@ export class Hud {
           <div class="sizes" role="group" aria-label="ブラシの大きさ">
             <span class="sizes-label">ブラシ</span>
             <div class="sizes-row"></div>
+            <button type="button" class="path-erase" aria-pressed="false" hidden>撤去</button>
           </div>
         </nav>
       </footer>
@@ -193,12 +203,20 @@ export class Hud {
       <div class="help card" hidden>
         <div class="help-head"><b>遊び方</b><button type="button" class="help-close" aria-label="閉じる">${icons.close}</button></div>
         <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります（つながっていない道は灰色になり、使われません）。ときどきクマが現れ、柵と道を壊して来園者を襲います。罠を仕掛けるか銃で狩りましょう。夜には密猟者が忍び込んで魚や動物を盗んでいきます。紫の目印の人を「集める」でなぞると捕まえられ、報奨金がもらえます。来園者に見つかると逃げ出すので、遊歩道を広く巡らせておくと被害を減らせます。左上の「夜間営業」で遊歩道をライトアップすると夜も客が来て入園料が増えますが、電気代がかかり、夜行性のキツネが寄ってきて遊歩道の外が危険になります。水辺の木を増やし、池を深くして荒らさずにいると、ホタルやオオサンショウウオがまれに現れて話題になり、来園者が一気に増えます（捕まえることはできません）。</p>
-        <dl>
+        <dl class="help-mouse">
           <dt>左ドラッグ</dt><dd>道具を使う（移動ではカメラ移動）</dd>
           <dt>右ドラッグ</dt><dd>カメラ移動</dd>
           <dt>中ドラッグ</dt><dd>カメラ回転</dd>
           <dt>ホイール</dt><dd>ズーム</dd>
           <dt>Shift+ドラッグ</dt><dd>遊歩道を撤去</dd>
+        </dl>
+        <dl class="help-touch">
+          <dt>1本指</dt><dd>道具を使う（移動ではカメラ移動）</dd>
+          <dt>2本指ドラッグ</dt><dd>カメラ移動（移動では回転）</dd>
+          <dt>ピンチ</dt><dd>ズーム</dd>
+          <dt>撤去ボタン</dt><dd>遊歩道を撤去</dd>
+        </dl>
+        <dl class="help-keys">
           <dt><kbd>1</kbd>〜<kbd>0</kbd></dt><dd>道具の切り替え</dd>
           <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>ブラシの大きさ</dd>
         </dl>
@@ -262,6 +280,20 @@ export class Hud {
     }
     this.sellAll = this.root.querySelector('.sell-all')!;
     this.sellAll.addEventListener('click', () => handlers.onSell('all'));
+    this.basketSum = this.root.querySelector('.basket-sum')!;
+    // 狭い・低い画面ではかごを畳んでおき、押すと広げる（地図を広く見せるため）
+    const basket = this.root.querySelector<HTMLElement>('.basket')!;
+    const basketHead = basket.querySelector<HTMLButtonElement>('.basket-head')!;
+    const compact = window.matchMedia(COMPACT_QUERY).matches;
+    basket.classList.toggle('collapsed', compact);
+    basketHead.setAttribute('aria-expanded', String(!compact));
+    basketHead.addEventListener('click', () => {
+      const collapsed = basket.classList.toggle('collapsed');
+      basketHead.setAttribute('aria-expanded', String(!collapsed));
+    });
+
+    this.pathErase = this.root.querySelector('.path-erase')!;
+    this.pathErase.addEventListener('click', () => this.setPathErase(this.pathErase.getAttribute('aria-pressed') !== 'true'));
 
     this.nightToggle = this.root.querySelector('.night-toggle')!;
     this.nightToggle.addEventListener('click', () => handlers.onToggleNight());
@@ -280,6 +312,14 @@ export class Hud {
     }
     this.hint.textContent = TOOLS.find((t) => t.id === tool)?.hint ?? '';
     this.root.querySelector('.sizes')!.classList.toggle('disabled', tool === 'pan');
+    this.pathErase.hidden = tool !== 'path';
+    if (tool !== 'path') this.setPathErase(false);
+  }
+
+  private setPathErase(on: boolean): void {
+    this.pathErase.setAttribute('aria-pressed', String(on));
+    this.pathErase.classList.toggle('active', on);
+    this.handlers.onPathErase(on);
   }
 
   /** ブラシの大きさ。プリセットにない値でも一番近いボタンを選択表示にする */
@@ -380,6 +420,7 @@ export class Hud {
     }
     const total = inventoryValue(inv);
     this.sellAll.disabled = total === 0;
+    this.basketSum.textContent = total > 0 ? `+${total.toLocaleString()}G` : '';
     this.sellAll.innerHTML = total > 0 ? `まとめて売る <b>+${total.toLocaleString()}G</b>` : 'かごは空です';
   }
 

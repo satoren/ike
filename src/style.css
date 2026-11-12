@@ -28,6 +28,11 @@ body {
   overflow: hidden;
   background: #a9cfe3;
   -webkit-font-smoothing: antialiased;
+  /* iPhone：引っ張りでページが揺れない・長押しでメニューや選択が出ない */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 #app canvas {
@@ -41,7 +46,10 @@ body {
   pointer-events: none;
   color: var(--ink);
   font-size: 14px;
+  -webkit-user-select: none;
   user-select: none;
+  /* ダブルタップでの拡大を止める（スクロールは残す） */
+  touch-action: manipulation;
 }
 
 /* :where で詳細度を 0 にして、.tool.active などの指定が必ず勝つようにする */
@@ -1126,5 +1134,328 @@ kbd {
     left: 10px;
     right: 10px;
     padding: 6px 10px;
+  }
+}
+
+/* ---------- かごの開閉 ---------- */
+:where(#hud) .basket-head {
+  width: 100%;
+  text-align: left;
+}
+
+.basket-sum {
+  display: none;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--leaf-deep);
+}
+
+.basket-toggle::before {
+  content: '';
+  display: block;
+  width: 7px;
+  height: 7px;
+  margin: 0 2px 0 4px;
+  border-right: 2px solid var(--ink-soft);
+  border-bottom: 2px solid var(--ink-soft);
+  transform: translateY(2px) rotate(-135deg);
+  transition: transform 0.2s;
+}
+
+.basket.collapsed .basket-toggle::before {
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.basket.collapsed {
+  width: auto;
+}
+
+.basket.collapsed .basket-head {
+  margin-bottom: 0;
+}
+
+.basket.collapsed .basket-hint,
+.basket.collapsed .basket-list,
+.basket.collapsed .sell-all,
+.basket.collapsed .foodweb {
+  display: none;
+}
+
+.basket.collapsed .basket-sum {
+  display: inline;
+}
+
+/* ---------- 遊歩道の撤去ボタン ---------- */
+.path-erase {
+  align-self: center;
+  margin-top: 2px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  background: rgba(36, 57, 45, 0.06);
+}
+
+.path-erase.active {
+  color: #fff;
+  background: var(--bad);
+}
+
+.help-touch {
+  display: none !important;
+}
+
+/* ---------- タッチ操作の端末（iPhone など） ---------- */
+@media (pointer: coarse) {
+  .help-mouse,
+  .help-keys {
+    display: none !important;
+  }
+  .help-touch {
+    display: grid !important;
+    margin-bottom: 4px !important;
+  }
+  .tool kbd {
+    display: none;
+  }
+  .tool:hover,
+  .sell:hover {
+    background: none;
+  }
+}
+
+/* ---------- セーフエリア（ノッチ・ホームバー）と小さい画面 ---------- */
+:root {
+  --sa-t: env(safe-area-inset-top, 0px);
+  --sa-r: env(safe-area-inset-right, 0px);
+  --sa-b: env(safe-area-inset-bottom, 0px);
+  --sa-l: env(safe-area-inset-left, 0px);
+}
+
+.topbar {
+  top: calc(16px + var(--sa-t));
+  left: calc(16px + var(--sa-l));
+  right: calc(16px + var(--sa-r));
+}
+
+.dock-wrap {
+  bottom: calc(18px + var(--sa-b));
+  padding-left: calc(16px + var(--sa-l));
+  padding-right: calc(16px + var(--sa-r));
+}
+
+.help-btn {
+  right: calc(16px + var(--sa-r));
+  bottom: calc(18px + var(--sa-b));
+}
+
+.rare-badge {
+  bottom: calc(128px + var(--sa-b));
+  left: calc(16px + var(--sa-l));
+}
+
+.help {
+  right: calc(16px + var(--sa-r));
+  bottom: calc(72px + var(--sa-b));
+  max-height: calc(100dvh - 100px - var(--sa-t) - var(--sa-b));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    top: calc(8px + var(--sa-t));
+    left: calc(10px + var(--sa-l));
+    right: calc(10px + var(--sa-r));
+  }
+  .dock-wrap {
+    bottom: max(8px, var(--sa-b));
+    padding-left: calc(8px + var(--sa-l));
+    padding-right: calc(8px + var(--sa-r));
+  }
+  .dock {
+    width: 100%;
+    padding: 6px;
+  }
+  /* 道具は横スクロール。指で押しやすい大きさにして縮ませない */
+  .tools {
+    width: 100%;
+    max-width: none;
+    gap: 2px;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+  }
+  .tool {
+    flex: 0 0 auto;
+    width: 56px;
+    min-height: 60px;
+    scroll-snap-align: start;
+  }
+  .size {
+    min-width: 48px;
+    height: 40px;
+  }
+  .path-erase {
+    margin-top: 0;
+    padding: 0 14px;
+    height: 40px;
+  }
+  .night-toggle {
+    min-width: 40px;
+    min-height: 36px;
+    justify-content: center;
+  }
+  .sell {
+    padding: 8px 10px;
+  }
+  /* 遊び方は右上に出す（下はドックで埋まるため） */
+  .help-btn {
+    display: grid;
+    top: calc(8px + var(--sa-t));
+    right: calc(10px + var(--sa-r));
+    bottom: auto;
+  }
+  .help {
+    top: calc(60px + var(--sa-t));
+    left: calc(10px + var(--sa-l));
+    right: calc(10px + var(--sa-r));
+    bottom: auto;
+    width: auto;
+    max-height: calc(100dvh - 80px - var(--sa-t) - var(--sa-b));
+  }
+  .basket {
+    right: calc(10px + var(--sa-r));
+    bottom: calc(200px + var(--sa-b));
+    max-height: calc(100dvh - 380px - var(--sa-t) - var(--sa-b));
+    overflow-y: auto;
+  }
+  .basket.collapsed {
+    width: auto;
+    padding: 6px 10px 6px 6px;
+  }
+  .rare-badge {
+    top: calc(162px + var(--sa-t));
+    bottom: auto;
+    left: calc(10px + var(--sa-l));
+    right: calc(10px + var(--sa-r));
+  }
+  .toasts {
+    bottom: calc(250px + var(--sa-b));
+    width: calc(100vw - 20px);
+  }
+}
+
+/* 横持ちのスマホ：高さが足りないので、上の数字を一列にしてドックも薄くする */
+@media (max-height: 500px) and (min-width: 641px) {
+  .topbar {
+    top: calc(6px + var(--sa-t));
+  }
+  .topbar {
+    left: calc(12px + var(--sa-l));
+    right: calc(64px + var(--sa-r));
+    gap: 6px;
+  }
+  .brand {
+    align-self: flex-start;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+  .chips {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .chip {
+    flex: 0 0 auto;
+    min-width: 0;
+    padding: 4px 10px 4px 4px;
+  }
+  .chip-label {
+    display: none;
+  }
+  .help-btn {
+    top: calc(6px + var(--sa-t));
+    bottom: auto;
+    right: calc(12px + var(--sa-r));
+  }
+  .help {
+    top: calc(58px + var(--sa-t));
+    bottom: auto;
+    max-height: calc(100dvh - 70px - var(--sa-t) - var(--sa-b));
+  }
+  .tools {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+  .tool {
+    flex: 0 0 auto;
+  }
+  .sizes-label {
+    display: none;
+  }
+  .sizes-row {
+    flex-wrap: wrap;
+    width: 88px;
+    gap: 2px;
+  }
+  .size {
+    width: 42px;
+    height: 32px;
+    flex-direction: row;
+    justify-content: center;
+    padding: 0;
+  }
+  .size i {
+    display: none;
+  }
+  .dock-wrap {
+    bottom: max(6px, var(--sa-b));
+  }
+  .hint {
+    display: none;
+  }
+  .dock {
+    padding: 4px;
+  }
+  .tool {
+    width: 54px;
+    padding: 4px 2px;
+  }
+  .tool-icon {
+    width: 30px;
+    height: 30px;
+  }
+  .tool kbd,
+  .tool-cost {
+    display: none;
+  }
+  .reviews {
+    width: 240px;
+  }
+  .rare-badge {
+    top: calc(96px + var(--sa-t));
+    bottom: auto;
+    left: calc(12px + var(--sa-l));
+  }
+  .basket,
+  .reviews {
+    top: auto;
+    bottom: calc(96px + var(--sa-b));
+    max-height: calc(100dvh - 180px - var(--sa-t) - var(--sa-b));
+    overflow-y: auto;
+  }
+  .basket {
+    right: calc(16px + var(--sa-r));
+  }
+  .reviews {
+    left: calc(16px + var(--sa-l));
   }
 }
