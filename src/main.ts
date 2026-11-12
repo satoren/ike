@@ -29,6 +29,8 @@ import { CreatureView } from './creatures';
 import { PathGrid, PathView, SAFETY, Strollers, safety } from './paths';
 import { BEAR, Bears, SHOT_COST, TRAP_COST } from './bears';
 import { BearView } from './bearview';
+import { POACHER, POACHER_TARGETS, Poachers } from './poachers';
+import { PoacherView } from './poacherview';
 import { SAVE_VERSION, SaveSlot, decodeFloats, base64ToBytes, bytesToBase64, encodeFloats, type SaveData } from './save';
 import { Hud, type Tool } from './ui';
 import { BIRDS, FoodWeb, WEED, fishCapacity } from './foodweb';
@@ -126,6 +128,9 @@ scene.add(bearView.group);
 const foodweb = new FoodWeb(map, WATER_LEVEL);
 const foodwebView = new FoodWebView(map, WATER_LEVEL);
 scene.add(foodwebView.group);
+const poachers = new Poachers(map, WATER_LEVEL);
+const poacherView = new PoacherView(map, WATER_LEVEL);
+scene.add(poacherView.group);
 
 const cursor = new BrushCursor(map);
 scene.add(cursor.line);
@@ -352,6 +357,22 @@ function collect(at: THREE.Vector3): void {
     parts.push(`${ITEMS[kind].name} ×${n}`);
   }
   if (parts.length > 0) hud.flash(`かごへ: ${parts.join('、')}`);
+
+  // なぞった範囲に密猟者がいれば捕まえる
+  const caught = poachers.catchWithin(at.x, at.z, r);
+  if (caught.length > 0) catchPoachers(caught);
+}
+
+/** 捕まえた密猟者の報奨金を受け取り、盗まれた生き物を自然へ戻す */
+function catchPoachers(caught: CreatureKind[][]): void {
+  const reward = caught.length * POACHER.reward;
+  state.money += reward;
+  let released = 0;
+  for (const loot of caught) {
+    for (const kind of loot) if (ecosystem.spawn(kind, forest.trees)) released++;
+  }
+  const back = released > 0 ? `盗まれた生き物 ${released} 匹を自然へ戻しました` : '';
+  hud.flash(`密猟者を捕まえました！報奨金 +${reward.toLocaleString()} G ${back}`, 'good');
 }
 
 function placeTrap(at: THREE.Vector3): void {
@@ -484,6 +505,7 @@ function snapshot(): SaveData {
     bears: bears.bears.map((b) => ({ ...b })),
     traps: bears.traps.map((t) => ({ ...t })),
     foodweb: { weeds: foodweb.weeds.map((w) => ({ ...w })), birds: foodweb.birds.map((b) => ({ ...b })) },
+    poachers: poachers.poachers.map((p) => ({ ...p, loot: [...p.loot] })),
     state: {
       money: state.money,
       day: state.day,
@@ -509,6 +531,7 @@ function restore(data: SaveData): void {
   ecosystem.restore(data.creatures);
   bears.restore(data.bears ?? [], data.traps ?? []);
   foodweb.restore(data.foodweb);
+  poachers.restore(data.poachers ?? []);
   Object.assign(state, data.state, { inventory: { ...emptyInventory(), ...data.state.inventory } });
   camera.position.fromArray(data.camera.position);
   controls.target.fromArray(data.camera.target);
@@ -546,7 +569,19 @@ if (new URLSearchParams(location.search).has('bear')) {
   b.z *= 0.45;
 }
 
+// 確認用：URL に ?poacher を付けると、最初から密猟者が 1 人忍び込む
+if (new URLSearchParams(location.search).has('poacher')) {
+  const p = poachers.spawn();
+  p.x *= 0.5;
+  p.z *= 0.5;
+}
+
 /** クマの居る場所へカメラを向ける */
+function removeCreature(id: number): void {
+  const i = ecosystem.creatures.findIndex((c) => c.id === id);
+  if (i >= 0) ecosystem.creatures.splice(i, 1);
+}
+
 function focusBear(): void {
   const b = bears.bears[0];
   if (!b) return;
@@ -634,6 +669,25 @@ function frame(): void {
   }
   bearView.update(bears.bears, bears.traps, t);
 
+  // 密猟者：夜に忍び込んで魚や動物を盗む。来園者に見つかると逃げる
+  const poacherEvents = poachers.update(
+    dt,
+    { creatures: ecosystem.creatures, remove: (id) => removeCreature(id) },
+    strollers.positions(),
+  );
+  for (const kind of poacherEvents.stolen) state.pressure = addPressure(state.pressure, kind, 1);
+  if (poacherEvents.stolen.length > 0) {
+    const names = poacherEvents.stolen.map((k) => ITEMS[k].name).join('、');
+    hud.flash(`密猟者が${names}を盗みました！「集める」でなぞって捕まえましょう`, 'bad');
+  }
+  if (poacherEvents.spotted > 0) hud.flash('来園者が密猟者を見つけました。逃げていきます');
+  for (const loot of poacherEvents.escapedWith) {
+    // 持ち去られると、盗まれた分だけさらに荒らされる
+    for (const kind of loot) state.pressure = addPressure(state.pressure, kind, 1);
+    hud.flash(`密猟者に逃げられました（${loot.length} 匹を持ち去られました）`, 'bad');
+  }
+  poacherView.update(poachers.poachers, t);
+
   state.incident = decayIncident(state.incident, dt);
   const access = {
     scenic: scenic + foodweb.appealBonus(),
@@ -670,6 +724,12 @@ function frame(): void {
     if (state.day >= BEAR.firstDay && bears.bears.length === 0 && Math.random() < BEAR.chance(forest.trees.length)) {
       bears.spawn();
       hud.flash('クマが現れました！罠を仕掛けるか、銃で狩りましょう', 'bad');
+    }
+    // 夜のあいだ、獲物が多いほど密猟者に狙われやすい
+    const prey = ecosystem.creatures.filter((c) => POACHER_TARGETS.includes(c.kind)).length;
+    if (state.day >= POACHER.firstDay && poachers.poachers.length < POACHER.max && Math.random() < POACHER.chance(prey)) {
+      poachers.spawn();
+      hud.flash('夜のうちに密猟者が忍び込みました！「集める」でなぞって捕まえましょう', 'bad');
     }
   }
 

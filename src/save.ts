@@ -2,6 +2,7 @@ import type { Creature, Inventory } from './ecology';
 import type { Tree } from './trees';
 import type { Bear, Trap } from './bears';
 import type { Bird, Weed } from './foodweb';
+import type { Poacher } from './poachers';
 
 /**
  * ゲームの進捗の保存と読み込み。
@@ -26,6 +27,8 @@ export interface SaveData {
   traps: Trap[];
   /** 水草と鳥（古い保存データには無い） */
   foodweb?: { weeds: Weed[]; birds: Bird[] };
+  /** 忍び込んでいる密猟者（古い保存データには無い） */
+  poachers?: Poacher[];
   state: {
     money: number;
     day: number;
