@@ -5,6 +5,7 @@ import type { Weather } from './seasons';
 import type { RareState } from './rare';
 import type { Bird, Weed } from './foodweb';
 import type { Poacher } from './poachers';
+import type { Ranger } from './rangers';
 
 /**
  * ゲームの進捗の保存と読み込み。
@@ -33,6 +34,8 @@ export interface SaveData {
   foodweb?: { weeds: Weed[]; birds: Bird[] };
   /** 忍び込んでいる密猟者（古い保存データには無い） */
   poachers?: Poacher[];
+  /** 雇った駆除係（古い保存データには無い） */
+  rangers?: Ranger[];
   state: {
     money: number;
     day: number;
