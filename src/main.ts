@@ -31,6 +31,8 @@ import { BEAR, Bears, SHOT_COST, TRAP_COST } from './bears';
 import { BearView } from './bearview';
 import { SAVE_VERSION, SaveSlot, decodeFloats, base64ToBytes, bytesToBase64, encodeFloats, type SaveData } from './save';
 import { Hud, type Tool } from './ui';
+import { ReviewFeed } from './reviews';
+import { ReviewPanel } from './reviewview';
 
 // ---- ワールドの設定 ----
 const MAP_SIZE = 128; // マス数（一辺）
@@ -153,6 +155,7 @@ for (const kind of ['rabbit', 'rabbit', 'rabbit', 'duck', 'fish', 'fish', 'fish'
   ecosystem.spawn(kind, forest.trees);
 }
 
+const reviews = new ReviewFeed();
 const hud = new Hud({
   onToolChange: (tool) => setTool(tool),
   onBrushChange: (r) => {
@@ -164,6 +167,7 @@ const hud = new Hud({
   onReset: () => resetGame(),
 });
 hud.setTool(state.tool);
+const reviewPanel = new ReviewPanel(document.getElementById('hud')!);
 hud.setBrush(state.brushRadius);
 updateCursorRadius();
 
@@ -332,6 +336,7 @@ function shoot(at: THREE.Vector3): void {
   if (result === 'killed') {
     state.inventory.bear++;
     hud.flash('クマを仕留めました！かごに入れました', 'good');
+    reviews.note('bearHunted');
     return;
   }
   if (result === 'hit') {
@@ -561,10 +566,12 @@ function frame(): void {
   if (bearEvents.attacked > 0) {
     state.incident = Math.min(2, state.incident + ATTACK.bearSeverity * bearEvents.attacked);
     hud.flash('クマが来園者を襲いました！魅力が大幅に下がります', 'bad');
+    reviews.note('bearAttack');
   }
   if (bearEvents.trapped > 0) {
     state.inventory.bear += bearEvents.trapped;
     hud.flash('クマが罠にかかりました！かごに入れました', 'good');
+    reviews.note('bearHunted');
   }
   // 罠にはキツネもかかる
   for (const c of ecosystem.creatures) {
@@ -591,9 +598,27 @@ function frame(): void {
   if (wild.fox > 0 && Math.random() < attackChance(wild.fox, appeal.visitors, dt, appeal.safety)) {
     state.incident = 1;
     hud.flash('キツネが来園者を襲いました！魅力が大きく下がります', 'bad');
+    reviews.note('foxAttack');
     appeal = computeAppeal(habitat, wildlife, state.pressure, state.incident, access);
   }
   strollers.update(dt, appeal.visitors);
+
+  // 来園者の口コミ：いまの園の状態から感想が届く
+  const review = reviews.update(
+    dt,
+    {
+      visitors: appeal.visitors,
+      penalty: appeal.penalty,
+      safety: appeal.safety,
+      pathCells: paths.connectedCount,
+      waterCells: habitat.waterCells,
+      trees: forest.trees.length,
+      treesNearWater: habitat.treesNearWater,
+      wild,
+    },
+    state.day,
+  );
+  if (review) reviewPanel.render(reviews, review);
 
   // 数秒ごとに自動保存
   saveTimer += dt;
