@@ -72,3 +72,14 @@
     height: 15px;
   }
 }
+
+/* 季節の表示が増えた分、中くらいの幅ではタイトルの文字を省いて 1 行に収める */
+.brand .brand-name,
+.brand .day {
+  white-space: nowrap;
+}
+@media (max-width: 1440px) and (min-width: 901px) {
+  .brand .brand-name {
+    display: none;
+  }
+}
