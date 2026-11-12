@@ -139,6 +139,10 @@ export function generateGentleTerrain(map: Heightmap, seed = 1, base = 1.5): voi
     for (let ix = 0; ix <= map.size; ix++) {
       let h = base;
       for (const w of waves) h += w.amp * Math.sin(ix * w.fx * Math.PI * 2 + iz * w.fz * Math.PI * 2 + w.phase);
+      // 地図の縁は平らな base の高さにそろえ、外側の地面と段差なくつなぐ
+      const edge = Math.min(ix, iz, map.size - ix, map.size - iz);
+      const t = Math.min(1, edge / 10);
+      h = base + (h - base) * t * t * (3 - 2 * t);
       map.set(ix, iz, h);
     }
   }

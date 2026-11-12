@@ -15,7 +15,7 @@ const TOOLS: { id: Tool; label: string; key: string; hint: string; cost: string 
     id: 'path',
     label: '遊歩道',
     key: '6',
-    hint: '柵付きの道。客が安全に回れ、キツネは入れません。池の上は木道に（Shift でなぞると撤去）',
+    hint: '手前の出入口からつなげて敷く柵付きの道。客が安全に回れ、キツネは入れません（Shift でなぞると撤去）',
     cost: `${SAFETY.cost}G/マス`,
   },
   { id: 'collect', label: '集める', key: '7', hint: 'なぞった範囲の木の実・動物・魚をかごに入れます', cost: '無料' },
@@ -57,7 +57,10 @@ export interface HudData {
   incidentPenalty: number;
   /** 来園者のうち遊歩道で安全に回れる割合（0〜1） */
   safety: number;
+  /** 出入口とつながった遊歩道のマス数 */
   pathCells: number;
+  /** 敷いてある遊歩道の総マス数 */
+  pathCellsTotal: number;
   visitors: number;
   waterCells: number;
   treesNearWater: number;
@@ -137,7 +140,7 @@ export class Hud {
       <button class="help-btn card" type="button" aria-label="操作方法">${icons.help}</button>
       <div class="help card" hidden>
         <div class="help-head"><b>遊び方</b><button type="button" class="help-close" aria-label="閉じる">${icons.close}</button></div>
-        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。柵付きの遊歩道を来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります。</p>
+        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります（つながっていない道は灰色になり、使われません）。</p>
         <dl>
           <dt>左ドラッグ</dt><dd>道具を使う（移動ではカメラ移動）</dd>
           <dt>右ドラッグ</dt><dd>カメラ移動</dd>
@@ -263,7 +266,7 @@ export class Hud {
     // 値が変わったときだけ DOM を書き換える
     const inv = d.inventory;
     const key = [
-      d.money, d.day, d.visitors, d.appeal, Math.round(d.penalty * 100), Math.round(d.incidentPenalty * 100), Math.round(d.safety * 100), d.pathCells, d.waterCells, d.trees, d.treesNearWater,
+      d.money, d.day, d.visitors, d.appeal, Math.round(d.penalty * 100), Math.round(d.incidentPenalty * 100), Math.round(d.safety * 100), d.pathCells, d.pathCellsTotal, d.waterCells, d.trees, d.treesNearWater,
       ...ITEM_ORDER.map((k) => `${inv[k]}/${d.wild[k]}`),
     ].join('|');
     if (key === this.lastKey) return;
@@ -281,7 +284,13 @@ export class Hud {
     this.set('appeal', d.appeal, String(d.appeal), notes);
     this.values.appeal.closest('.chip')!.classList.toggle('stressed', pct >= 3 || inc >= 3);
     const safe = Math.round(d.safety * 100);
-    this.set('safety', safe, String(safe), `% <small>(${d.pathCells}マス)</small>`);
+    const loose = d.pathCellsTotal - d.pathCells;
+    this.set(
+      'safety',
+      safe,
+      String(safe),
+      `% <small>(${d.pathCells}マス)</small>${loose > 0 ? `<em class="penalty">未接続 ${loose}マス</em>` : ''}`,
+    );
     this.values.safety.closest('.chip')!.classList.toggle('stressed', safe < 50);
     this.set('water', d.waterCells, String(d.waterCells), 'マス');
     this.set('trees', d.trees, String(d.trees), `本 <small>(${d.treesNearWater})</small>`);

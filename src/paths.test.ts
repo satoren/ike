@@ -12,12 +12,40 @@ function flatMap(): Heightmap {
 describe('遊歩道', () => {
   it('敷くと数が増え、撤去すると減る', () => {
     const grid = new PathGrid(flatMap());
+    const initial = grid.count;
     const added = grid.paint(0, 0, 1);
     expect(added).toBeGreaterThan(0);
-    expect(grid.count).toBe(added);
+    expect(grid.count).toBe(initial + added);
     expect(grid.isPathAt(0.1, 0.1)).toBe(true);
     grid.paint(0, 0, 1, true);
-    expect(grid.count).toBe(0);
+    expect(grid.count).toBe(initial);
+  });
+
+  it('最初から出入口と短い道があり、出入口は撤去できない', () => {
+    const grid = new PathGrid(flatMap());
+    expect(grid.count).toBeGreaterThan(0);
+    expect(grid.connectedCount).toBe(grid.count);
+    const [cx, cz] = grid.entrance[0];
+    const { x, z } = grid.center(cx, cz);
+    grid.paint(x, z, 0.4, true);
+    expect(grid.has(cx, cz)).toBe(true);
+  });
+
+  it('出入口とつながった道だけが数えられ、歩数が求まる', () => {
+    const map = flatMap(); // 32 マス。出入口は (15,31)(16,31) で、z=27 まで道がある
+    const grid = new PathGrid(map);
+    const base = grid.connectedCount;
+    // 離れた場所の道はつながっていない
+    const far = grid.center(3, 3);
+    const n = grid.paint(far.x, far.z, 0.6);
+    expect(grid.connectedCount).toBe(base);
+    expect(grid.isConnected(3, 3)).toBe(false);
+    // 出入口の道の先に 1 マス足すとつながる
+    const next = grid.center(15, 26);
+    grid.paint(next.x, next.z, 0.4);
+    expect(grid.isConnected(15, 26)).toBe(true);
+    expect(grid.distanceAt(15, 26)).toBe(5);
+    expect(grid.count).toBe(base + n + 1);
   });
 
   it('来園者に対して道が足りているほど安全', () => {

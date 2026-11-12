@@ -32,6 +32,7 @@ import { Hud, type Tool } from './ui';
 const MAP_SIZE = 128; // マス数（一辺）
 const WATER_LEVEL = 0.5; // 地下水位。これより低い地面が池になる
 const SECONDS_PER_DAY = 10; // 実時間何秒でゲーム内 1 日か
+const TERRAIN_BASE = 1.9; // 地形の基準の高さ（地図の縁もこの高さ）
 
 // ---- レンダラーとシーン ----
 const app = document.getElementById('app')!;
@@ -49,10 +50,10 @@ scene.fog = new THREE.Fog('#a9cfe3', 120, 260);
 
 // 見下ろし型のカメラ。斜め上から見て、右ドラッグで移動・中ドラッグで回転・ホイールで拡大縮小
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 500);
-camera.position.set(0, 55, 45);
+camera.position.set(0, 42, 88);
 
 const controls = new MapControls(camera, renderer.domElement);
-controls.target.set(0, 0, 0);
+controls.target.set(0, 0, 52); // 手前の出入口も画面に入るように
 controls.enableDamping = true;
 controls.screenSpacePanning = false;
 controls.minDistance = 12;
@@ -76,10 +77,22 @@ scene.add(sun);
 
 // ---- ワールド ----
 const map = new Heightmap(MAP_SIZE);
-generateGentleTerrain(map, 7, 1.9);
+generateGentleTerrain(map, 7, TERRAIN_BASE);
 
 const terrain = new TerrainMesh(map, WATER_LEVEL);
 scene.add(terrain.mesh);
+
+// 地図の外に広がる地面（遊べる範囲の外。縁の高さに合わせて置く）
+{
+  const outer = new THREE.Mesh(
+    new THREE.RingGeometry(map.worldSize * 0.7, 400, 4, 1, Math.PI / 4),
+    new THREE.MeshStandardMaterial({ color: '#64a043', roughness: 1 }),
+  );
+  outer.rotation.x = -Math.PI / 2;
+  outer.position.y = TERRAIN_BASE - 0.02;
+  outer.receiveShadow = true;
+  scene.add(outer);
+}
 
 const water = new Water(map.worldSize, WATER_LEVEL);
 scene.add(water.mesh);
@@ -90,6 +103,7 @@ scene.add(forest.group);
 const paths = new PathGrid(map);
 const pathView = new PathView(paths, map, WATER_LEVEL);
 scene.add(pathView.group);
+pathView.rebuild(); // 出入口と最初の道を表示
 const strollers = new Strollers(paths, pathView);
 scene.add(strollers.group);
 
@@ -314,7 +328,13 @@ function applyTool(dt: number): void {
       // Shift を押しながらなぞると撤去
       const width = pathWidth();
       if (shiftDown) {
-        if (paths.paint(x, z, width, true) > 0) onPathsChanged();
+        const before = paths.connectedCount;
+        if (paths.paint(x, z, width, true) > 0) {
+          onPathsChanged();
+          if (paths.connectedCount < before - 1 && paths.count > paths.connectedCount) {
+            hud.flash('出入口から切り離された道は使われません', 'bad');
+          }
+        }
         return;
       }
       if (state.money < SAFETY.cost) {
@@ -386,7 +406,7 @@ function frame(): void {
   state.incident = decayIncident(state.incident, dt);
   const access = {
     scenic,
-    safetyFor: (v: number) => safety(paths.count, v),
+    safetyFor: (v: number) => safety(paths.connectedCount, v),
     unsafePenalty: SAFETY.unsafePenalty,
   };
   const wildlife = { fruitOnTrees: wild.fruit, ...wild };
@@ -422,7 +442,8 @@ function frame(): void {
     penalty: appeal.penalty,
     incidentPenalty: appeal.incidentPenalty,
     safety: appeal.safety,
-    pathCells: paths.count,
+    pathCells: paths.connectedCount,
+    pathCellsTotal: paths.count,
     visitors: appeal.visitors,
     inventory: state.inventory,
   });
