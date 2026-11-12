@@ -30,6 +30,9 @@ export interface SaveData {
     inventory: Inventory;
     pressure: number;
     incident: number;
+    /** 夜間営業（古い保存データには無い） */
+    nightOpen?: boolean;
+    nightFoxes?: number[];
   };
   camera: { position: [number, number, number]; target: [number, number, number] };
 }
