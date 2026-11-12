@@ -26,6 +26,7 @@ export const icons = {
   gun: svg('<circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/><circle cx="12" cy="12" r="1.2"/>'),
   alert: svg('<path d="M12 3 2 20h20z"/><path d="M12 10v4.5M12 17.3v.1"/>'),
   help: svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6v.6"/><path d="M12 17.2v.1"/>'),
+  moon: svg('<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'),
   weed: svg('<path d="M3 20h18"/><path d="M12 20c0-5-1-9-3-13"/><path d="M12 20c0-4 1.5-7 4-10"/><path d="M8 20c0-3-1.5-5-3.5-7"/><path d="M16 20c0-2.5 1.2-4.5 3.5-6"/>'),
   close: svg('<path d="M6 6l12 12M18 6 6 18"/>'),
 };

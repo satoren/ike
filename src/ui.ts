@@ -67,6 +67,8 @@ interface HudHandlers {
   onSell: (kind: ItemKind | 'all') => void;
   /** クマの居る場所を見に行く */
   onFocusBear: () => void;
+  /** 夜間営業の切り替え */
+  onToggleNight: () => void;
   /** 保存データを消して最初からやり直す */
   onReset: () => void;
 }
@@ -96,6 +98,14 @@ export interface HudData {
   /** いま出没しているクマの数 */
   bears: number;
   traps: number;
+  /** 暗さ（0 = 昼、1 = 夜） */
+  darkness: number;
+  /** ライトアップして夜も営業しているか */
+  nightOpen: boolean;
+  /** 夜の部の来園者数（営業していなければ 0） */
+  nightVisitors: number;
+  /** 一晩の電気代 */
+  lightingCost: number;
 }
 
 type ToastKind = 'info' | 'good' | 'bad';
@@ -114,6 +124,7 @@ export class Hud {
   private readonly dayRing: SVGCircleElement;
   private readonly basketRows = new Map<ItemKind, HTMLElement>();
   private readonly sellAll: HTMLButtonElement;
+  private readonly nightToggle: HTMLButtonElement;
   private readonly handlers: HudHandlers;
   private lastNums: Partial<Record<ChipName, number>> = {};
   private lastKey = '';
@@ -133,6 +144,10 @@ export class Hud {
             </svg>
             <span data-v="day"></span>
           </span>
+          <button type="button" class="night-toggle" aria-pressed="false">
+            <span class="night-icon">${icons.moon}</span>
+            <span class="night-label">夜間営業</span>
+          </button>
         </div>
         <div class="chips">
           ${chip('money', 'coin', '資金')}
@@ -177,7 +192,7 @@ export class Hud {
       <button class="help-btn card" type="button" aria-label="操作方法">${icons.help}</button>
       <div class="help card" hidden>
         <div class="help-head"><b>遊び方</b><button type="button" class="help-close" aria-label="閉じる">${icons.close}</button></div>
-        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります（つながっていない道は灰色になり、使われません）。ときどきクマが現れ、柵と道を壊して来園者を襲います。罠を仕掛けるか銃で狩りましょう。夜には密猟者が忍び込んで魚や動物を盗んでいきます。紫の目印の人を「集める」でなぞると捕まえられ、報奨金がもらえます。来園者に見つかると逃げ出すので、遊歩道を広く巡らせておくと被害を減らせます。水辺の木を増やし、池を深くして荒らさずにいると、ホタルやオオサンショウウオがまれに現れて話題になり、来園者が一気に増えます（捕まえることはできません）。</p>
+        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります（つながっていない道は灰色になり、使われません）。ときどきクマが現れ、柵と道を壊して来園者を襲います。罠を仕掛けるか銃で狩りましょう。夜には密猟者が忍び込んで魚や動物を盗んでいきます。紫の目印の人を「集める」でなぞると捕まえられ、報奨金がもらえます。来園者に見つかると逃げ出すので、遊歩道を広く巡らせておくと被害を減らせます。左上の「夜間営業」で遊歩道をライトアップすると夜も客が来て入園料が増えますが、電気代がかかり、夜行性のキツネが寄ってきて遊歩道の外が危険になります。水辺の木を増やし、池を深くして荒らさずにいると、ホタルやオオサンショウウオがまれに現れて話題になり、来園者が一気に増えます（捕まえることはできません）。</p>
         <dl>
           <dt>左ドラッグ</dt><dd>道具を使う（移動ではカメラ移動）</dd>
           <dt>右ドラッグ</dt><dd>カメラ移動</dd>
@@ -248,6 +263,8 @@ export class Hud {
     this.sellAll = this.root.querySelector('.sell-all')!;
     this.sellAll.addEventListener('click', () => handlers.onSell('all'));
 
+    this.nightToggle = this.root.querySelector('.night-toggle')!;
+    this.nightToggle.addEventListener('click', () => handlers.onToggleNight());
     this.root.querySelector('.bear-focus')!.addEventListener('click', () => handlers.onFocusBear());
     this.root.querySelector('.reset')!.addEventListener('click', () => handlers.onReset());
 
@@ -306,12 +323,13 @@ export class Hud {
   update(d: HudData): void {
     // 円周 2πr = 94.25 を進み具合で塗る
     this.dayRing.style.strokeDashoffset = String(94.25 * (1 - d.dayProgress));
+    this.root.querySelector('.brand')!.classList.toggle('is-night', d.darkness >= 0.5);
 
     // 値が変わったときだけ DOM を書き換える
     const inv = d.inventory;
     const key = [
       d.money, d.day, d.visitors, d.appeal, Math.round(d.penalty * 100), Math.round(d.incidentPenalty * 100), Math.round(d.safety * 100), d.pathCells, d.pathCellsTotal, d.waterCells, d.trees, d.treesNearWater,
-      ...ITEM_ORDER.map((k) => `${inv[k]}/${d.wild[k]}`), d.bears, d.traps,
+      ...ITEM_ORDER.map((k) => `${inv[k]}/${d.wild[k]}`), d.bears, d.traps, d.nightOpen, d.nightVisitors, d.lightingCost,
     ].join('|');
     if (key === this.lastKey) return;
     this.lastKey = key;
@@ -321,7 +339,12 @@ export class Hud {
     alert.hidden = d.bears === 0;
     this.values.bears.textContent = `${d.bears}頭`;
     this.set('money', d.money, d.money.toLocaleString(), 'G');
-    this.set('visitors', d.visitors, String(d.visitors), '人');
+    this.set('visitors', d.visitors, String(d.visitors), `人${d.nightOpen ? ` <small>+夜${d.nightVisitors}</small>` : ''}`);
+    this.nightToggle.classList.toggle('active', d.nightOpen);
+    this.nightToggle.setAttribute('aria-pressed', String(d.nightOpen));
+    this.nightToggle.title = d.nightOpen
+      ? `夜間営業中：夜の部 ${d.nightVisitors}人、電気代 ${d.lightingCost}G/晩。夜はキツネが寄ってきて危険が増します（クリックでやめる）`
+      : `ライトアップして夜も営業する（電気代 ${d.lightingCost}G/晩）。客は増えますが、夜行性のキツネも寄ってきます`;
     const pct = Math.round(d.penalty * 100);
     const inc = Math.round(d.incidentPenalty * 100);
     const notes = [
