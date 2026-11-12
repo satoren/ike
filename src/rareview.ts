@@ -209,6 +209,8 @@ export class RareBadge {
   private readonly el: HTMLElement;
   private readonly text: HTMLElement;
   private lastKey = '';
+  private lastPct = -1;
+  private boost: HTMLElement | null = null;
 
   constructor(onFocus: (kind: RareKind) => void) {
     this.el = document.createElement('div');
@@ -226,13 +228,21 @@ export class RareBadge {
   update(state: RareState, boost: number): void {
     const kinds = state.sightings.map((s) => s.kind);
     const pct = Math.round((boost - 1) * 100);
-    const key = `${kinds.join(',')}|${pct}`;
-    if (key === this.lastKey) return;
-    this.lastKey = key;
     this.el.hidden = kinds.length === 0 && pct <= 0;
-    const buttons = kinds
-      .map((k) => `<button type="button" class="rare-chip" data-kind="${k}" title="見に行く">${RARE[k].name}</button>`)
-      .join('');
-    this.text.innerHTML = `<b>話題</b>${buttons}<span class="rare-boost">来園者 +${pct}%</span>`;
+    // ボタンは居る生き物が変わったときだけ作り直す（毎回作ると押しにくい）
+    const key = kinds.join(',');
+    if (key !== this.lastKey || !this.boost) {
+      this.lastKey = key;
+      const buttons = kinds
+        .map((k) => `<button type="button" class="rare-chip" data-kind="${k}" title="見に行く">${RARE[k].name}</button>`)
+        .join('');
+      this.text.innerHTML = `<b>話題</b>${buttons}<span class="rare-boost"></span>`;
+      this.boost = this.text.querySelector('.rare-boost');
+      this.lastPct = -1;
+    }
+    if (pct !== this.lastPct && this.boost) {
+      this.lastPct = pct;
+      this.boost.textContent = `来園者 +${pct}%`;
+    }
   }
 }

@@ -1014,7 +1014,8 @@ kbd {
 /* ---------- 珍しい生き物の「話題」バッジ ---------- */
 .rare-badge {
   position: absolute;
-  top: 92px;
+  /* 左上は口コミ欄があるので、左下（道具のドックの上）に出す */
+  bottom: 128px;
   left: 16px;
   display: flex;
   align-items: center;
@@ -1072,6 +1073,7 @@ kbd {
 @media (max-width: 640px) {
   .rare-badge {
     top: 162px;
+    bottom: auto;
     left: 10px;
     right: 10px;
     padding: 6px 10px;
