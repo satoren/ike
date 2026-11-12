@@ -42,6 +42,8 @@ export interface SaveData {
     incident: number;
     /** 夜間営業（古い保存データには無い） */
     nightOpen?: boolean;
+    /** 時間の速さ（古い保存データには無い） */
+    speed?: number;
     nightFoxes?: number[];
   };
   /** 天気と水位（古い保存データには無い） */

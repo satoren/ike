@@ -1,0 +1,46 @@
+/* 時間の速さの切り替えボタン */
+.speed-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 4px 9px 4px 5px;
+  border-radius: 999px;
+  background: var(--leaf-tint);
+  color: var(--leaf-deep);
+  font-weight: 700;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.speed-btn:hover {
+  background: #d3ebdc;
+}
+
+.speed-btn[data-speed='0'] {
+  background: #e4eff5;
+  color: #3a7194;
+}
+
+.speed-btn[data-speed='2'] {
+  background: #f8e6d3;
+  color: #b0561f;
+}
+
+/* 狭い画面では矢印だけにする */
+@media (max-width: 1440px) {
+  .speed-label {
+    display: none;
+  }
+  .speed-btn {
+    padding: 4px 6px;
+  }
+}
+
+/* スマホでは右上の「?」と重ならないよう、タイトルの文字を省く */
+@media (max-width: 640px) {
+  .brand .brand-name {
+    display: none;
+  }
+}

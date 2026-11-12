@@ -51,6 +51,7 @@ import {
   type Weather,
 } from './seasons';
 import { SeasonBadge, SeasonView } from './seasonview';
+import { DEFAULT_SPEED, SPEEDS, SpeedButton, clampSpeed } from './speed';
 import { darkness, foxDangerFactor, isNight, lanternCells, lightingCost, nightFoxCount, nightVisitors } from './night';
 import { NightView } from './nightview';
 import { ReviewFeed } from './reviews';
@@ -213,6 +214,8 @@ const state = {
   nightOpen: false,
   /** 夜営業に寄ってきた夜行性のキツネ（朝には去る） */
   nightFoxes: [] as number[],
+  /** 時間の速さ（SPEEDS の番号） */
+  speed: DEFAULT_SPEED,
 };
 /** 今夜のうち、営業していた時間と夜の長さ（入園料の割合に使う） */
 let nightOpenTime = 0;
@@ -264,6 +267,13 @@ const seasonView = new SeasonView({
 });
 const seasonBadge = new SeasonBadge(document.querySelector<HTMLElement>('#hud .brand')!);
 seasonView.set(calendarOf(state.day).season, seasonState.weather, true);
+const speedButton = new SpeedButton(document.querySelector('#hud .brand .day')!, SECONDS_PER_DAY, () => cycleSpeed());
+speedButton.set(state.speed);
+function cycleSpeed(): void {
+  state.speed = (state.speed + 1) % SPEEDS.length;
+  speedButton.set(state.speed);
+  hud.flash(`時間の速さ：${SPEEDS[state.speed].label}`);
+}
 // HUD を組んだあとに足す（HUD は中身を作り直すため）
 const rareBadge = new RareBadge((kind) => focusRare(kind));
 const foodwebPanel = new FoodWebPanel(document.querySelector('#hud .basket'));
@@ -429,6 +439,7 @@ window.addEventListener('keydown', (e) => {
     '0': 'weed',
   };
   if (keys[e.key]) setTool(keys[e.key]);
+  if (e.key === 't' || e.key === 'T') cycleSpeed();
   if (e.key === '[') hud.stepBrush(state.brushRadius, -1);
   if (e.key === ']') hud.stepBrush(state.brushRadius, 1);
 });
@@ -666,6 +677,7 @@ function snapshot(): SaveData {
       money: state.money,
       day: state.day,
       dayTimer: state.dayTimer,
+      speed: state.speed,
       inventory: { ...state.inventory },
       pressure: state.pressure,
       incident: state.incident,
@@ -696,7 +708,9 @@ function restore(data: SaveData): void {
     inventory: { ...emptyInventory(), ...data.state.inventory },
     nightOpen: data.state.nightOpen ?? false,
     nightFoxes: data.state.nightFoxes ?? [],
+    speed: clampSpeed(data.state.speed),
   });
+  speedButton.set(state.speed);
   refreshLanterns();
   camera.position.fromArray(data.camera.position);
   controls.target.fromArray(data.camera.target);
@@ -843,15 +857,17 @@ let statsTimer = 0;
 let saveTimer = 0;
 
 function frame(): void {
-  const dt = Math.min(clock.getDelta(), 0.1);
+  // realDt は実際に過ぎた時間、dt はゲーム内の時間（時間の速さを掛けたもの）
+  const realDt = Math.min(clock.getDelta(), 0.1);
+  const dt = realDt * SPEEDS[state.speed].scale;
   const t = clock.elapsedTime;
 
   lastHit = pointerOnCanvas && state.tool !== 'pan' ? pick() : null;
   cursor.update(lastHit);
-  applyTool(dt);
+  applyTool(realDt);
 
   // 統計は重めなので、変化があったときだけ間引いて計算する
-  statsTimer += dt;
+  statsTimer += realDt;
   if (statsDirty && statsTimer > 0.25) {
     habitat = habitatNow();
     scenic = paths.scenicValue(WATER_LEVEL);
@@ -1016,7 +1032,7 @@ function frame(): void {
   if (review) reviewPanel.render(reviews, review);
 
   // 数秒ごとに自動保存
-  saveTimer += dt;
+  saveTimer += realDt;
   if (saveTimer >= SAVE_INTERVAL) {
     saveTimer = 0;
     saveNow();
@@ -1107,7 +1123,7 @@ function frame(): void {
   });
 
   seasonBadge.update(cal, seasonState.weather, bonus);
-  seasonView.update(dt, t, seasonState.waterOffset, isFrozen(cal.season) ? Math.floor(appeal.visitors / 15) : 0, controls.target, darkness(dayProgress));
+  seasonView.update(realDt, t, seasonState.waterOffset, isFrozen(cal.season) ? Math.floor(appeal.visitors / 15) : 0, controls.target, darkness(dayProgress));
   rareBadge.update(rare.state, boost);
   water.update(t);
   controls.update();
