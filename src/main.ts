@@ -29,6 +29,8 @@ import { CreatureView } from './creatures';
 import { PathGrid, PathView, SAFETY, Strollers, safety } from './paths';
 import { BEAR, Bears, SHOT_COST, TRAP_COST } from './bears';
 import { BearView } from './bearview';
+import { RARE, RareLife, applyRareBoost, rareBoost, type RareKind } from './rare';
+import { RareBadge, RareView } from './rareview';
 import { SAVE_VERSION, SaveSlot, decodeFloats, base64ToBytes, bytesToBase64, encodeFloats, type SaveData } from './save';
 import { Hud, type Tool } from './ui';
 
@@ -120,6 +122,11 @@ const bears = new Bears(map, WATER_LEVEL);
 const bearView = new BearView(map, WATER_LEVEL);
 scene.add(bearView.group);
 
+// 珍しい生き物（ホタル・オオサンショウウオ）
+const rare = new RareLife(map, WATER_LEVEL);
+const rareView = new RareView(map, WATER_LEVEL);
+scene.add(rareView.group);
+
 const cursor = new BrushCursor(map);
 scene.add(cursor.line);
 
@@ -163,6 +170,8 @@ const hud = new Hud({
   onFocusBear: () => focusBear(),
   onReset: () => resetGame(),
 });
+// HUD を組んだあとに足す（HUD は中身を作り直すため）
+const rareBadge = new RareBadge((kind) => focusRare(kind));
 hud.setTool(state.tool);
 hud.setBrush(state.brushRadius);
 updateCursorRadius();
@@ -443,6 +452,7 @@ function snapshot(): SaveData {
     creatures: ecosystem.creatures.map((c) => ({ ...c })),
     bears: bears.bears.map((b) => ({ ...b })),
     traps: bears.traps.map((t) => ({ ...t })),
+    rare: rare.snapshot(),
     state: {
       money: state.money,
       day: state.day,
@@ -467,6 +477,7 @@ function restore(data: SaveData): void {
   pathView.rebuild();
   ecosystem.restore(data.creatures);
   bears.restore(data.bears ?? [], data.traps ?? []);
+  rare.restore(data.rare);
   Object.assign(state, data.state, { inventory: { ...emptyInventory(), ...data.state.inventory } });
   camera.position.fromArray(data.camera.position);
   controls.target.fromArray(data.camera.target);
@@ -504,13 +515,38 @@ if (new URLSearchParams(location.search).has('bear')) {
   b.z *= 0.45;
 }
 
+// 確認用：URL に ?firefly / ?salamander を付けると、最初からその生き物が現れる
+for (const kind of ['firefly', 'salamander'] as RareKind[]) {
+  if (new URLSearchParams(location.search).has(kind) && !rare.has(kind)) rare.appear(kind, waterTrees());
+}
+
+/** 水辺の木（ホタルが舞う場所） */
+function waterTrees(): { x: number; z: number }[] {
+  return forest.trees.filter((t) => {
+    for (const [dx, dz] of [[0, 0], [3, 0], [-3, 0], [0, 3], [0, -3]]) {
+      if (map.heightAt(t.x + dx, t.z + dz) < WATER_LEVEL) return true;
+    }
+    return false;
+  });
+}
+
 /** クマの居る場所へカメラを向ける */
 function focusBear(): void {
   const b = bears.bears[0];
   if (!b) return;
+  focusAt(b.x, b.z);
+}
+
+/** 珍しい生き物の居る場所へカメラを向ける */
+function focusRare(kind: RareKind): void {
+  const s = rare.state.sightings.find((v) => v.kind === kind);
+  if (s) focusAt(s.x, s.z);
+}
+
+function focusAt(x: number, z: number): void {
   // 少し寄って見えるようにする
   const offset = camera.position.clone().sub(controls.target).setLength(28);
-  controls.target.set(b.x, 0, b.z);
+  controls.target.set(x, 0, z);
   camera.position.copy(controls.target).add(offset);
 }
 
@@ -577,6 +613,7 @@ function frame(): void {
     }
   }
   bearView.update(bears.bears, bears.traps, t);
+  rareView.update(rare.state, t);
 
   state.incident = decayIncident(state.incident, dt);
   const access = {
@@ -585,13 +622,21 @@ function frame(): void {
     unsafePenalty: SAFETY.unsafePenalty,
   };
   const wildlife = { fruitOnTrees: wild.fruit, ...wild };
-  let appeal = computeAppeal(habitat, wildlife, state.pressure, state.incident, access);
+  // 珍しい生き物：荒らすと去ってしまう。居る間と、現れた直後の話題で客が増える
+  const rareEnv = { habitat, fish: wild.fish, pressure: state.pressure };
+  for (const e of rare.update(dt, rareEnv)) {
+    if (e.type === 'fled') hud.flash(`荒らされて、${RARE[e.kind].name}が去ってしまいました`, 'bad');
+  }
+  const boost = rareBoost(rare.state);
+  const evaluate = () =>
+    applyRareBoost(computeAppeal(habitat, wildlife, state.pressure, state.incident, access), boost);
+  let appeal = evaluate();
 
   // キツネがいると、遊歩道の外を歩く来園者が襲われることがある
   if (wild.fox > 0 && Math.random() < attackChance(wild.fox, appeal.visitors, dt, appeal.safety)) {
     state.incident = 1;
     hud.flash('キツネが来園者を襲いました！魅力が大きく下がります', 'bad');
-    appeal = computeAppeal(habitat, wildlife, state.pressure, state.incident, access);
+    appeal = evaluate();
   }
   strollers.update(dt, appeal.visitors);
 
@@ -615,6 +660,10 @@ function frame(): void {
       bears.spawn();
       hud.flash('クマが現れました！罠を仕掛けるか、銃で狩りましょう', 'bad');
     }
+    for (const e of rare.onNewDay(rareEnv, waterTrees())) {
+      if (e.type === 'arrived') hud.flash(RARE[e.kind].arrive, 'good');
+      if (e.type === 'left') hud.flash(`${RARE[e.kind].name}はどこかへ去っていきました`);
+    }
   }
 
   hud.update({
@@ -637,6 +686,7 @@ function frame(): void {
     traps: bears.traps.length,
   });
 
+  rareBadge.update(rare.state, boost);
   water.update(t);
   controls.update();
   renderer.render(scene, camera);

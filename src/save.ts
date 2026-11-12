@@ -1,6 +1,7 @@
 import type { Creature, Inventory } from './ecology';
 import type { Tree } from './trees';
 import type { Bear, Trap } from './bears';
+import type { RareState } from './rare';
 
 /**
  * ゲームの進捗の保存と読み込み。
@@ -23,6 +24,8 @@ export interface SaveData {
   creatures: Creature[];
   bears: Bear[];
   traps: Trap[];
+  /** 珍しい生き物（古い保存データには無い） */
+  rare?: RareState;
   state: {
     money: number;
     day: number;
