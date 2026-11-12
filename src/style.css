@@ -747,7 +747,7 @@ kbd {
   position: absolute;
   right: 16px;
   bottom: 72px;
-  width: 280px;
+  width: 320px;
   padding: 14px 16px;
 }
 
@@ -791,6 +791,32 @@ kbd {
   border-bottom-width: 2px;
   text-align: center;
   font-size: 11px;
+}
+
+.help-save {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.reset {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bad);
+  background: #fbe9e4;
+}
+
+.reset:hover {
+  background: #f6d6cd;
 }
 
 /* ---------- 画面が狭いとき ---------- */

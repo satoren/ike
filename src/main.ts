@@ -29,6 +29,7 @@ import { CreatureView } from './creatures';
 import { PathGrid, PathView, SAFETY, Strollers, safety } from './paths';
 import { BEAR, Bears, SHOT_COST, TRAP_COST } from './bears';
 import { BearView } from './bearview';
+import { SAVE_VERSION, SaveSlot, decodeFloats, base64ToBytes, bytesToBase64, encodeFloats, type SaveData } from './save';
 import { Hud, type Tool } from './ui';
 
 // ---- ワールドの設定 ----
@@ -160,6 +161,7 @@ const hud = new Hud({
   },
   onSell: (kind) => sell(kind),
   onFocusBear: () => focusBear(),
+  onReset: () => resetGame(),
 });
 hud.setTool(state.tool);
 hud.setBrush(state.brushRadius);
@@ -426,6 +428,75 @@ let shiftDown = false;
 window.addEventListener('keydown', (e) => (shiftDown = e.shiftKey));
 window.addEventListener('keyup', (e) => (shiftDown = e.shiftKey));
 
+// ---- 保存と再開 ----
+const SAVE_INTERVAL = 5; // 秒
+const saveSlot = new SaveSlot();
+
+function snapshot(): SaveData {
+  return {
+    version: SAVE_VERSION,
+    savedAt: Date.now(),
+    mapSize: map.size,
+    heights: encodeFloats(map.heights),
+    paths: bytesToBase64(paths.cells),
+    trees: forest.trees.map((t) => ({ ...t })),
+    creatures: ecosystem.creatures.map((c) => ({ ...c })),
+    bears: bears.bears.map((b) => ({ ...b })),
+    traps: bears.traps.map((t) => ({ ...t })),
+    state: {
+      money: state.money,
+      day: state.day,
+      dayTimer: state.dayTimer,
+      inventory: { ...state.inventory },
+      pressure: state.pressure,
+      incident: state.incident,
+    },
+    camera: {
+      position: camera.position.toArray() as [number, number, number],
+      target: controls.target.toArray() as [number, number, number],
+    },
+  };
+}
+
+function restore(data: SaveData): void {
+  const heights = decodeFloats(data.heights);
+  if (heights.length === map.heights.length) map.heights.set(heights);
+  terrain.refresh();
+  forest.restore(data.trees);
+  paths.load(base64ToBytes(data.paths));
+  pathView.rebuild();
+  ecosystem.restore(data.creatures);
+  bears.restore(data.bears ?? [], data.traps ?? []);
+  Object.assign(state, data.state, { inventory: { ...emptyInventory(), ...data.state.inventory } });
+  camera.position.fromArray(data.camera.position);
+  controls.target.fromArray(data.camera.target);
+  habitat = computeHabitat(map, WATER_LEVEL, forest.trees);
+  scenic = paths.scenicValue(WATER_LEVEL);
+}
+
+function saveNow(): void {
+  saveSlot.save(snapshot());
+}
+
+function resetGame(): void {
+  if (!window.confirm('保存データを消して、最初からやり直しますか？')) return;
+  saveSlot.clear();
+  location.reload();
+}
+
+{
+  const saved = saveSlot.load(map.size);
+  if (saved) {
+    restore(saved);
+    hud.flash(`${saved.state.day}日目の続きから再開しました`, 'good');
+  }
+}
+// タブを閉じる・切り替えるときにも保存する
+window.addEventListener('pagehide', saveNow);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') saveNow();
+});
+
 // 確認用：URL に ?bear を付けると、最初からクマが 1 頭出る
 if (new URLSearchParams(location.search).has('bear')) {
   const b = bears.spawn();
@@ -446,6 +517,7 @@ function focusBear(): void {
 // ---- メインループ ----
 const clock = new THREE.Clock();
 let statsTimer = 0;
+let saveTimer = 0;
 
 function frame(): void {
   const dt = Math.min(clock.getDelta(), 0.1);
@@ -522,6 +594,13 @@ function frame(): void {
     appeal = computeAppeal(habitat, wildlife, state.pressure, state.incident, access);
   }
   strollers.update(dt, appeal.visitors);
+
+  // 数秒ごとに自動保存
+  saveTimer += dt;
+  if (saveTimer >= SAVE_INTERVAL) {
+    saveTimer = 0;
+    saveNow();
+  }
 
   // 1 日が過ぎるごとに入園料が入る
   state.dayTimer += dt;

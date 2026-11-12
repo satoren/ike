@@ -37,6 +37,15 @@ export class PathGrid {
     this.updateConnectivity();
   }
 
+  /** 保存データから道を戻す。出入口のマスは必ず残す */
+  load(cells: Uint8Array): void {
+    if (cells.length !== this.cells.length) return;
+    this.cells.set(cells);
+    for (const [cx, cz] of this.entrance) this.cells[cz * this.size + cx] = 1;
+    this._count = this.cells.reduce((n, v) => n + (v ? 1 : 0), 0);
+    this.updateConnectivity();
+  }
+
   /** 敷いてある道のマス数 */
   get count(): number {
     return this._count;

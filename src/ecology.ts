@@ -158,6 +158,13 @@ export class Ecosystem {
     return habitable(kind, this.map, this.waterLevel, x, z) && !this.isBlocked(kind, x, z);
   }
 
+  /** 保存データから生き物を戻す（今いる生き物は消す） */
+  restore(list: readonly Creature[]): void {
+    this.creatures.length = 0;
+    for (const c of list) this.creatures.push({ ...c });
+    this.nextId = this.creatures.reduce((m, c) => Math.max(m, c.id), 0) + 1;
+  }
+
   count(kind: CreatureKind): number {
     let n = 0;
     for (const c of this.creatures) if (c.kind === kind) n++;

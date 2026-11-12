@@ -84,6 +84,15 @@ export class Bears {
     this.rand = rand;
   }
 
+  /** 保存データからクマと罠を戻す */
+  restore(bears: readonly Bear[], traps: readonly Trap[]): void {
+    this.bears.length = 0;
+    this.traps.length = 0;
+    for (const b of bears) this.bears.push({ ...b });
+    for (const t of traps) this.traps.push({ ...t });
+    this.nextId = this.bears.reduce((m, b) => Math.max(m, b.id), 0) + 1;
+  }
+
   /** 地図の端（出入口のある南側以外）からクマを 1 頭出す */
   spawn(): Bear {
     const half = this.map.worldSize / 2 - 1.5;

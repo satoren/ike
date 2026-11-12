@@ -99,6 +99,21 @@ export class Forest {
     return true;
   }
 
+  /** 保存データから木をまとめて戻す（今ある木は消す） */
+  restore(trees: readonly Tree[]): void {
+    this.trees.length = 0;
+    const c = new THREE.Color();
+    for (const t of trees.slice(0, this.max)) {
+      this.trees.push({ ...t });
+      const i = this.trees.length - 1;
+      this.leaves.setColorAt(i, c.setHSL(0.27 + Math.random() * 0.08, 0.45 + Math.random() * 0.2, 0.28 + Math.random() * 0.1));
+      this.writeMatrix(i);
+    }
+    if (this.leaves.instanceColor) this.leaves.instanceColor.needsUpdate = true;
+    this.trunks.count = this.leaves.count = this.trees.length;
+    this.fruitDirty = true;
+  }
+
   /** 木を育てる。若木は少しずつ大きくなり、育った木は実をつける */
   update(dt: number): void {
     for (let i = 0; i < this.trees.length; i++) {

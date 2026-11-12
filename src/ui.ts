@@ -59,6 +59,8 @@ interface HudHandlers {
   onSell: (kind: ItemKind | 'all') => void;
   /** クマの居る場所を見に行く */
   onFocusBear: () => void;
+  /** 保存データを消して最初からやり直す */
+  onReset: () => void;
 }
 
 export interface HudData {
@@ -177,6 +179,10 @@ export class Hud {
           <dt><kbd>1</kbd>〜<kbd>9</kbd></dt><dd>道具の切り替え</dd>
           <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>ブラシの大きさ</dd>
         </dl>
+        <div class="help-save">
+          <span>進捗はこのブラウザに自動で保存されます</span>
+          <button type="button" class="reset">最初からやり直す</button>
+        </div>
       </div>
     `;
     this.root.querySelectorAll<HTMLElement>('[data-v]').forEach((el) => (this.values[el.dataset.v!] = el));
@@ -235,6 +241,7 @@ export class Hud {
     this.sellAll.addEventListener('click', () => handlers.onSell('all'));
 
     this.root.querySelector('.bear-focus')!.addEventListener('click', () => handlers.onFocusBear());
+    this.root.querySelector('.reset')!.addEventListener('click', () => handlers.onReset());
 
     const help = this.root.querySelector<HTMLElement>('.help')!;
     this.root.querySelector('.help-btn')!.addEventListener('click', () => (help.hidden = !help.hidden));
