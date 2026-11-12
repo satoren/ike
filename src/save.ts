@@ -2,6 +2,7 @@ import type { Creature, Inventory } from './ecology';
 import type { Tree } from './trees';
 import type { Bear, Trap } from './bears';
 import type { Weather } from './seasons';
+import type { RareState } from './rare';
 import type { Bird, Weed } from './foodweb';
 import type { Poacher } from './poachers';
 
@@ -26,6 +27,8 @@ export interface SaveData {
   creatures: Creature[];
   bears: Bear[];
   traps: Trap[];
+  /** 珍しい生き物（古い保存データには無い） */
+  rare?: RareState;
   /** 水草と鳥（古い保存データには無い） */
   foodweb?: { weeds: Weed[]; birds: Bird[] };
   /** 忍び込んでいる密猟者（古い保存データには無い） */
@@ -37,6 +40,9 @@ export interface SaveData {
     inventory: Inventory;
     pressure: number;
     incident: number;
+    /** 夜間営業（古い保存データには無い） */
+    nightOpen?: boolean;
+    nightFoxes?: number[];
   };
   /** 天気と水位（古い保存データには無い） */
   seasons?: { weather: Weather; waterOffset: number };

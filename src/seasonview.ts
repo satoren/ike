@@ -11,12 +11,15 @@ const LOOK: Record<Season, { foliage: string; foliageAmount: number; ground: str
   winter: { foliage: '#dfe6e3', foliageAmount: 0.55, ground: '#f3f6f8', groundAmount: 0.6 }, // 雪
 };
 
-/** 天気ごとの空と光 */
-const SKY: Record<Weather, { sky: string; sun: number; hemi: number }> = {
-  sunny: { sky: '#a9cfe3', sun: 2.2, hemi: 1.4 },
-  cloudy: { sky: '#b8c4cb', sun: 1.1, hemi: 1.5 },
-  rain: { sky: '#8796a0', sun: 0.55, hemi: 1.25 },
-  snow: { sky: '#d3dce2', sun: 0.8, hemi: 1.6 },
+/**
+ * 天気ごとの空と光。昼夜の空と光（夜間営業）の上に重ねる：
+ * 空の色を sky へ mix の割合で寄せ、日差しと空の明るさに倍率を掛ける。
+ */
+const SKY: Record<Weather, { sky: string; mix: number; sun: number; hemi: number }> = {
+  sunny: { sky: '#a9cfe3', mix: 0, sun: 1, hemi: 1 },
+  cloudy: { sky: '#b8c4cb', mix: 0.75, sun: 0.5, hemi: 1.07 },
+  rain: { sky: '#8796a0', mix: 0.85, sun: 0.25, hemi: 0.9 },
+  snow: { sky: '#d3dce2', mix: 0.8, sun: 0.36, hemi: 1.15 },
 };
 
 const WATER_COLOR = new THREE.Color('#3f7f9a');
@@ -77,6 +80,9 @@ export class SeasonView {
   private weather: Weather = 'sunny';
   private frozen = 0;
   private readonly sky = new THREE.Color('#a9cfe3');
+  private skyMix = 0;
+  private sunMul = 1;
+  private hemiMul = 1;
   private readonly rain: Precipitation;
   private readonly snow: Precipitation;
   private readonly skaters: Skaters;
@@ -97,18 +103,25 @@ export class SeasonView {
     if (immediate) this.update(10, 0, 0, 0, new THREE.Vector3());
   }
 
-  /** waterOffset: 地下水位からの水面の差。skaters: 滑っている客の数 */
-  update(dt: number, time: number, waterOffset: number, skaters: number, center: THREE.Vector3): void {
+  /**
+   * 昼夜の空と光を設定したあとに毎フレーム呼ぶ。
+   * waterOffset: 地下水位からの水面の差。skaters: 滑っている客の数。dark: 夜の暗さ（0〜1）
+   */
+  update(dt: number, time: number, waterOffset: number, skaters: number, center: THREE.Vector3, dark = 0): void {
     const look = LOOK[this.season];
     const sky = SKY[this.weather];
 
-    // 空と光
+    // 空と光：昼夜の色の上に天気を重ねる（夜は空の色を変えず、暗さを保つ）
     this.sky.lerp(new THREE.Color(sky.sky), Math.min(1, dt * 1.5));
+    this.skyMix = approach(this.skyMix, sky.mix, dt);
+    this.sunMul = approach(this.sunMul, sky.sun, dt);
+    this.hemiMul = approach(this.hemiMul, sky.hemi, dt);
     const scene = this.t.scene;
-    (scene.background as THREE.Color).copy(this.sky);
-    if (scene.fog) scene.fog.color.copy(this.sky);
-    this.t.sun.intensity = approach(this.t.sun.intensity, sky.sun, dt);
-    this.t.hemi.intensity = approach(this.t.hemi.intensity, sky.hemi, dt);
+    const bg = scene.background as THREE.Color;
+    bg.lerp(this.sky, this.skyMix * (1 - dark));
+    if (scene.fog) scene.fog.color.copy(bg);
+    this.t.sun.intensity *= this.sunMul;
+    this.t.hemi.intensity *= this.hemiMul;
 
     // 葉と地面の色
     this.foliageTint.color.value.lerp(new THREE.Color(look.foliage), Math.min(1, dt * 1.5));
@@ -379,8 +392,8 @@ export class SeasonBadge {
       (label ? `\n${label}の魅力 +${bonus}` : '') +
       `\n${WEATHER[weather].name}：来園者 ×${WEATHER[weather].visitorMul}`;
     this.el.innerHTML = `
-      <span class="season-name">${SEASON_ICON[cal.season]}${SEASONS[cal.season].name}<small>${cal.dayInSeason}/${DAYS_PER_SEASON}</small></span>
-      <span class="season-weather" data-weather="${weather}">${WEATHER_ICON[weather]}${WEATHER[weather].name}</span>
+      <span class="season-name">${SEASON_ICON[cal.season]}${SEASONS[cal.season].name}</span>
+      <span class="season-weather" data-weather="${weather}" aria-label="${WEATHER[weather].name}">${WEATHER_ICON[weather]}</span>
     `;
   }
 }

@@ -29,6 +29,8 @@ import { CreatureView } from './creatures';
 import { PathGrid, PathView, SAFETY, Strollers, safety } from './paths';
 import { BEAR, Bears, SHOT_COST, TRAP_COST } from './bears';
 import { BearView } from './bearview';
+import { RARE, RareLife, applyRareBoost, rareBoost, type RareKind } from './rare';
+import { RareBadge, RareView } from './rareview';
 import { POACHER, POACHER_TARGETS, Poachers } from './poachers';
 import { PoacherView } from './poacherview';
 import { SAVE_VERSION, SaveSlot, decodeFloats, base64ToBytes, bytesToBase64, encodeFloats, type SaveData } from './save';
@@ -49,6 +51,8 @@ import {
   type Weather,
 } from './seasons';
 import { SeasonBadge, SeasonView } from './seasonview';
+import { darkness, foxDangerFactor, isNight, lanternCells, lightingCost, nightFoxCount, nightVisitors } from './night';
+import { NightView } from './nightview';
 import { ReviewFeed } from './reviews';
 import { ReviewPanel } from './reviewview';
 import { BIRDS, FoodWeb, WEED, fishCapacity } from './foodweb';
@@ -132,6 +136,17 @@ pathView.rebuild(); // 出入口と最初の道を表示
 const strollers = new Strollers(paths, pathView);
 scene.add(strollers.group);
 
+// 昼夜の空と光、夜間営業の灯り
+const nightView = new NightView(scene, sun, hemi);
+scene.add(nightView.group);
+let lanterns = 0;
+function refreshLanterns(): void {
+  const cells = lanternCells(paths);
+  lanterns = cells.length;
+  nightView.setLanterns(cells, paths, pathView);
+}
+refreshLanterns();
+
 // ---- 季節と天気 ----
 const seasonState = {
   weather: rollWeather('spring') as Weather,
@@ -159,6 +174,10 @@ const bears = new Bears(map, WATER_LEVEL);
 const bearView = new BearView(map, WATER_LEVEL);
 scene.add(bearView.group);
 
+// 珍しい生き物（ホタル・オオサンショウウオ）
+const rare = new RareLife(map, WATER_LEVEL);
+const rareView = new RareView(map, WATER_LEVEL);
+scene.add(rareView.group);
 // 水草 → 魚 → カワセミ・サギ のつながり
 const foodweb = new FoodWeb(map, WATER_LEVEL);
 const foodwebView = new FoodWebView(map, WATER_LEVEL);
@@ -190,7 +209,15 @@ const state = {
   pressure: 0,
   /** キツネの襲撃事件の影響（1 = 起きた直後）。時間で薄れる */
   incident: 0,
+  /** ライトアップして夜も営業するか */
+  nightOpen: false,
+  /** 夜営業に寄ってきた夜行性のキツネ（朝には去る） */
+  nightFoxes: [] as number[],
 };
+/** 今夜のうち、営業していた時間と夜の長さ（入園料の割合に使う） */
+let nightOpenTime = 0;
+let nightTime = 0;
+let wasNight = false;
 /** すみかの状態。育った水草の数も入れる（魚の数の上限が決まる） */
 function habitatNow(): Habitat {
   return { ...computeHabitat(map, waterSurface(), forest.trees), weeds: foodweb.matureWeeds };
@@ -219,6 +246,7 @@ const hud = new Hud({
   },
   onSell: (kind) => sell(kind),
   onFocusBear: () => focusBear(),
+  onToggleNight: () => toggleNight(),
   onReset: () => resetGame(),
 });
 const seasonView = new SeasonView({
@@ -233,6 +261,8 @@ const seasonView = new SeasonView({
 });
 const seasonBadge = new SeasonBadge(document.querySelector<HTMLElement>('#hud .brand')!);
 seasonView.set(calendarOf(state.day).season, seasonState.weather, true);
+// HUD を組んだあとに足す（HUD は中身を作り直すため）
+const rareBadge = new RareBadge((kind) => focusRare(kind));
 const foodwebPanel = new FoodWebPanel(document.querySelector('#hud .basket'));
 hud.setTool(state.tool);
 const reviewPanel = new ReviewPanel(document.getElementById('hud')!);
@@ -348,6 +378,7 @@ function spend(cost: number): boolean {
 function onTerrainEdited(region: BrushResult): void {
   terrain.refresh(region);
   pathView.rebuild();
+  refreshLanterns();
   const drowned = forest.onTerrainChanged(region);
   if (drowned > 0) hud.flash(`木が ${drowned} 本、水に沈みました`, 'bad');
   statsDirty = true;
@@ -532,6 +563,7 @@ function applyTool(dt: number): void {
 
 function onPathsChanged(): void {
   pathView.rebuild();
+  refreshLanterns();
   statsDirty = true;
 }
 
@@ -554,6 +586,7 @@ function snapshot(): SaveData {
     creatures: ecosystem.creatures.map((c) => ({ ...c })),
     bears: bears.bears.map((b) => ({ ...b })),
     traps: bears.traps.map((t) => ({ ...t })),
+    rare: rare.snapshot(),
     foodweb: { weeds: foodweb.weeds.map((w) => ({ ...w })), birds: foodweb.birds.map((b) => ({ ...b })) },
     poachers: poachers.poachers.map((p) => ({ ...p, loot: [...p.loot] })),
     state: {
@@ -563,6 +596,8 @@ function snapshot(): SaveData {
       inventory: { ...state.inventory },
       pressure: state.pressure,
       incident: state.incident,
+      nightOpen: state.nightOpen,
+      nightFoxes: [...state.nightFoxes],
     },
     seasons: { weather: seasonState.weather, waterOffset: seasonState.waterOffset },
     camera: {
@@ -581,9 +616,15 @@ function restore(data: SaveData): void {
   pathView.rebuild();
   ecosystem.restore(data.creatures);
   bears.restore(data.bears ?? [], data.traps ?? []);
+  rare.restore(data.rare);
   foodweb.restore(data.foodweb);
   poachers.restore(data.poachers ?? []);
-  Object.assign(state, data.state, { inventory: { ...emptyInventory(), ...data.state.inventory } });
+  Object.assign(state, data.state, {
+    inventory: { ...emptyInventory(), ...data.state.inventory },
+    nightOpen: data.state.nightOpen ?? false,
+    nightFoxes: data.state.nightFoxes ?? [],
+  });
+  refreshLanterns();
   camera.position.fromArray(data.camera.position);
   controls.target.fromArray(data.camera.target);
   if (data.seasons) {
@@ -640,11 +681,62 @@ if (new URLSearchParams(location.search).has('bear')) {
   }
 }
 
+// 確認用：URL に ?firefly / ?salamander を付けると、最初からその生き物が現れる
+for (const kind of ['firefly', 'salamander'] as RareKind[]) {
+  if (new URLSearchParams(location.search).has(kind) && !rare.has(kind)) rare.appear(kind, waterTrees());
+}
+
+/** 水辺の木（ホタルが舞う場所） */
+function waterTrees(): { x: number; z: number }[] {
+  return forest.trees.filter((t) => {
+    for (const [dx, dz] of [[0, 0], [3, 0], [-3, 0], [0, 3], [0, -3]]) {
+      if (map.heightAt(t.x + dx, t.z + dz) < WATER_LEVEL) return true;
+    }
+    return false;
+  });
+}
+
 // 確認用：URL に ?poacher を付けると、最初から密猟者が 1 人忍び込む
 if (new URLSearchParams(location.search).has('poacher')) {
   const p = poachers.spawn();
   p.x *= 0.5;
   p.z *= 0.5;
+}
+
+/** 夜間営業の切り替え */
+function toggleNight(): void {
+  state.nightOpen = !state.nightOpen;
+  hud.flash(
+    state.nightOpen
+      ? `夜間営業を始めます。灯り ${lanterns} 基、電気代 ${lightingCost(lanterns)}G/晩`
+      : '夜間営業をやめます。夜は閉園します',
+    state.nightOpen ? 'good' : 'info',
+  );
+}
+
+/** 夜になった・朝になったときの出来事 */
+function onNightChange(night: boolean, dayVisitors: number): void {
+  if (night) {
+    if (!state.nightOpen) return;
+    // ライトアップした夜は、夜行性のキツネが寄ってくる
+    const want = nightFoxCount(nightVisitors(dayVisitors, true));
+    let came = 0;
+    for (let i = 0; i < want; i++) {
+      const fox = ecosystem.spawn('fox', forest.trees);
+      if (fox) {
+        state.nightFoxes.push(fox.id);
+        came++;
+      }
+    }
+    if (came > 0) hud.flash(`夜行性のキツネが ${came} 匹寄ってきました。遊歩道の外は危険です`, 'bad');
+    return;
+  }
+  // 朝になると、夜に来たキツネは森へ帰る
+  const leaving = new Set(state.nightFoxes);
+  for (let i = ecosystem.creatures.length - 1; i >= 0; i--) {
+    if (leaving.has(ecosystem.creatures[i].id)) ecosystem.creatures.splice(i, 1);
+  }
+  state.nightFoxes = [];
 }
 
 /** クマの居る場所へカメラを向ける */
@@ -656,9 +748,19 @@ function removeCreature(id: number): void {
 function focusBear(): void {
   const b = bears.bears[0];
   if (!b) return;
+  focusAt(b.x, b.z);
+}
+
+/** 珍しい生き物の居る場所へカメラを向ける */
+function focusRare(kind: RareKind): void {
+  const s = rare.state.sightings.find((v) => v.kind === kind);
+  if (s) focusAt(s.x, s.z);
+}
+
+function focusAt(x: number, z: number): void {
   // 少し寄って見えるようにする
   const offset = camera.position.clone().sub(controls.target).setLength(28);
-  controls.target.set(b.x, 0, b.z);
+  controls.target.set(x, 0, z);
   camera.position.copy(controls.target).add(offset);
 }
 
@@ -755,6 +857,7 @@ function frame(): void {
     }
   }
   bearView.update(bears.bears, bears.traps, t);
+  rareView.update(rare.state, t);
 
   // 密猟者：夜に忍び込んで魚や動物を盗む。来園者に見つかると逃げる
   const poacherEvents = poachers.update(
@@ -782,19 +885,45 @@ function frame(): void {
     unsafePenalty: SAFETY.unsafePenalty,
   };
   const wildlife = { fruitOnTrees: wild.fruit, ...wild };
+  // 珍しい生き物：荒らすと去ってしまう。居る間と、現れた直後の話題で客が増える
+  const rareEnv = { habitat, fish: wild.fish, pressure: state.pressure };
+  for (const e of rare.update(dt, rareEnv)) {
+    if (e.type === 'fled') hud.flash(`荒らされて、${RARE[e.kind].name}が去ってしまいました`, 'bad');
+  }
+  const boost = rareBoost(rare.state);
   const bonus = seasonalBonus(cal.season, habitat);
-  const appealNow = () =>
-    applySeason(computeAppeal(habitat, wildlife, state.pressure, state.incident, access), cal.season, seasonState.weather, bonus);
-  let appeal = appealNow();
+  const evaluate = () =>
+    applySeason(
+      applyRareBoost(computeAppeal(habitat, wildlife, state.pressure, state.incident, access), boost),
+      cal.season,
+      seasonState.weather,
+      bonus,
+    );
+  let appeal = evaluate();
 
-  // キツネがいると、遊歩道の外を歩く来園者が襲われることがある
-  if (wild.fox > 0 && Math.random() < attackChance(wild.fox, appeal.visitors, dt, appeal.safety)) {
+  // 昼と夜。夜は営業していなければ来園者は帰り、営業していればキツネが活発になる
+  const dayProgress = state.dayTimer / SECONDS_PER_DAY;
+  const night = isNight(dayProgress);
+  if (night !== wasNight) {
+    wasNight = night;
+    onNightChange(night, appeal.visitors);
+  }
+  if (night) {
+    nightTime += dt;
+    if (state.nightOpen) nightOpenTime += dt;
+  }
+  const present = night && !state.nightOpen ? 0 : appeal.visitors;
+  nightView.update(darkness(dayProgress), state.nightOpen);
+
+  // キツネがいると、遊歩道の外を歩く来園者が襲われることがある（夜はより危険）
+  const foxRisk = wild.fox * foxDangerFactor(night);
+  if (wild.fox > 0 && Math.random() < attackChance(foxRisk, present, dt, appeal.safety)) {
     state.incident = 1;
     hud.flash('キツネが来園者を襲いました！魅力が大きく下がります', 'bad');
     reviews.note('foxAttack');
-    appeal = appealNow();
+    appeal = evaluate();
   }
-  strollers.update(dt, appeal.visitors);
+  strollers.update(dt, present);
 
   // 来園者の口コミ：いまの園の状態から感想が届く
   const review = reviews.update(
@@ -836,6 +965,16 @@ function frame(): void {
     else if (seasonState.weather === 'rain' && prevWeather !== 'rain') hud.flash('雨が降ってきました。今日は客が少なめです');
     else if (seasonState.weather === 'snow' && prevWeather !== 'snow') hud.flash('雪が降ってきました');
     seasonView.set(next.season, seasonState.weather);
+    // 夜も営業していれば、営業していた時間の分だけ夜の部の入園料が入り、電気代を払う
+    if (nightOpenTime > 0) {
+      const share = Math.min(1, nightOpenTime / Math.max(nightTime, 0.001));
+      const nightIncome = Math.floor(nightVisitors(appeal.visitors, true) * share) * TICKET_PRICE;
+      const cost = lightingCost(lanterns);
+      state.money += nightIncome - cost;
+      hud.flash(`夜の部  +${nightIncome.toLocaleString()} G（電気代 -${cost} G）`, nightIncome >= cost ? 'good' : 'bad');
+    }
+    nightOpenTime = 0;
+    nightTime = 0;
     // 日が変わるとき、森が育っているほどクマが出やすい（冬は冬眠して出ない）
     if (
       SEASONS[next.season].bears &&
@@ -845,6 +984,13 @@ function frame(): void {
     ) {
       bears.spawn();
       hud.flash('クマが現れました！罠を仕掛けるか、銃で狩りましょう', 'bad');
+    }
+    for (const e of rare.onNewDay(rareEnv, waterTrees())) {
+      if (e.type === 'arrived') {
+        hud.flash(RARE[e.kind].arrive, 'good');
+        reviews.note(e.kind);
+      }
+      if (e.type === 'left') hud.flash(`${RARE[e.kind].name}はどこかへ去っていきました`);
     }
     // 夜のあいだ、獲物が多いほど密猟者に狙われやすい
     const prey = ecosystem.creatures.filter((c) => POACHER_TARGETS.includes(c.kind)).length;
@@ -881,10 +1027,15 @@ function frame(): void {
     inventory: state.inventory,
     bears: bears.bears.length,
     traps: bears.traps.length,
+    darkness: darkness(dayProgress),
+    nightOpen: state.nightOpen,
+    nightVisitors: nightVisitors(appeal.visitors, state.nightOpen),
+    lightingCost: lightingCost(lanterns),
   });
 
   seasonBadge.update(cal, seasonState.weather, bonus);
-  seasonView.update(dt, t, seasonState.waterOffset, isFrozen(cal.season) ? Math.floor(appeal.visitors / 15) : 0, controls.target);
+  seasonView.update(dt, t, seasonState.waterOffset, isFrozen(cal.season) ? Math.floor(appeal.visitors / 15) : 0, controls.target, darkness(dayProgress));
+  rareBadge.update(rare.state, boost);
   water.update(t);
   controls.update();
   renderer.render(scene, camera);

@@ -2,9 +2,10 @@
 .season-badge {
   display: flex;
   align-items: center;
-  gap: 6px;
+  flex-shrink: 0;
+  gap: 2px;
   margin-left: 2px;
-  padding-left: 10px;
+  padding-left: 8px;
   border-left: 1px solid var(--line);
   font-weight: 700;
   white-space: nowrap;
@@ -46,6 +47,7 @@
 }
 
 .season-weather {
+  padding: 3px;
   color: var(--ink-soft);
 }
 .season-weather[data-weather='sunny'] {
