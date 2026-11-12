@@ -1,6 +1,7 @@
 import type { Creature, Inventory } from './ecology';
 import type { Tree } from './trees';
 import type { Bear, Trap } from './bears';
+import type { Weather } from './seasons';
 
 /**
  * ゲームの進捗の保存と読み込み。
@@ -31,6 +32,8 @@ export interface SaveData {
     pressure: number;
     incident: number;
   };
+  /** 天気と水位（古い保存データには無い） */
+  seasons?: { weather: Weather; waterOffset: number };
   camera: { position: [number, number, number]; target: [number, number, number] };
 }
 

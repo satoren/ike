@@ -131,7 +131,8 @@ export class CreatureView {
   readonly group = new THREE.Group();
   private readonly kinds: Record<CreatureKind, CreatureMeshes>;
   private readonly map: Heightmap;
-  private readonly waterLevel: number;
+  /** 水面の高さ。季節で水位が変わると外から書き換える */
+  waterLevel: number;
   private readonly m = new THREE.Matrix4();
   private readonly q = new THREE.Quaternion();
   private readonly p = new THREE.Vector3();
