@@ -29,6 +29,8 @@ import { CreatureView } from './creatures';
 import { PathGrid, PathView, SAFETY, Strollers, safety } from './paths';
 import { BEAR, Bears, SHOT_COST, TRAP_COST } from './bears';
 import { BearView } from './bearview';
+import { RARE, RareLife, applyRareBoost, rareBoost, type RareKind } from './rare';
+import { RareBadge, RareView } from './rareview';
 import { POACHER, POACHER_TARGETS, Poachers } from './poachers';
 import { PoacherView } from './poacherview';
 import { SAVE_VERSION, SaveSlot, decodeFloats, base64ToBytes, bytesToBase64, encodeFloats, type SaveData } from './save';
@@ -140,6 +142,10 @@ const bears = new Bears(map, WATER_LEVEL);
 const bearView = new BearView(map, WATER_LEVEL);
 scene.add(bearView.group);
 
+// 珍しい生き物（ホタル・オオサンショウウオ）
+const rare = new RareLife(map, WATER_LEVEL);
+const rareView = new RareView(map, WATER_LEVEL);
+scene.add(rareView.group);
 // 水草 → 魚 → カワセミ・サギ のつながり
 const foodweb = new FoodWeb(map, WATER_LEVEL);
 const foodwebView = new FoodWebView(map, WATER_LEVEL);
@@ -211,6 +217,8 @@ const hud = new Hud({
   onToggleNight: () => toggleNight(),
   onReset: () => resetGame(),
 });
+// HUD を組んだあとに足す（HUD は中身を作り直すため）
+const rareBadge = new RareBadge((kind) => focusRare(kind));
 const foodwebPanel = new FoodWebPanel(document.querySelector('#hud .basket'));
 hud.setTool(state.tool);
 const reviewPanel = new ReviewPanel(document.getElementById('hud')!);
@@ -534,6 +542,7 @@ function snapshot(): SaveData {
     creatures: ecosystem.creatures.map((c) => ({ ...c })),
     bears: bears.bears.map((b) => ({ ...b })),
     traps: bears.traps.map((t) => ({ ...t })),
+    rare: rare.snapshot(),
     foodweb: { weeds: foodweb.weeds.map((w) => ({ ...w })), birds: foodweb.birds.map((b) => ({ ...b })) },
     poachers: poachers.poachers.map((p) => ({ ...p, loot: [...p.loot] })),
     state: {
@@ -562,6 +571,7 @@ function restore(data: SaveData): void {
   pathView.rebuild();
   ecosystem.restore(data.creatures);
   bears.restore(data.bears ?? [], data.traps ?? []);
+  rare.restore(data.rare);
   foodweb.restore(data.foodweb);
   poachers.restore(data.poachers ?? []);
   Object.assign(state, data.state, {
@@ -604,6 +614,21 @@ if (new URLSearchParams(location.search).has('bear')) {
   const b = bears.spawn();
   b.x *= 0.45;
   b.z *= 0.45;
+}
+
+// 確認用：URL に ?firefly / ?salamander を付けると、最初からその生き物が現れる
+for (const kind of ['firefly', 'salamander'] as RareKind[]) {
+  if (new URLSearchParams(location.search).has(kind) && !rare.has(kind)) rare.appear(kind, waterTrees());
+}
+
+/** 水辺の木（ホタルが舞う場所） */
+function waterTrees(): { x: number; z: number }[] {
+  return forest.trees.filter((t) => {
+    for (const [dx, dz] of [[0, 0], [3, 0], [-3, 0], [0, 3], [0, -3]]) {
+      if (map.heightAt(t.x + dx, t.z + dz) < WATER_LEVEL) return true;
+    }
+    return false;
+  });
 }
 
 // 確認用：URL に ?poacher を付けると、最初から密猟者が 1 人忍び込む
@@ -658,9 +683,19 @@ function removeCreature(id: number): void {
 function focusBear(): void {
   const b = bears.bears[0];
   if (!b) return;
+  focusAt(b.x, b.z);
+}
+
+/** 珍しい生き物の居る場所へカメラを向ける */
+function focusRare(kind: RareKind): void {
+  const s = rare.state.sightings.find((v) => v.kind === kind);
+  if (s) focusAt(s.x, s.z);
+}
+
+function focusAt(x: number, z: number): void {
   // 少し寄って見えるようにする
   const offset = camera.position.clone().sub(controls.target).setLength(28);
-  controls.target.set(b.x, 0, b.z);
+  controls.target.set(x, 0, z);
   camera.position.copy(controls.target).add(offset);
 }
 
@@ -743,6 +778,7 @@ function frame(): void {
     }
   }
   bearView.update(bears.bears, bears.traps, t);
+  rareView.update(rare.state, t);
 
   // 密猟者：夜に忍び込んで魚や動物を盗む。来園者に見つかると逃げる
   const poacherEvents = poachers.update(
@@ -770,7 +806,15 @@ function frame(): void {
     unsafePenalty: SAFETY.unsafePenalty,
   };
   const wildlife = { fruitOnTrees: wild.fruit, ...wild };
-  let appeal = computeAppeal(habitat, wildlife, state.pressure, state.incident, access);
+  // 珍しい生き物：荒らすと去ってしまう。居る間と、現れた直後の話題で客が増える
+  const rareEnv = { habitat, fish: wild.fish, pressure: state.pressure };
+  for (const e of rare.update(dt, rareEnv)) {
+    if (e.type === 'fled') hud.flash(`荒らされて、${RARE[e.kind].name}が去ってしまいました`, 'bad');
+  }
+  const boost = rareBoost(rare.state);
+  const evaluate = () =>
+    applyRareBoost(computeAppeal(habitat, wildlife, state.pressure, state.incident, access), boost);
+  let appeal = evaluate();
 
   // 昼と夜。夜は営業していなければ来園者は帰り、営業していればキツネが活発になる
   const dayProgress = state.dayTimer / SECONDS_PER_DAY;
@@ -792,7 +836,7 @@ function frame(): void {
     state.incident = 1;
     hud.flash('キツネが来園者を襲いました！魅力が大きく下がります', 'bad');
     reviews.note('foxAttack');
-    appeal = computeAppeal(habitat, wildlife, state.pressure, state.incident, access);
+    appeal = evaluate();
   }
   strollers.update(dt, present);
 
@@ -843,6 +887,13 @@ function frame(): void {
       bears.spawn();
       hud.flash('クマが現れました！罠を仕掛けるか、銃で狩りましょう', 'bad');
     }
+    for (const e of rare.onNewDay(rareEnv, waterTrees())) {
+      if (e.type === 'arrived') {
+        hud.flash(RARE[e.kind].arrive, 'good');
+        reviews.note(e.kind);
+      }
+      if (e.type === 'left') hud.flash(`${RARE[e.kind].name}はどこかへ去っていきました`);
+    }
     // 夜のあいだ、獲物が多いほど密猟者に狙われやすい
     const prey = ecosystem.creatures.filter((c) => POACHER_TARGETS.includes(c.kind)).length;
     if (state.day >= POACHER.firstDay && poachers.poachers.length < POACHER.max && Math.random() < POACHER.chance(prey)) {
@@ -884,6 +935,7 @@ function frame(): void {
     lightingCost: lightingCost(lanterns),
   });
 
+  rareBadge.update(rare.state, boost);
   water.update(t);
   controls.update();
   renderer.render(scene, camera);

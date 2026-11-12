@@ -1058,3 +1058,73 @@ kbd {
   font-size: 10.5px;
   color: var(--ink-soft);
 }
+
+
+/* ---------- 珍しい生き物の「話題」バッジ ---------- */
+.rare-badge {
+  position: absolute;
+  /* 左上は口コミ欄があるので、左下（道具のドックの上）に出す */
+  bottom: 128px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 10px;
+  border-radius: 999px;
+  pointer-events: auto;
+  box-shadow: var(--shadow), 0 0 0 2px rgba(242, 193, 78, 0.55);
+  animation: rare-glow 2.4s ease-in-out infinite;
+}
+
+.rare-badge[hidden] {
+  display: none;
+}
+
+.rare-badge-star {
+  color: var(--coin);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.rare-badge-text {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.rare-chip {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #fbefd0;
+  color: #8a5d10;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.rare-chip:hover {
+  background: #f7e2ad;
+}
+
+.rare-boost {
+  color: var(--leaf-deep);
+  font-weight: 700;
+}
+
+@keyframes rare-glow {
+  50% {
+    box-shadow: var(--shadow), 0 0 0 4px rgba(242, 193, 78, 0.35);
+  }
+}
+
+@media (max-width: 640px) {
+  .rare-badge {
+    top: 162px;
+    bottom: auto;
+    left: 10px;
+    right: 10px;
+    padding: 6px 10px;
+  }
+}

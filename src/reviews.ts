@@ -23,7 +23,7 @@ export interface ReviewContext {
 }
 
 /** 口コミの話題になる出来事 */
-export type ReviewEvent = 'bearAttack' | 'foxAttack' | 'bearHunted';
+export type ReviewEvent = 'bearAttack' | 'foxAttack' | 'bearHunted' | 'firefly' | 'salamander';
 
 /** 口コミが魅力のどの要素について語っているか（画面で理由として見せる） */
 export type ReviewFactor = 'incident' | 'danger' | 'safety' | 'wildlife' | 'harvest' | 'scenery';
@@ -56,6 +56,19 @@ interface Topic {
 }
 
 export const TOPICS: readonly Topic[] = [
+  // ---- 珍しい生き物 ----
+  {
+    factor: 'wildlife',
+    good: true,
+    weight: (c) => (c.recent.has('firefly') ? 10 : 0),
+    lines: ['ホタルが綺麗！水辺が光っていて夢みたい', 'ホタルが出たと聞いて飛んできました', 'こんなところでホタルが見られるなんて'],
+  },
+  {
+    factor: 'wildlife',
+    good: true,
+    weight: (c) => (c.recent.has('salamander') ? 12 : 0),
+    lines: ['オオサンショウウオを見た！本物は迫力がすごい', 'ニュースで見てオオサンショウウオに会いに来ました', '池にオオサンショウウオがいるなんて、よほど水がきれいなんだね'],
+  },
   // ---- 事件・危険 ----
   {
     factor: 'incident',
