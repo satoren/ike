@@ -7,6 +7,8 @@ const MAX_PER_KIND = 400;
 export interface Part {
   geometry: THREE.BufferGeometry;
   color: THREE.ColorRepresentation;
+  /** 暗い夜でも見える部位（目など）は自分で光らせる */
+  emissive?: THREE.ColorRepresentation;
 }
 
 /** 生き物の形。どれも簡単な図形の組み合わせ（頭が +X 方向） */
@@ -104,7 +106,7 @@ export class CreatureMeshes {
     this.meshes = parts.map((p) => {
       const mesh = new THREE.InstancedMesh(
         p.geometry,
-        new THREE.MeshStandardMaterial({ color: p.color, roughness: 0.8 }),
+        new THREE.MeshStandardMaterial({ color: p.color, roughness: 0.8, emissive: p.emissive ?? '#000000' }),
         max,
       );
       mesh.count = 0;

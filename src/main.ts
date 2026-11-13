@@ -65,6 +65,10 @@ import { FACILITIES, FACILITY, FACILITY_ORDER, Facilities, type FacilityKind } f
 import { FacilityView } from './facilityview';
 import { Progress, RANKS, type ParkStats } from './progress';
 import { RankBadge, rewardText } from './progressview';
+import { Fauna, emptyBiotope, surveyBiotope, type Biotope } from './fauna';
+import { FaunaView } from './faunaview';
+import { Dex, type DexId } from './dex';
+import { DexPanel } from './dexview';
 
 // ---- ワールドの設定 ----
 const MAP_SIZE = 128; // マス数（一辺）
@@ -191,6 +195,11 @@ scene.add(rareView.group);
 const foodweb = new FoodWeb(map, WATER_LEVEL);
 const foodwebView = new FoodWebView(map, WATER_LEVEL);
 scene.add(foodwebView.group);
+// 場所の作り方で現れる生き物（カエル・トンボ・カメ・リス・シカ・フクロウ）と、生き物図鑑
+const fauna = new Fauna(map);
+const faunaView = new FaunaView(map, WATER_LEVEL);
+scene.add(faunaView.group);
+const dex = new Dex();
 const poachers = new Poachers(map, WATER_LEVEL);
 const poacherView = new PoacherView(map, WATER_LEVEL);
 scene.add(poacherView.group);
@@ -248,6 +257,11 @@ function habitatNow(): Habitat {
   return { ...computeHabitat(map, waterSurface(), forest.trees), weeds: foodweb.matureWeeds };
 }
 let habitat: Habitat = habitatNow();
+/** 生き物の居場所になる場所（浅瀬・小島・林・静かな林）。地形や木、遊歩道が変わると調べ直す */
+function biotopeNow(): Biotope {
+  return surveyBiotope(map, waterSurface(), forest.trees, (cx, cz) => paths.cells[cz * paths.size + cx] !== 0);
+}
+let biotope: Biotope = emptyBiotope();
 let scenic = 0;
 let statsDirty = false;
 
@@ -261,6 +275,7 @@ for (let i = 0, n = 0; i < 4000 && n < 12; i++) {
   if (foodweb.plantWeed((Math.random() * 2 - 1) * half, (Math.random() * 2 - 1) * half, true)) n++;
 }
 habitat = habitatNow();
+biotope = biotopeNow();
 
 /** タッチでも遊歩道を撤去できるよう、ドックの「撤去」ボタンで切り替える */
 let pathErase = false;
@@ -304,6 +319,7 @@ function cycleSpeed(): void {
 const rareBadge = new RareBadge((kind) => focusRare(kind));
 const foodwebPanel = new FoodWebPanel(document.querySelector('#hud .basket'));
 const rankBadge = new RankBadge(document.querySelector<HTMLElement>('#hud .brand')!, document.getElementById('hud')!);
+const dexPanel = new DexPanel(document.getElementById('hud')!, (id) => focusCreature(id));
 // 「?」の遊び方パネルから、不具合や要望を送れるようにする（送るときに今の状況を添える。送り先が無いビルドでは出さない）
 const feedbackDialog = feedbackEnabled() ? new FeedbackDialog(document.getElementById('hud')!, () => {
   const cal = calendarOf(state.day);
@@ -838,6 +854,8 @@ function snapshot(): SaveData {
     facilities: facilities.facilities.map((f) => ({ ...f })),
     progress: progress.snapshot(),
     rangers: rangers.rangers.map((r) => ({ ...r })),
+    fauna: fauna.animals.map((a) => ({ ...a })),
+    dex: dex.snapshot(),
     state: {
       money: state.money,
       day: state.day,
@@ -872,6 +890,8 @@ function restore(data: SaveData): void {
   facilities.restore(data.facilities);
   progress.restore(data.progress);
   rangers.restore(data.rangers ?? []);
+  fauna.restore(data.fauna);
+  dex.restore(data.dex);
   Object.assign(state, data.state, {
     inventory: { ...emptyInventory(), ...data.state.inventory },
     nightOpen: data.state.nightOpen ?? false,
@@ -888,6 +908,7 @@ function restore(data: SaveData): void {
   }
   seasonView.set(calendarOf(state.day).season, seasonState.weather, true);
   habitat = habitatNow();
+  biotope = biotopeNow();
   scenic = paths.scenicValue(WATER_LEVEL);
 }
 
@@ -1020,6 +1041,17 @@ function focusRare(kind: RareKind): void {
   if (s) focusAt(s.x, s.z);
 }
 
+/** 図鑑から、その生き物がいま居る場所へカメラを向ける */
+function focusCreature(id: DexId): void {
+  const at =
+    ecosystem.creatures.find((c) => c.kind === id) ??
+    fauna.animals.find((a) => a.kind === id) ??
+    foodweb.birds.find((b) => b.kind === id) ??
+    rare.state.sightings.find((v) => v.kind === id) ??
+    (id === 'bear' ? bears.bears[0] : undefined);
+  if (at) focusAt(at.x, at.z);
+}
+
 function focusAt(x: number, z: number): void {
   // 少し寄って見えるようにする
   const offset = camera.position.clone().sub(controls.target).setLength(28);
@@ -1068,6 +1100,9 @@ const clock = new THREE.Clock();
 let progressTimer = 0.5;
 let statsTimer = 0;
 let saveTimer = 0;
+let biotopeTimer = 0;
+/** 図鑑の最初の記録は、もう居る生き物を黙って載せるだけにする（始めた直後や再開時に知らせが並ばないように） */
+let dexSynced = false;
 
 function frame(): void {
   // realDt は実際に過ぎた時間、dt はゲーム内の時間（時間の速さを掛けたもの）
@@ -1084,10 +1119,18 @@ function frame(): void {
   statsTimer += realDt;
   if (statsDirty && statsTimer > 0.25) {
     habitat = habitatNow();
+    biotope = biotopeNow();
+    biotopeTimer = 0;
     scenic = paths.scenicValue(WATER_LEVEL);
     facilities.refreshViews(forest.trees);
     statsDirty = false;
     statsTimer = 0;
+  }
+  // 若木が育つと林になるので、何も変えていなくても数秒ごとに場所を調べ直す
+  biotopeTimer += realDt;
+  if (biotopeTimer > 3) {
+    biotopeTimer = 0;
+    biotope = biotopeNow();
   }
 
   // 季節と天気：夏の晴れが続くと池の水位が下がる
@@ -1127,6 +1170,25 @@ function frame(): void {
   for (const kind of new Set(web.left)) hud.flash(`魚が減って${BIRDS[kind].name}が去っていきました`, 'bad');
   foodwebView.update(foodweb.weeds, foodweb.birds, t);
   state.pressure = decayPressure(state.pressure, dt);
+
+  // 浅瀬・小島・林などの場所があると、そこを好む生き物が集まる
+  fauna.update(
+    dt,
+    biotope,
+    {
+      season: cal.season,
+      weather: seasonState.weather,
+      night: isNight(state.dayTimer / SECONDS_PER_DAY),
+      weeds: foodweb.matureWeeds,
+      deepCells: habitat.deepCells,
+      fruit: forest.fruitCount,
+      rabbits: ecosystem.count('rabbit'),
+      pressure: state.pressure,
+    },
+    waterSurface(),
+  );
+  faunaView.waterLevel = waterSurface();
+  faunaView.update(fauna.animals);
 
   const wild = {
     fruit: forest.fruitCount,
@@ -1187,7 +1249,7 @@ function frame(): void {
 
   state.incident = decayIncident(state.incident, dt);
   const access = {
-    scenic: scenic + foodweb.appealBonus() + facilities.appealBonus(lastVisitors),
+    scenic: scenic + foodweb.appealBonus() + fauna.appealBonus() + facilities.appealBonus(lastVisitors),
     safetyFor: (v: number) => safety(paths.connectedCount, v),
     unsafePenalty: SAFETY.unsafePenalty,
   };
@@ -1201,7 +1263,8 @@ function frame(): void {
   const bonus = seasonalBonus(cal.season, habitat);
   const evaluate = () =>
     applySeason(
-      applyRareBoost(computeAppeal(habitat, wildlife, state.pressure, state.incident, access), boost),
+      // 図鑑が埋まるほど評判が広まり、客が増える
+      applyRareBoost(computeAppeal(habitat, wildlife, state.pressure, state.incident, access), boost * dex.boost),
       cal.season,
       seasonState.weather,
       bonus,
@@ -1346,6 +1409,30 @@ function frame(): void {
     }
     if (result.rankedUp) onRankUp();
     rankBadge.update(progress, progress.goals(stats));
+
+    // 生き物図鑑：はじめて現れた生き物を記録し、発見ボーナスを渡す
+    const present: Partial<Record<DexId, number>> = {
+      rabbit: wild.rabbit,
+      duck: wild.duck,
+      fish: wild.fish,
+      fox: wild.fox,
+      bear: wild.bear,
+      kingfisher: foodweb.count('kingfisher'),
+      heron: foodweb.count('heron'),
+      firefly: rare.has('firefly') ? 1 : 0,
+      salamander: rare.has('salamander') ? 1 : 0,
+      ...fauna.counts(),
+    };
+    const found = dex.record(present, state.day);
+    if (dexSynced) {
+      for (const e of found) {
+        state.money += e.bonus;
+        hud.flash(`図鑑に登録：${e.name}（${dex.count}/${dex.total}） 発見ボーナス +${e.bonus}G`, 'good');
+        dexPanel.ping();
+      }
+    }
+    dexSynced = true;
+    dexPanel.update(dex, present);
   }
 
   rangerPanel.update(rangers.count, state.money);
