@@ -10,6 +10,7 @@ import type { ProgressState } from './progress';
 import type { Ranger } from './rangers';
 import type { Animal } from './fauna';
 import type { DexState } from './dex';
+import type { RequestsState } from './requests';
 
 /**
  * ゲームの進捗の保存と読み込み。
@@ -50,6 +51,8 @@ export interface SaveData {
   fauna?: Animal[];
   /** 生き物図鑑（古い保存データには無い） */
   dex?: DexState;
+  /** 日替わりのお願い（古い保存データには無い） */
+  requests?: RequestsState;
   state: {
     money: number;
     day: number;
