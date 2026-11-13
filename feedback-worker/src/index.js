@@ -37,6 +37,7 @@ export default {
         return json(500, { error: 'server', detail, hasDB: Boolean(env.DB) });
       }
     }
+    // 投稿の受け口はゲームと同じ URL の /feedback（前の版のゲームはどのパスにも送っていたので、そちらも受ける）
     return submit(request, env);
   },
 
@@ -50,7 +51,9 @@ export default {
 
 async function submit(request, env) {
   const origin = request.headers.get('Origin') ?? '';
-  const allowed = (env.ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  // ゲームと同じ URL からの投稿はいつでも受ける。ほかは ALLOWED_ORIGINS に書いたところだけ
+  const self = new URL(request.url).origin;
+  const allowed = [self, ...(env.ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean)];
   const cors = {
     'Access-Control-Allow-Origin': allowed.includes(origin) ? origin : (allowed[0] ?? ''),
     'Access-Control-Allow-Methods': 'POST, OPTIONS',

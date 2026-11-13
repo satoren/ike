@@ -1,13 +1,21 @@
-name = "ike-feedback"
+# ゲームとご意見の中継を 1 つの Worker で配信する（https://ike.satoren.workers.dev）
+name = "ike"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
+
+# ゲーム本体（リポジトリ直下で npm run build した dist/）を静的ファイルとして配信する。
+# 管理ページ・API・投稿の受け口だけ Worker が先に受ける
+[assets]
+directory = "../dist"
+run_worker_first = ["/api/*", "/admin", "/feedback"]
 
 # 毎日 15:00 UTC（日本時間 0:00）に、前の日の投稿をまとめる
 [triggers]
 crons = ["0 15 * * *"]
 
 [vars]
-ALLOWED_ORIGINS = "https://satoren.github.io,http://localhost:5173"
+# ゲームは同じ URL から送るので、ここはローカル開発用（vite）
+ALLOWED_ORIGINS = "http://localhost:5173"
 
 [[d1_databases]]
 binding = "DB"

@@ -1,4 +1,4 @@
-name: GitHub Pages へデプロイ
+name: GitHub Pages へ引っ越しの案内をデプロイ
 
 on:
   push:
@@ -18,21 +18,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # ゲームは Cloudflare（https://ike.satoren.workers.dev）に引っ越したので、ここには案内だけを置く
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
-        env:
-          # ゲーム内フィードバックの送り先（feedback-worker/）と、どの版から送られたか
-          VITE_FEEDBACK_ENDPOINT: ${{ vars.FEEDBACK_ENDPOINT || 'https://ike-feedback.ike-game.workers.dev/' }}
-          VITE_APP_VERSION: ${{ github.sha }}
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: pages-moved
 
   deploy:
     needs: build

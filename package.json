@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:cloudflare": "VITE_APP_VERSION=$WORKERS_CI_COMMIT_SHA npm run build",
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
