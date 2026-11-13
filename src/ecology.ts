@@ -391,6 +391,8 @@ export const ATTACK = {
   penalty: 0.6,
   /** クマに襲われたときの事件の重さ（キツネを 1 として） */
   bearSeverity: 1.5,
+  /** 来園者が罠にかかったときの事件の重さ */
+  trapSeverity: 0.7,
   /** 事件で魅力が下がる上限 */
   maxPenalty: 0.9,
   /** 影響が半分に戻るまでの秒数 */

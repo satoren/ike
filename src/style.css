@@ -546,6 +546,13 @@ kbd {
   display: none;
 }
 
+/* 足跡が見つかっただけの段階は、落ち着いた色で知らせる */
+.bear-alert.sign {
+  background: #b8842f;
+  box-shadow: 0 6px 20px rgba(184, 132, 47, 0.4);
+  animation: none;
+}
+
 .bear-alert-icon {
   display: grid;
   place-items: center;

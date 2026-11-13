@@ -1,10 +1,13 @@
 import * as THREE from 'three';
 import type { Heightmap } from './heightmap';
-import type { Bear, Trap } from './bears';
+import type { Bear, BearSign, Trap } from './bears';
 import { CreatureMeshes, bearParts } from './creatures';
 
 const MAX_BEARS = 8;
 const MAX_TRAPS = 200;
+const MAX_PRINTS = 600;
+/** 足跡の間隔 */
+const PRINT_GAP = 0.9;
 
 /** クマ（頭上に赤い目印つき）と罠を描く */
 export class BearView {
@@ -13,6 +16,10 @@ export class BearView {
   private readonly markers: THREE.InstancedMesh;
   private readonly traps: THREE.InstancedMesh;
   private readonly trapTeeth: THREE.InstancedMesh;
+  private readonly prints: THREE.InstancedMesh;
+  private readonly signMarker: THREE.Mesh;
+  private sign: BearSign | null = null;
+  private trail: { x: number; z: number }[] = [];
   private readonly map: Heightmap;
   private readonly waterLevel: number;
   private readonly m = new THREE.Matrix4();
@@ -53,14 +60,83 @@ export class BearView {
       new THREE.MeshStandardMaterial({ color: '#9aa0a6', metalness: 0.7, roughness: 0.35 }),
       MAX_TRAPS,
     );
-    for (const mesh of [this.markers, this.traps, this.trapTeeth]) {
+    // 足跡：地面に貼りつく小さな楕円。予想される獣道と、歩いているクマの行き先に並べる
+    const print = new THREE.CircleGeometry(0.22, 10);
+    print.rotateX(-Math.PI / 2);
+    print.scale(0.75, 1, 1.25);
+    this.prints = new THREE.InstancedMesh(
+      print,
+      new THREE.MeshBasicMaterial({ color: '#4a3524', transparent: true, opacity: 0.75, depthWrite: false }),
+      MAX_PRINTS,
+    );
+    this.prints.renderOrder = 5;
+    // 足跡が見つかった場所の目印（琥珀色のひし形）
+    this.signMarker = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.5),
+      new THREE.MeshBasicMaterial({ color: '#d99a2b', depthTest: false, transparent: true, opacity: 0.9 }),
+    );
+    this.signMarker.renderOrder = 20;
+    this.signMarker.visible = false;
+    this.group.add(this.signMarker);
+    for (const mesh of [this.markers, this.traps, this.trapTeeth, this.prints]) {
       mesh.count = 0;
       mesh.frustumCulled = false;
       this.group.add(mesh);
     }
   }
 
+  /** 足跡の場所と、そこから予想される獣道を受け取る */
+  setTrail(sign: BearSign | null, trail: { x: number; z: number }[]): void {
+    this.sign = sign;
+    this.trail = trail;
+  }
+
+  /** 折れ線に沿って足跡を左右交互に並べる。置いた数を返す */
+  private layPrints(from: { x: number; z: number }, line: readonly { x: number; z: number }[], n: number): number {
+    let prev = from;
+    let carry = PRINT_GAP / 2;
+    let side = 1;
+    for (const pt of line) {
+      const dx = pt.x - prev.x;
+      const dz = pt.z - prev.z;
+      const len = Math.hypot(dx, dz);
+      if (len < 1e-6) continue;
+      const ux = dx / len;
+      const uz = dz / len;
+      this.q.setFromAxisAngle(this.up, Math.atan2(ux, uz));
+      while (carry <= len) {
+        if (n >= MAX_PRINTS) return n;
+        const x = prev.x + ux * carry - uz * 0.16 * side;
+        const z = prev.z + uz * carry + ux * 0.16 * side;
+        const h = this.map.heightAt(x, z);
+        // 水の中の足跡は見えない
+        if (h >= this.waterLevel) {
+          this.p.set(x, h + 0.06, z);
+          this.m.compose(this.p, this.q, this.one);
+          this.prints.setMatrixAt(n++, this.m);
+        }
+        side = -side;
+        carry += PRINT_GAP;
+      }
+      carry -= len;
+      prev = pt;
+    }
+    return n;
+  }
+
   update(bears: readonly Bear[], traps: readonly Trap[], time: number): void {
+    let prints = 0;
+    if (this.sign && this.trail.length > 1) prints = this.layPrints(this.trail[0], this.trail.slice(1), prints);
+    for (const b of bears) if (b.route?.length) prints = this.layPrints(b, b.route, prints);
+    this.prints.count = prints;
+    this.prints.instanceMatrix.needsUpdate = true;
+    this.signMarker.visible = this.sign !== null;
+    if (this.sign) {
+      const g = Math.max(this.map.heightAt(this.sign.x, this.sign.z), this.waterLevel);
+      this.signMarker.position.set(this.sign.x, g + 2 + Math.sin(time * 3) * 0.15, this.sign.z);
+      this.signMarker.rotation.y = time * 1.5;
+    }
+
     let n = 0;
     for (const b of bears) {
       if (n >= MAX_BEARS) break;

@@ -29,7 +29,7 @@ const TOOLS: { id: Tool; label: string; key: string; hint: string; cost: string 
     id: 'trap',
     label: '罠',
     key: '8',
-    hint: 'クリックで罠を置きます。近づいたクマやキツネがかかります（1回で壊れます）',
+    hint: 'クリックで罠を置きます。クマは林や水辺を通るので、足跡の続く獣道に先回りして仕掛けます。クマの近くや遊歩道の上には置けず、道のすぐ脇だと来園者がかかります（1回で壊れます）',
     cost: `${TRAP_COST}G/個`,
   },
   {
@@ -125,6 +125,8 @@ export interface HudData {
   inventory: Inventory;
   /** いま出没しているクマの数 */
   bears: number;
+  /** 翌日クマが現れる足跡が見つかっている */
+  bearSign: boolean;
   traps: number;
   /** 暗さ（0 = 昼、1 = 夜） */
   darkness: number;
@@ -210,7 +212,8 @@ export class Hud {
 
       <div class="bear-alert" hidden role="alert">
         <span class="bear-alert-icon">${icons.alert}</span>
-        <span><b>クマ出没中</b> <span data-v="bears"></span> 罠か銃で狩ってください</span>
+        <span class="bear-alert-text"><b>クマ出没中</b> <span data-v="bears"></span> 罠か銃で狩ってください</span>
+        <span class="bear-sign-text" hidden><b>クマの足跡</b> 明日現れそうです。獣道に罠を</span>
         <button type="button" class="bear-focus">見に行く</button>
       </div>
 
@@ -235,7 +238,7 @@ export class Hud {
       <button class="map-btn card" type="button" aria-pressed="false" aria-label="パネルを隠して地図を広く見る" title="パネルを隠す">${icons.expand}</button>
       <div class="help card" hidden>
         <div class="help-head"><b>遊び方</b><button type="button" class="help-close" aria-label="閉じる">${icons.close}</button></div>
-        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります（つながっていない道は灰色になり、使われません）。ときどきクマが現れ、柵と道を壊して来園者を襲います。罠を仕掛けるか銃で狩りましょう。夜には密猟者が忍び込んで魚や動物を盗んでいきます。紫の目印の人を「集める」でなぞると捕まえられ、報奨金がもらえます。来園者に見つかると逃げ出すので、遊歩道を広く巡らせておくと被害を減らせます。かごの下の「駆除係」で係を雇うと、日給と引き換えに園内を巡回し、クマを撃ち、キツネや密猟者を捕まえてくれます（給料が払えないと辞めてしまいます）。左上の「夜間営業」で遊歩道をライトアップすると夜も客が来て入園料が増えますが、電気代がかかり、夜行性のキツネが寄ってきて遊歩道の外が危険になります。水辺の木を増やし、池を深くして荒らさずにいると、ホタルやオオサンショウウオがまれに現れて話題になり、来園者が一気に増えます（捕まえることはできません）。左上の★は園のランクです。押すと次のランクへの目標が見られます。目標を全部達成するとランクが上がり、賞金がもらえて入園料が上がり、休憩所・売店・展望台などの施設を「施設」で遊歩道のそばに建てられるようになります。本のボタンの「生き物図鑑」には、園に現れた生き物が載ります。浅瀬、池の中の小島、木を寄せて植えた林、遊歩道から離れた静かな林など、場所を作り分けると、そこを好む新しい生き物が現れます。まだ見つけていない生き物はヒントだけが載っています。見つけるたびにボーナスがもらえ、評判が広まって来園者が増えます。</p>
+        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります（つながっていない道は灰色になり、使われません）。ときどきクマが現れ、柵と道を壊して来園者を襲います。現れる前の日には地図の端に足跡が見つかり、そこから続く点線が予想される獣道です。クマは身を隠せる林や水辺を通り、開けた草地を避けるので、木の植え方で通り道が変わります。獣道に先回りして罠を仕掛けるか、銃で狩りましょう（クマの近くには罠を置けません。遊歩道のすぐ脇の罠には来園者がかかってしまいます）。夜には密猟者が忍び込んで魚や動物を盗んでいきます。紫の目印の人を「集める」でなぞると捕まえられ、報奨金がもらえます。来園者に見つかると逃げ出すので、遊歩道を広く巡らせておくと被害を減らせます。かごの下の「駆除係」で係を雇うと、日給と引き換えに園内を巡回し、クマを撃ち、キツネや密猟者を捕まえてくれます（給料が払えないと辞めてしまいます）。左上の「夜間営業」で遊歩道をライトアップすると夜も客が来て入園料が増えますが、電気代がかかり、夜行性のキツネが寄ってきて遊歩道の外が危険になります。水辺の木を増やし、池を深くして荒らさずにいると、ホタルやオオサンショウウオがまれに現れて話題になり、来園者が一気に増えます（捕まえることはできません）。左上の★は園のランクです。押すと次のランクへの目標が見られます。目標を全部達成するとランクが上がり、賞金がもらえて入園料が上がり、休憩所・売店・展望台などの施設を「施設」で遊歩道のそばに建てられるようになります。本のボタンの「生き物図鑑」には、園に現れた生き物が載ります。浅瀬、池の中の小島、木を寄せて植えた林、遊歩道から離れた静かな林など、場所を作り分けると、そこを好む新しい生き物が現れます。まだ見つけていない生き物はヒントだけが載っています。見つけるたびにボーナスがもらえ、評判が広まって来園者が増えます。</p>
         <dl class="help-mouse">
           <dt>左ドラッグ</dt><dd>道具を使う（移動ではカメラ移動）</dd>
           <dt>右ドラッグ</dt><dd>カメラ移動</dd>
@@ -478,14 +481,17 @@ export class Hud {
     const inv = d.inventory;
     const key = [
       d.money, d.day, d.visitors, d.appeal, Math.round(d.penalty * 100), Math.round(d.incidentPenalty * 100), Math.round(d.safety * 100), d.pathCells, d.pathCellsTotal, d.waterCells, d.trees, d.treesNearWater,
-      ...ITEM_ORDER.map((k) => `${inv[k]}/${d.wild[k]}`), d.bears, d.traps, d.nightOpen, d.nightVisitors, d.lightingCost,
+      ...ITEM_ORDER.map((k) => `${inv[k]}/${d.wild[k]}`), d.bears, d.bearSign, d.traps, d.nightOpen, d.nightVisitors, d.lightingCost,
     ].join('|');
     if (key === this.lastKey) return;
     this.lastKey = key;
 
     this.values.day.textContent = `${d.day}日目`;
     const alert = this.root.querySelector<HTMLElement>('.bear-alert')!;
-    alert.hidden = d.bears === 0;
+    alert.hidden = d.bears === 0 && !d.bearSign;
+    alert.classList.toggle('sign', d.bears === 0 && d.bearSign);
+    alert.querySelector<HTMLElement>('.bear-alert-text')!.hidden = d.bears === 0;
+    alert.querySelector<HTMLElement>('.bear-sign-text')!.hidden = d.bears > 0;
     this.values.bears.textContent = `${d.bears}頭`;
     this.set('money', d.money, d.money.toLocaleString(), 'G');
     this.set('visitors', d.visitors, String(d.visitors), `人${d.nightOpen ? ` <small>+夜${d.nightVisitors}</small>` : ''}`);
