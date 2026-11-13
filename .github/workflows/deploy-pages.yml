@@ -28,7 +28,7 @@ jobs:
       - run: npm run build
         env:
           # ゲーム内フィードバックの送り先（feedback-worker/）と、どの版から送られたか
-          VITE_FEEDBACK_ENDPOINT: ${{ vars.FEEDBACK_ENDPOINT }}
+          VITE_FEEDBACK_ENDPOINT: ${{ vars.FEEDBACK_ENDPOINT || 'https://ike-feedback.ike-game.workers.dev/' }}
           VITE_APP_VERSION: ${{ github.sha }}
       - uses: actions/upload-pages-artifact@v3
         with:
