@@ -82,6 +82,7 @@ export class FeedbackDialog {
         <textarea name="message" rows="5" maxlength="${MESSAGE_MAX}" placeholder="例：キツネが遊歩道の上でも客を襲っていた／池に橋をかけたい" required></textarea>
         <input class="feedback-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
         <label class="feedback-ctx"><input type="checkbox" name="ctx" checked /> ゲームの状況（日付・ランク・お金など）と端末の種類を添える</label>
+        <p class="feedback-paused">書いているあいだ、園の時間は止まっています</p>
         <p class="feedback-note">送った内容は開発者が読み、改善に使います。返信はできないので、名前や連絡先は書かないでください。</p>
         <div class="feedback-foot">
           <span class="feedback-status" aria-live="polite"></span>
@@ -103,6 +104,11 @@ export class FeedbackDialog {
     });
     // 入力中のキーで道具が切り替わらないようにする
     this.el.addEventListener('keydown', (e) => e.stopPropagation());
+  }
+
+  /** 入力画面が開いているか。開いているあいだはゲームの時間を止める */
+  get isOpen(): boolean {
+    return !this.el.hidden;
   }
 
   open(): void {
