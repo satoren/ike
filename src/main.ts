@@ -304,7 +304,7 @@ const rareBadge = new RareBadge((kind) => focusRare(kind));
 const foodwebPanel = new FoodWebPanel(document.querySelector('#hud .basket'));
 const rankBadge = new RankBadge(document.querySelector<HTMLElement>('#hud .brand')!, document.getElementById('hud')!);
 // 「?」の遊び方パネルから、不具合や要望を送れるようにする（送るときに今の状況を添える。送り先が無いビルドでは出さない）
-if (feedbackEnabled()) new FeedbackDialog(document.getElementById('hud')!, () => {
+const feedbackDialog = feedbackEnabled() ? new FeedbackDialog(document.getElementById('hud')!, () => {
   const cal = calendarOf(state.day);
   return {
     日付: `${cal.year}年目 ${SEASONS[cal.season].name} ${cal.dayInSeason}日目（${state.day}日目）`,
@@ -316,7 +316,7 @@ if (feedbackEnabled()) new FeedbackDialog(document.getElementById('hud')!, () =>
     夜間営業: state.nightOpen,
     速さ: SPEEDS[state.speed].label,
   };
-});
+}) : null;
 const rangerPanel = new RangerPanel(document.querySelector('#hud .basket'), {
   onHire: () => hireRanger(),
   onDismiss: () => dismissRanger(),
@@ -1070,8 +1070,9 @@ let saveTimer = 0;
 
 function frame(): void {
   // realDt は実際に過ぎた時間、dt はゲーム内の時間（時間の速さを掛けたもの）
+  // ご意見を書いているあいだは園の時間を止める（カメラなどは動く）
   const realDt = Math.min(clock.getDelta(), 0.1);
-  const dt = realDt * SPEEDS[state.speed].scale;
+  const dt = feedbackDialog?.isOpen ? 0 : realDt * SPEEDS[state.speed].scale;
   const t = clock.elapsedTime;
 
   lastHit = pointerOnCanvas && state.tool !== 'pan' ? pick() : null;

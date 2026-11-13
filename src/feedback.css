@@ -157,3 +157,10 @@
 .feedback-send:disabled {
   opacity: 0.6;
 }
+
+.feedback-paused {
+  font-size: 12px;
+  margin-top: 6px;
+  color: var(--leaf-deep);
+  font-weight: 600;
+}
