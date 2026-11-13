@@ -3,7 +3,7 @@
 ブラウザで動く、3D 見下ろし型の自然環境づくり・運営ゲームです。
 地面を掘って池を作り、木を植えて自然を育てます。
 
-**遊ぶ:** https://satoren.github.io/ike/ （main に push すると GitHub Pages へ自動で公開されます）
+**遊ぶ:** https://ike.satoren.workers.dev/ （main に push すると Cloudflare Workers へ自動で公開されます。以前の https://satoren.github.io/ike/ は引っ越しの案内だけ）
 
 ## 遊びの仕組み
 
@@ -78,6 +78,6 @@ URL に `?bear` を付けると、最初からクマが 1 頭出ます。
 ## プレイヤーのご意見
 
 「?」の遊び方パネルの「ご意見を送る」から、アカウント無しで不具合・要望・感想を送れます（ゲームの状況と端末の種類を添えられます）。
-投稿は中継（`feedback-worker/`、Cloudflare Workers + D1）に溜まり、毎日 0:00（日本時間）に日ごとにまとめられます。同じ内容はまとめて件数で数えます。
+投稿は中継（`feedback-worker/`、Cloudflare Workers + D1）に溜まり、毎日 0:00（日本時間）に日ごとにまとめられます。投稿は 1 件ずつ届いた順に並びます。
 まとめは中継の `/admin` で合言葉を入れて見ます。1 日で対応しきれなかったものは「改善リスト」に残り、同じ話が来るたびに件数が増え、多いものから順に対応します。GitHub には何も書きません。設定は [feedback-worker/README.md](feedback-worker/README.md)。
-送り先は既定で https://ike-feedback.ike-game.workers.dev/（Actions 変数 `FEEDBACK_ENDPOINT` で変えられます）。
+ゲームと中継は同じ Worker（https://ike.satoren.workers.dev）で配信していて、投稿は同じ URL の `/feedback` に送ります。

@@ -3,7 +3,7 @@ import './feedback.css';
 /**
  * プレイヤーのフィードバック（不具合・要望・感想）。
  * アカウント無しで送れるよう、中継（feedback-worker/）に POST する。中継が溜めて毎日まとめ、開発者が管理ページで読む。
- * 中継の URL はビルド時の VITE_FEEDBACK_ENDPOINT。未設定ならボタンを出さない。
+ * 送り先は本番ビルドならゲームと同じ URL の ./feedback（VITE_FEEDBACK_ENDPOINT で変えられる）。開発中は未設定ならボタンを出さない。
  */
 
 export const FEEDBACK_KINDS = [
@@ -42,7 +42,8 @@ export function validateFeedback(p: Pick<FeedbackPayload, 'kind' | 'message'>): 
 }
 
 export const APP_VERSION: string = (import.meta.env.VITE_APP_VERSION as string | undefined)?.slice(0, 7) || 'dev';
-const ENDPOINT = import.meta.env.VITE_FEEDBACK_ENDPOINT as string | undefined;
+// 本番はゲームと同じ Worker の /feedback に送る。開発中（vite）は VITE_FEEDBACK_ENDPOINT があるときだけ
+const ENDPOINT = (import.meta.env.VITE_FEEDBACK_ENDPOINT as string | undefined) || (import.meta.env.PROD ? './feedback' : undefined);
 
 /** 送り先が決まっていて、フォームを出せるか */
 export const feedbackEnabled = (): boolean => Boolean(ENDPOINT);

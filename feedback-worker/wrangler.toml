@@ -1,16 +1,31 @@
-name = "ike-feedback"
+# ゲームとご意見の中継を 1 つの Worker で配信する（https://ike.satoren.workers.dev）
+name = "ike"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
+
+# デプロイ（wrangler deploy / versions upload）の前に、リポジトリ直下でゲームをビルドする。
+# Cloudflare の Workers Builds でも手元でも、ここに書いたビルドが必ず走る
+[build]
+command = "npm ci && npm run build:cloudflare"
+cwd = ".."
+watch_dir = "../src"
+
+# ゲーム本体（リポジトリ直下で npm run build した dist/）を静的ファイルとして配信する。
+# 管理ページ・API・投稿の受け口だけ Worker が先に受ける
+[assets]
+directory = "../dist"
+run_worker_first = ["/api/*", "/admin", "/feedback"]
 
 # 毎日 15:00 UTC（日本時間 0:00）に、前の日の投稿をまとめる
 [triggers]
 crons = ["0 15 * * *"]
 
 [vars]
-ALLOWED_ORIGINS = "https://satoren.github.io,http://localhost:5173"
+# ゲームは同じ URL から送るので、ここはローカル開発用（vite）
+ALLOWED_ORIGINS = "http://localhost:5173"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "ike-feedback"
-# `npx wrangler d1 create ike-feedback` で表示された id に置き換える
-database_id = "REPLACE_WITH_D1_ID"
+# 本番の D1（秘密ではない。アカウントに入れないと使えない）
+database_id = "127fbba3-60a2-41c6-8b8e-a6c96d952327"
