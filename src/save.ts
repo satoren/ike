@@ -5,6 +5,7 @@ import type { Weather } from './seasons';
 import type { RareState } from './rare';
 import type { Bird, Weed } from './foodweb';
 import type { Poacher } from './poachers';
+import type { MarketState } from './market';
 import type { Facility } from './facilities';
 import type { ProgressState } from './progress';
 import type { Ranger } from './rangers';
@@ -53,6 +54,8 @@ export interface SaveData {
   dex?: DexState;
   /** 日替わりのお願い（古い保存データには無い） */
   requests?: RequestsState;
+  /** 相場（古い保存データには無い） */
+  market?: MarketState;
   state: {
     money: number;
     day: number;

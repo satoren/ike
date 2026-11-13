@@ -443,6 +443,47 @@ kbd {
   color: var(--ink-soft);
 }
 
+.item-name small {
+  white-space: nowrap;
+}
+
+/* 「売る」ボタンの中の値段は、名前の欄を出さない狭い画面でだけ見せる */
+.sell small {
+  display: none;
+  font-size: 9.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ink-soft);
+}
+
+.sell small[data-trend='hot'] {
+  color: #b4532a;
+  font-weight: 800;
+}
+
+.sell small[data-trend='cheap'],
+.sell small[data-trend='glut'] {
+  color: #5d7a94;
+}
+
+.item-name small[data-trend='hot'] {
+  color: #b4532a;
+  font-weight: 800;
+}
+
+.item-name small[data-trend='cheap'],
+.item-name small[data-trend='glut'] {
+  color: #5d7a94;
+}
+
+/* きょうとあすの相場をひとことで */
+.market-note {
+  margin: 6px 2px 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
 .item-wild {
   min-width: 2.2em;
   text-align: right;
@@ -1025,6 +1066,17 @@ kbd {
     padding: 7px 8px;
     font-size: 12px;
   }
+  .sell small {
+    display: block;
+  }
+  .basket .sell {
+    padding: 3px 8px;
+    line-height: 1.2;
+  }
+  .market-note {
+    margin-top: 4px;
+    font-size: 10.5px;
+  }
   .item-icon {
     width: 24px;
     height: 24px;
@@ -1260,6 +1312,7 @@ kbd {
 
 .basket.collapsed .basket-hint,
 .basket.collapsed .basket-list,
+.basket.collapsed .market-note,
 .basket.collapsed .sell-all,
 .basket.collapsed .foodweb,
 .basket.collapsed .rangers {

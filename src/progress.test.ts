@@ -15,7 +15,7 @@ function stats(over: Partial<ParkStats> = {}): ParkStats {
     birds: 0,
     reviewAvg: null,
     rareSeen: false,
-    facilities: { rest: 0, shop: 0, tower: 0 },
+    facilities: { rest: 0, shop: 0, tower: 0, mill: 0, center: 0, bigtree: 0 },
     ...over,
   };
 }
@@ -111,5 +111,53 @@ describe('施設', () => {
     fs.build('rest', 0, -14);
     expect(fs.removeDrowned()).toBe(1);
     expect(fs.facilities).toHaveLength(1);
+  });
+
+  it('水車小屋は水ぎわにだけ建てられ、水のほうを向く', () => {
+    const map = flatMap();
+    const paths = new PathGrid(map);
+    const fs = new Facilities(map, 0.5);
+    const beside = paths.center(18, 28);
+    expect(fs.whyNot(beside.x, beside.z, paths, 'mill')).toMatch(/水ぎわ/);
+    // 東どなりに池を掘る
+    for (let iz = 26; iz <= 30; iz++) for (let ix = 20; ix <= 24; ix++) map.set(ix, iz, 0);
+    expect(fs.whyNot(beside.x, beside.z, paths, 'mill')).toBeNull();
+    const mill = fs.build('mill', beside.x, beside.z);
+    expect(Math.cos(mill.angle!)).toBeGreaterThan(0.5); // 東（+x）向き
+    expect(fs.appealBonus(100)).toBe(FACILITY.millAppeal);
+    // 池を埋めると水車は回らず、魅力にならない
+    for (let iz = 26; iz <= 30; iz++) for (let ix = 20; ix <= 24; ix++) map.set(ix, iz, 2);
+    expect(fs.appealBonus(100)).toBe(0);
+  });
+
+  it('自然館と大ケヤキは園に 1つだけ。自然館は図鑑の評判を 2倍にする', () => {
+    const map = flatMap();
+    const paths = new PathGrid(map);
+    const fs = new Facilities(map, 0.5);
+    const a = paths.center(18, 28);
+    const b = paths.center(13, 28);
+    expect(fs.dexBoost).toBe(1);
+    expect(fs.whyNot(a.x, a.z, paths, 'center')).toBeNull();
+    fs.build('center', a.x, a.z);
+    expect(fs.dexBoost).toBe(FACILITY.centerDexBoost);
+    expect(fs.whyNot(b.x, b.z, paths, 'center')).toMatch(/1つだけ/);
+    expect(fs.whyNot(b.x, b.z, paths, 'bigtree')).toBeNull();
+    fs.build('bigtree', b.x, b.z);
+    expect(fs.appealBonus(0)).toBe(FACILITY.bigtreeAppeal);
+    expect(fs.whyNot(b.x, b.z - 6, paths, 'bigtree')).toMatch(/1つだけ/);
+    expect(fs.counts()).toEqual({ rest: 0, shop: 0, tower: 0, mill: 0, center: 1, bigtree: 1 });
+    // 取り壊せば建て直せる
+    fs.removeNear(b.x, b.z);
+    expect(fs.whyNot(b.x, b.z, paths, 'bigtree')).toBeNull();
+  });
+
+  it('大きな買い物はランクが上がると解放される', () => {
+    const p = new Progress();
+    expect(p.unlocked('mill')).toBe(false);
+    expect(Progress.unlockRank('mill')?.stars).toBe(3);
+    expect(Progress.unlockRank('center')?.stars).toBe(4);
+    expect(Progress.unlockRank('bigtree')?.stars).toBe(5);
+    p.state.rank = RANKS.length - 1;
+    expect(p.unlocked('mill') && p.unlocked('center') && p.unlocked('bigtree')).toBe(true);
   });
 });

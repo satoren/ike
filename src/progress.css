@@ -274,3 +274,29 @@
 .sizes-row[hidden] {
   display: none;
 }
+
+/* 施設が 6つに増えた分、狭い画面では 1つずつを細くして「撤去」まで 1 行に収める */
+@media (max-width: 640px) {
+  .facility-row {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 1px;
+  }
+  .facility {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 4px 1px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .facility small {
+    font-size: 9px;
+  }
+}
+
+/* 狭い画面で施設を選ぶときは、見出しを省いて施設の名前に場所を譲る */
+@media (max-width: 640px) {
+  .sizes:has(.facility-row:not([hidden])) .sizes-label {
+    display: none;
+  }
+}

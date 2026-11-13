@@ -6,15 +6,47 @@ import type { PathGrid } from './paths';
  * - 休憩所：客がひと息つけて魅力が上がる（来園者が多いほど多く建てる意味がある）
  * - 売店：来園者数に応じて毎日売り上げが入る
  * - 展望台：まわりの池と水辺の木が広いほど魅力が上がる
+ * 大きな買い物（貯めたお金の使い道）
+ * - 水車小屋：水ぎわにだけ建てられ、魅力が大きく上がる
+ * - 自然館：図鑑の評判が 2倍になる（園に 1軒）
+ * - 大ケヤキ：園のシンボル。魅力がとても大きく上がる（園に 1本）
  */
-export type FacilityKind = 'rest' | 'shop' | 'tower';
+export type FacilityKind = 'rest' | 'shop' | 'tower' | 'mill' | 'center' | 'bigtree';
 
-export const FACILITY_ORDER: FacilityKind[] = ['rest', 'shop', 'tower'];
+export const FACILITY_ORDER: FacilityKind[] = ['rest', 'shop', 'tower', 'mill', 'center', 'bigtree'];
 
-export const FACILITIES: Record<FacilityKind, { name: string; cost: number; hint: string }> = {
+export interface FacilityInfo {
+  name: string;
+  cost: number;
+  hint: string;
+  /** 園に建てられる数の上限（無ければいくつでも） */
+  limit?: number;
+  /** 水ぎわにしか建てられない */
+  waterside?: boolean;
+}
+
+export const FACILITIES: Record<FacilityKind, FacilityInfo> = {
   rest: { name: '休憩所', cost: 300, hint: '客がひと息つけて魅力が上がります。来園者 80人ごとに 1軒まで効きます' },
   shop: { name: '売店', cost: 600, hint: '来園者 1人あたり 2G の売り上げが毎日入ります。1軒で 150人まで相手できます' },
   tower: { name: '展望台', cost: 1200, hint: 'まわりの池と木が広いほど魅力が上がります。池を見渡せる場所に建てましょう' },
+  mill: {
+    name: '水車小屋',
+    cost: 3000,
+    hint: '水ぎわに建てます。水車の回る景色で魅力が大きく上がります。来園者 200人ごとに 1軒まで効きます',
+    waterside: true,
+  },
+  center: {
+    name: '自然館',
+    cost: 8000,
+    hint: '図鑑の評判が 2倍になります（生き物 1種につき来園者 +2%）。園に 1軒だけ建てられます',
+    limit: 1,
+  },
+  bigtree: {
+    name: '大ケヤキ',
+    cost: 20000,
+    hint: '園のシンボルになる大木です。魅力がとても大きく上がります。園に 1本だけ植えられます',
+    limit: 1,
+  },
 };
 
 export const FACILITY = {
@@ -32,6 +64,13 @@ export const FACILITY = {
   /** 展望台から見渡せる半径（ワールド単位） */
   towerRadius: 14,
   towerMax: 90,
+  millAppeal: 60,
+  millPerVisitors: 200,
+  /** 水車小屋は、水からこの距離（ワールド単位）以内に建てる */
+  millReach: 2.5,
+  /** 自然館があるときの、図鑑の評判の倍率 */
+  centerDexBoost: 2,
+  bigtreeAppeal: 200,
 } as const;
 
 export interface Facility {
@@ -41,6 +80,8 @@ export interface Facility {
   z: number;
   /** 展望台の景色の良さ（建てたときと地形が変わったときに数え直す） */
   view?: number;
+  /** 建物の向き（ラジアン）。水車小屋は水のほうを向く */
+  angle?: number;
 }
 
 /** 来園者の数に見合うだけ効く数 */
@@ -64,18 +105,43 @@ export class Facilities {
   }
 
   counts(): Record<FacilityKind, number> {
-    return { rest: this.count('rest'), shop: this.count('shop'), tower: this.count('tower') };
+    const out = {} as Record<FacilityKind, number>;
+    for (const kind of FACILITY_ORDER) out[kind] = this.count(kind);
+    return out;
   }
 
-  /** 建てられない理由（建てられるなら null） */
-  whyNot(x: number, z: number, paths: PathGrid): string | null {
+  /** 建てられない理由（建てられるなら null）。kind を渡すと、その施設だけの決まりも調べる */
+  whyNot(x: number, z: number, paths: PathGrid, kind?: FacilityKind): string | null {
+    const info = kind ? FACILITIES[kind] : undefined;
+    if (info?.limit !== undefined && this.count(kind!) >= info.limit) {
+      return `${info.name}は園に ${info.limit}つだけです（「撤去」で取り壊すと建て直せます）`;
+    }
     const half = this.map.worldSize / 2 - 1.5;
     if (Math.abs(x) > half || Math.abs(z) > half) return '地図の端には建てられません';
     if (this.map.heightAt(x, z) < this.waterLevel + 0.05) return '水の中には建てられません';
     if (paths.isPathAt(x, z)) return '遊歩道の上には建てられません（道のすぐ横に建てます）';
     if (this.facilities.some((f) => Math.hypot(f.x - x, f.z - z) < FACILITY.spacing)) return 'ほかの施設に近すぎます';
     if (!this.nearConnectedPath(x, z, paths)) return '出入口につながった遊歩道のすぐ横に建ててください';
+    if (info?.waterside && this.towardWater(x, z) === null) return `${info.name}は水ぎわに建ててください`;
     return null;
+  }
+
+  /** いちばん近い水の方角（ラジアン、+x が 0）。millReach 以内に水が無ければ null */
+  towardWater(x: number, z: number): number | null {
+    const { gx, gz } = this.map.toGrid(x, z);
+    const r = FACILITY.millReach / this.map.cellSize;
+    let best = Infinity;
+    let angle: number | null = null;
+    for (let cz = Math.floor(gz - r); cz <= Math.ceil(gz + r); cz++) {
+      for (let cx = Math.floor(gx - r); cx <= Math.ceil(gx + r); cx++) {
+        const d = Math.hypot(cx - gx, cz - gz);
+        if (d > r || d >= best) continue;
+        if (this.map.get(cx, cz) >= this.waterLevel) continue;
+        best = d;
+        angle = Math.atan2(cz - gz, cx - gx);
+      }
+    }
+    return angle;
   }
 
   private nearConnectedPath(x: number, z: number, paths: PathGrid): boolean {
@@ -93,6 +159,7 @@ export class Facilities {
   build(kind: FacilityKind, x: number, z: number, trees: readonly { x: number; z: number }[] = []): Facility {
     const f: Facility = { id: this.nextId++, kind, x, z };
     if (kind === 'tower') f.view = this.viewAt(x, z, trees);
+    if (kind === 'mill') f.angle = this.towardWater(x, z) ?? 0;
     this.facilities.push(f);
     return f;
   }
@@ -135,7 +202,10 @@ export class Facilities {
 
   /** 木の数も入れて展望台の景色を数え直す（木は植えるたびに変わるので、時々呼ぶ） */
   refreshViews(trees: readonly { x: number; z: number }[]): void {
-    for (const f of this.facilities) if (f.kind === 'tower') f.view = this.viewAt(f.x, f.z, trees);
+    for (const f of this.facilities) {
+      if (f.kind === 'tower') f.view = this.viewAt(f.x, f.z, trees);
+      if (f.kind === 'mill') f.angle = this.towardWater(f.x, f.z) ?? f.angle;
+    }
   }
 
   /** 施設による魅力の上乗せ */
@@ -143,7 +213,16 @@ export class Facilities {
     const rest = effective(this.count('rest'), visitors, FACILITY.restPerVisitors) * FACILITY.restAppeal;
     const shop = effective(this.count('shop'), visitors, FACILITY.shopPerVisitors) * FACILITY.shopAppeal;
     const tower = this.facilities.reduce((s, f) => s + (f.kind === 'tower' ? f.view ?? 0 : 0), 0);
-    return rest + shop + tower;
+    // 水車は水が無いと回らない（あとから池を埋めた水車小屋は数えない）
+    const turning = this.facilities.filter((f) => f.kind === 'mill' && this.towardWater(f.x, f.z) !== null).length;
+    const mill = effective(turning, visitors, FACILITY.millPerVisitors) * FACILITY.millAppeal;
+    const bigtree = Math.min(1, this.count('bigtree')) * FACILITY.bigtreeAppeal;
+    return rest + shop + tower + mill + bigtree;
+  }
+
+  /** 図鑑の評判（1種ごとの来園者の増え方）に掛かる倍率。自然館があると上がる */
+  get dexBoost(): number {
+    return this.count('center') > 0 ? FACILITY.centerDexBoost : 1;
   }
 
   /** 売店の 1日の売り上げ。1軒で来園者 150人まで相手できる */

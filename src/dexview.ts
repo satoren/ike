@@ -111,14 +111,14 @@ export class DexPanel {
   }
 
   /** present は、いま園に居る数（生き物ごと） */
-  update(dex: Dex, present: Partial<Record<DexId, number>>): void {
-    const key = DEX.map((e) => `${dex.seenDay(e.id) ?? '-'}:${present[e.id] ?? 0}`).join('|');
+  update(dex: Dex, present: Partial<Record<DexId, number>>, mult = 1): void {
+    const key = DEX.map((e) => `${dex.seenDay(e.id) ?? '-'}:${present[e.id] ?? 0}`).join('|') + `*${mult}`;
     if (key === this.key) return;
     this.key = key;
 
     this.count.textContent = `${dex.count}/${dex.total}`;
     this.panel.querySelector('.dex-total')!.textContent = `${dex.count} / ${dex.total}`;
-    const per = Math.round(DEX_BOOST_PER_ENTRY * 100);
+    const per = Math.round(DEX_BOOST_PER_ENTRY * mult * 100);
     this.sub.textContent =
       dex.count >= dex.total
         ? `図鑑が完成しました。評判が広まり、来園者 +${dex.count * per}%`

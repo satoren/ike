@@ -92,7 +92,7 @@ export const RANKS: Rank[] = [
     name: '町の自然園',
     ticket: 1.5,
     reward: 1500,
-    unlocks: ['shop'],
+    unlocks: ['shop', 'mill'],
     goals: [
       atLeast('v450', '来園者 450人/日', 450, (s) => s.visitors, '人'),
       atLeast('w1500', '池を 1,500マス に広げる', 1500, (s) => s.waterCells, 'マス'),
@@ -105,7 +105,7 @@ export const RANKS: Rank[] = [
     name: '県の名所',
     ticket: 1.8,
     reward: 3000,
-    unlocks: ['tower'],
+    unlocks: ['tower', 'center'],
     goals: [
       atLeast('v600', '来園者 600人/日', 600, (s) => s.visitors, '人'),
       atLeast('r35', '口コミの平均 ★3.5', 3.5, (s) => s.reviewAvg ?? 0),
@@ -118,7 +118,7 @@ export const RANKS: Rank[] = [
     name: '全国の名所',
     ticket: 2.2,
     reward: 6000,
-    unlocks: [],
+    unlocks: ['bigtree'],
     goals: [],
   },
 ];
