@@ -17,6 +17,7 @@ export class PathGrid {
   private readonly map: Heightmap;
   private _count = 0;
   private _connected = 0;
+  private _maxDistance = 0;
 
   constructor(map: Heightmap) {
     this.map = map;
@@ -106,6 +107,12 @@ export class PathGrid {
       }
     }
     this._connected = n;
+    this._maxDistance = queue.length > 0 ? this.distance[queue[queue.length - 1]] : 0;
+  }
+
+  /** 出入口からいちばん遠いマスまでの歩数 */
+  get maxDistance(): number {
+    return this._maxDistance;
   }
 
   private cellOf(x: number, z: number): { cx: number; cz: number } | null {
@@ -418,8 +425,10 @@ interface Walker {
   tz: number;
   t: number;
   speed: number;
-  /** 散策する残り秒数。0 になったら帰り始める */
+  /** 散策できる残り秒数（念のための上限）。0 になったら帰り始める */
   stay: number;
+  /** 道の奥（それより先へ進めないところ）に着いたら true */
+  reachedEnd: boolean;
   leaving: boolean;
 }
 
@@ -491,14 +500,17 @@ export class Strollers {
       const gate = this.grid.entrance.filter(([cx, cz]) => this.grid.isConnected(cx, cz));
       if (gate.length > 0) {
         const [cx, cz] = gate[Math.floor(Math.random() * gate.length)];
+        const speed = 0.8 + Math.random() * 0.6;
         this.walkers.push({
           cx,
           cz,
           tx: cx,
           tz: cz,
           t: 1,
-          speed: 0.8 + Math.random() * 0.6,
-          stay: 20 + Math.random() * 40,
+          speed,
+          // 道が長いほど長く歩けるようにして、奥までたどり着けるようにする
+          stay: 40 + Math.random() * 30 + (this.grid.maxDistance * 2.5) / speed,
+          reachedEnd: false,
           leaving: false,
         });
       }
@@ -557,11 +569,22 @@ export class Strollers {
     return out;
   }
 
-  /** 散策中：来た道はなるべく戻らず、奥へ奥へと進む */
+  /**
+   * 散策中：出入口から遠ざかる方へ奥へ奥へと進む。
+   * それ以上奥へ行けないところ（道の突き当たり）まで来たら、少し眺めてから帰る。
+   */
   private stepWander(w: Walker): [number, number] | null {
     const all = this.neighbors(w.cx, w.cz);
-    const forward = all.filter(([x, z]) => this.grid.distanceAt(x, z) >= this.grid.distanceAt(w.cx, w.cz));
-    const options = forward.length > 0 && Math.random() < 0.8 ? forward : all;
+    const d = this.grid.distanceAt(w.cx, w.cz);
+    const deeper = all.filter(([x, z]) => this.grid.distanceAt(x, z) > d);
+    if (!w.reachedEnd && deeper.length === 0) {
+      w.reachedEnd = true;
+      w.stay = Math.min(w.stay, 3 + Math.random() * 5);
+    }
+    const level = all.filter(([x, z]) => this.grid.distanceAt(x, z) === d);
+    let options: [number, number][];
+    if (w.reachedEnd) options = level.length > 0 && Math.random() < 0.5 ? level : [];
+    else options = deeper.length > 0 && Math.random() < 0.9 ? deeper : [...deeper, ...level];
     return options.length > 0 ? options[Math.floor(Math.random() * options.length)] : null;
   }
 
