@@ -17,7 +17,7 @@ const RATE_LIMIT = 5;
 const RATE_WINDOW_MS = 10 * 60 * 1000;
 /** まとめた後の元の投稿を残す日数 */
 const KEEP_RAW_DAYS = 30;
-/** 1 日のまとめに入れる、種類ごとの最大件数（同じ内容はまとめて 1 件と数える） */
+/** 1 日のまとめに入れる、種類ごとの最大件数 */
 const DIGEST_PER_KIND = 500;
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** 日付の区切りは日本時間 */
@@ -109,36 +109,24 @@ export function jstDay(ms) {
 }
 
 /** 比べるための形（空白・句読点・大小文字の違いを無視） */
-export function normalize(text) {
-  return text.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '');
-}
-
 /**
- * 投稿の並びを、種類ごと・同じ内容ごとにまとめる。
- * 同じ内容が多いものから並べ、各まとまりに件数・最初と最後の時刻・代表の環境を付ける。
+ * 投稿の並びを、種類ごとに 1 件ずつ届いた順に並べる（同じ文面でも束ねない）。
+ * 各投稿に時刻・版・環境を付ける。count/first/last は前の形式との互換のため残す（count は常に 1）。
  */
 export function summarize(rows) {
   const counts = Object.fromEntries(Object.keys(KINDS).map((k) => [k, 0]));
-  const groups = Object.fromEntries(Object.keys(KINDS).map((k) => [k, new Map()]));
+  const lists = Object.fromEntries(Object.keys(KINDS).map((k) => [k, []]));
   const versions = {};
   for (const r of rows) {
     if (!Object.hasOwn(KINDS, r.kind)) continue;
     counts[r.kind]++;
     versions[r.version || '?'] = (versions[r.version || '?'] ?? 0) + 1;
-    const key = normalize(r.message);
-    const g = groups[r.kind].get(key);
-    if (g) {
-      g.count++;
-      g.first = Math.min(g.first, r.created_at);
-      g.last = Math.max(g.last, r.created_at);
-    } else {
-      groups[r.kind].set(key, { message: r.message, count: 1, first: r.created_at, last: r.created_at, version: r.version, env: r.env });
-    }
+    lists[r.kind].push({ message: r.message, count: 1, first: r.created_at, last: r.created_at, version: r.version, env: r.env });
   }
   const items = {};
   let truncated = 0;
   for (const k of Object.keys(KINDS)) {
-    const list = [...groups[k].values()].sort((a, b) => b.count - a.count || a.first - b.first);
+    const list = lists[k].sort((a, b) => a.first - b.first);
     truncated += Math.max(0, list.length - DIGEST_PER_KIND);
     items[k] = list.slice(0, DIGEST_PER_KIND);
   }
