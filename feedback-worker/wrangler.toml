@@ -12,5 +12,5 @@ ALLOWED_ORIGINS = "https://satoren.github.io,http://localhost:5173"
 [[d1_databases]]
 binding = "DB"
 database_name = "ike-feedback"
-# `npx wrangler d1 create ike-feedback` で表示された id に置き換える
-database_id = "REPLACE_WITH_D1_ID"
+# 本番の D1（秘密ではない。アカウントに入れないと使えない）
+database_id = "127fbba3-60a2-41c6-8b8e-a6c96d952327"

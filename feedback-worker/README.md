@@ -23,14 +23,14 @@ npx wrangler deploy                          # https://ike-feedback.<あなた>.
 
 ### 自動デプロイ（2 回目から）
 
-main に `feedback-worker/` の変更が入ると、GitHub Actions（「ご意見の中継（feedback-worker）をデプロイ」）が自動でデプロイします。
-Actions 画面の Run workflow から手で動かすこともできます。使うには、リポジトリの Settings → Secrets and variables → Actions に次を入れます。
+Cloudflare の **Workers Builds**（GitHub 連携）で、main に `feedback-worker/` の変更が入ると Cloudflare が自動でデプロイします。
+GitHub に Cloudflare の鍵を置く必要はありません。設定は Cloudflare のダッシュボードで一度だけ:
 
-- **Secrets** `CLOUDFLARE_API_TOKEN` … Cloudflare の API トークン（テンプレート「Edit Cloudflare Workers」で作る。D1 を使うので、権限に「D1: Edit」も足す）
-- **Secrets** `CLOUDFLARE_ACCOUNT_ID` … Cloudflare のアカウント ID（ダッシュボードの Workers & Pages の右側に出ている）
-- **Variables** `FEEDBACK_D1_ID` … D1 の database_id（`npx wrangler d1 list` で見られる）。リポジトリの wrangler.toml は印のままにしておき、デプロイ時に置き換える
+1. Workers & Pages → ike-feedback → Settings → Builds → Connect で satoren/ike を選ぶ
+2. Root directory: `feedback-worker`、Deploy command: `npx wrangler deploy`、ブランチ: `main`
+3. Build watch paths: `feedback-worker/*`（ゲームだけの変更では動かない）
 
-合言葉 `ADMIN_KEY` は Cloudflare 側に保存済みのものがそのまま使われるので、GitHub に入れる必要はありません。
+`wrangler.toml` の `database_id` は本番の D1 の id をコミットしてあります。合言葉 `ADMIN_KEY` は Cloudflare 側の secret がそのまま使われます。
 
 ## 管理ページと API
 
