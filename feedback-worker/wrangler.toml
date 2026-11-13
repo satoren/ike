@@ -3,6 +3,13 @@ name = "ike"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
 
+# デプロイ（wrangler deploy / versions upload）の前に、リポジトリ直下でゲームをビルドする。
+# Cloudflare の Workers Builds でも手元でも、ここに書いたビルドが必ず走る
+[build]
+command = "npm ci && npm run build:cloudflare"
+cwd = ".."
+watch_dir = "../src"
+
 # ゲーム本体（リポジトリ直下で npm run build した dist/）を静的ファイルとして配信する。
 # 管理ページ・API・投稿の受け口だけ Worker が先に受ける
 [assets]

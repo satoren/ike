@@ -14,7 +14,7 @@ npx wrangler login
 npx wrangler d1 create ike-feedback          # 表示された database_id を wrangler.toml に書く
 npx wrangler d1 execute ike-feedback --remote --file=schema.sql
 npx wrangler secret put ADMIN_KEY            # 管理ページの合言葉（長めのランダムな文字列）
-npx wrangler deploy                          # https://ike.<あなた>.workers.dev が表示される（先にリポジトリ直下で npm run build）
+npx wrangler deploy                          # ゲームもビルドされ、https://ike.<あなた>.workers.dev が表示される
 ```
 
 ゲームは同じ Worker から配信され、「ご意見を送る」は同じ URL の `/feedback` に送ります（送り先の設定は不要）。
@@ -25,13 +25,13 @@ npx wrangler deploy                          # https://ike.<あなた>.workers.d
 Cloudflare の **Workers Builds**（GitHub 連携）で、main に push するとゲームをビルドしてデプロイします。GitHub に Cloudflare の鍵は置きません。
 設定は Cloudflare のダッシュボードで一度だけ（Workers & Pages → ike → Settings → Builds → Connect で satoren/ike を選ぶ）:
 
-- Root directory: 空欄（リポジトリ直下）
-- Build command: `npm ci && npm run build:cloudflare`
-- Deploy command: `npx wrangler deploy --config feedback-worker/wrangler.toml`
-- ブランチ: `main`（ほかのブランチはプレビュー URL が出る）
+- Root directory: `feedback-worker`
+- Build command: 空欄（ゲームのビルドは `wrangler.toml` の `[build]` でデプロイ前に必ず走る）
+- Deploy command: `npx wrangler deploy`
+- ブランチ: `main`（ほかのブランチ・PR はプレビュー版がアップロードされる）
 
 `wrangler.toml` の `database_id` は本番の D1 の id をコミットしてあります。合言葉 `ADMIN_KEY` は Cloudflare 側の secret がそのまま使われます。
-手元からデプロイするときも、リポジトリ直下で `npm run build` してから `npx wrangler deploy --config feedback-worker/wrangler.toml`。
+手元からデプロイするときも `feedback-worker` で `npx wrangler deploy`（ゲームのビルドも一緒に走る）。
 
 ## 管理ページと API
 
