@@ -15,6 +15,7 @@ import {
   TICKET_PRICE,
   addPressure,
   attackChance,
+  capacity,
   decayIncident,
   computeAppeal,
   decayPressure,
@@ -59,16 +60,27 @@ import { darkness, foxDangerFactor, isNight, lanternCells, lightingCost, nightFo
 import { NightView } from './nightview';
 import { ReviewFeed } from './reviews';
 import { ReviewPanel } from './reviewview';
-import { BIRDS, FoodWeb, WEED, fishCapacity } from './foodweb';
+import { BIRDS, BIRD_NEEDS, FoodWeb, WEED, birdCapacity, fishCapacity } from './foodweb';
 import { FoodWebPanel, FoodWebView } from './foodwebview';
 import { FACILITIES, FACILITY, FACILITY_ORDER, Facilities, type FacilityKind } from './facilities';
 import { FacilityView } from './facilityview';
 import { Progress, RANKS, type ParkStats } from './progress';
 import { RankBadge, rewardText } from './progressview';
-import { Fauna, emptyBiotope, surveyBiotope, type Biotope } from './fauna';
+import {
+  FAUNA,
+  FAUNA_ORDER,
+  Fauna,
+  emptyBiotope,
+  faunaCapacity,
+  surveyBiotope,
+  type Biotope,
+  type FaunaEnv,
+} from './fauna';
 import { FaunaView } from './faunaview';
 import { Dex, type DexId } from './dex';
 import { DexPanel } from './dexview';
+import { Requests, clientOf, describe, progressOf, type ParkNow, type RequestEvent } from './requests';
+import { RequestPanel } from './requestview';
 
 // ---- ワールドの設定 ----
 const MAP_SIZE = 128; // マス数（一辺）
@@ -202,6 +214,8 @@ const fauna = new Fauna(map);
 const faunaView = new FaunaView(map, WATER_LEVEL);
 scene.add(faunaView.group);
 const dex = new Dex();
+// 日替わりのお願い
+const requests = new Requests();
 const poachers = new Poachers(map, WATER_LEVEL);
 const poacherView = new PoacherView(map, WATER_LEVEL);
 scene.add(poacherView.group);
@@ -264,6 +278,8 @@ function biotopeNow(): Biotope {
   return surveyBiotope(map, waterSurface(), forest.trees, (cx, cz) => paths.cells[cz * paths.size + cx] !== 0);
 }
 let biotope: Biotope = emptyBiotope();
+/** 生き物が集まる条件（季節・夜・水草など）。毎フレーム作り直す */
+let faunaEnv: FaunaEnv | null = null;
 let scenic = 0;
 let statsDirty = false;
 
@@ -322,6 +338,16 @@ const rareBadge = new RareBadge((kind) => focusRare(kind));
 const foodwebPanel = new FoodWebPanel(document.querySelector('#hud .basket'));
 const rankBadge = new RankBadge(document.querySelector<HTMLElement>('#hud .brand')!, document.getElementById('hud')!);
 const dexPanel = new DexPanel(document.getElementById('hud')!, (id) => focusCreature(id));
+const requestPanel = new RequestPanel(document.getElementById('hud')!, {
+  onDeliver: () => {
+    const e = requests.deliver(state.inventory);
+    if (e) onRequestEvent(e);
+  },
+  onDismiss: () => {
+    const r = requests.dismiss();
+    if (r) hud.flash(`${clientOf(r)}のお願いを見送りました。明日の朝、また新しいお願いが届きます`);
+  },
+});
 // 「?」の遊び方パネルから、不具合や要望を送れるようにする（送るときに今の状況を添える。送り先が無いビルドでは出さない）
 const feedbackDialog = feedbackEnabled() ? new FeedbackDialog(document.getElementById('hud')!, () => {
   const cal = calendarOf(state.day);
@@ -612,7 +638,11 @@ function collect(at: THREE.Vector3): void {
     state.pressure = addPressure(state.pressure, kind, n);
     parts.push(`${ITEMS[kind].name} ×${n}`);
   }
-  if (parts.length > 0) hud.flash(`かごへ: ${parts.join('、')}`);
+  if (parts.length > 0) {
+    hud.flash(`かごへ: ${parts.join('、')}`);
+    const e = requests.noteHarvest();
+    if (e) onRequestEvent(e);
+  }
 
   // なぞった範囲に密猟者がいれば捕まえる
   const caught = poachers.catchWithin(at.x, at.z, r);
@@ -866,6 +896,7 @@ function snapshot(): SaveData {
     rangers: rangers.rangers.map((r) => ({ ...r })),
     fauna: fauna.animals.map((a) => ({ ...a })),
     dex: dex.snapshot(),
+    requests: requests.snapshot(),
     state: {
       money: state.money,
       day: state.day,
@@ -903,6 +934,7 @@ function restore(data: SaveData): void {
   rangers.restore(data.rangers ?? []);
   fauna.restore(data.fauna);
   dex.restore(data.dex);
+  requests.restore(data.requests);
   Object.assign(state, data.state, {
     inventory: { ...emptyInventory(), ...data.state.inventory },
     nightOpen: data.state.nightOpen ?? false,
@@ -1089,6 +1121,74 @@ function parkStats(visitors: number, wild: { rabbit: number; duck: number; fish:
   };
 }
 
+/** お願いを決めたり判定したりするための、いまの園の様子 */
+function parkNow(
+  appeal: { safety: number; visitors: number },
+  wild: { fruit: number; rabbit: number; duck: number; fish: number; fox: number },
+): ParkNow {
+  const fc = fauna.counts();
+  // いまの園の作りで、それぞれ何匹まで集まるか
+  const season = calendarOf(state.day).season;
+  const duckCap = capacity(seasonalHabitat(habitat, season)).duck;
+  const birdCap = birdCapacity(wild.fish, habitat.treesNearWater);
+  const faunaCap = faunaEnv ? faunaCapacity(biotope, faunaEnv) : null;
+  // 増やしてほしいと頼まれるのは、図鑑に載っている生き物だけ（夜しか出ないフクロウは除く）
+  const watchable = [
+    { id: 'duck', name: ITEMS.duck.name, counter: '羽', count: wild.duck, cap: duckCap, max: Infinity },
+    {
+      id: 'kingfisher',
+      name: BIRDS.kingfisher.name,
+      counter: '羽',
+      count: foodweb.count('kingfisher'),
+      cap: birdCap.kingfisher,
+      max: BIRD_NEEDS.maxKingfisher,
+    },
+    { id: 'heron', name: BIRDS.heron.name, counter: '羽', count: foodweb.count('heron'), cap: birdCap.heron, max: BIRD_NEEDS.maxHeron },
+    ...FAUNA_ORDER.filter((k) => k !== 'owl').map((k) => ({
+      id: k,
+      name: FAUNA[k].name,
+      counter: FAUNA[k].counter,
+      count: fc[k],
+      cap: faunaCap ? faunaCap[k] : FAUNA[k].max,
+      max: FAUNA[k].max,
+    })),
+  ].filter((w) => dex.has(w.id as DexId));
+  return {
+    time: state.day + state.dayTimer / SECONDS_PER_DAY,
+    wild,
+    inventory: state.inventory,
+    watchable,
+    treesNearWater: habitat.treesNearWater,
+    waterCells: habitat.waterCells,
+    safety: appeal.safety,
+    pressure: state.pressure,
+    incident: state.incident > 0.05,
+    income: Math.round(appeal.visitors * TICKET_PRICE * progress.rank.ticket),
+  };
+}
+
+/** お願いが届いた・達成した・だめになったときの知らせと報酬 */
+function onRequestEvent(e: RequestEvent): void {
+  const client = clientOf(e.request);
+  switch (e.type) {
+    case 'offered':
+      hud.flash(`${client}からお願いが届きました：${describe(e.request).title}（報酬 ${e.request.reward.toLocaleString()}G）`, 'good');
+      requestPanel.ping();
+      break;
+    case 'done':
+      state.money += e.request.reward;
+      progress.earn(e.request.reward);
+      hud.flash(`お願い達成！${client}から報酬 +${e.request.reward.toLocaleString()} G`, 'good');
+      break;
+    case 'failed':
+      hud.flash(`${client}のお願いに応えられませんでした（${e.why}）`, 'bad');
+      break;
+    case 'expired':
+      hud.flash(`${client}のお願いは期限が過ぎました`);
+      break;
+  }
+}
+
 /** ランクが上がったとき：賞金を渡し、大きく知らせる */
 function onRankUp(): void {
   const rank = progress.rank;
@@ -1186,21 +1286,17 @@ function frame(): void {
   state.pressure = decayPressure(state.pressure, dt);
 
   // 浅瀬・小島・林などの場所があると、そこを好む生き物が集まる
-  fauna.update(
-    dt,
-    biotope,
-    {
-      season: cal.season,
-      weather: seasonState.weather,
-      night: isNight(state.dayTimer / SECONDS_PER_DAY),
-      weeds: foodweb.matureWeeds,
-      deepCells: habitat.deepCells,
-      fruit: forest.fruitCount,
-      rabbits: ecosystem.count('rabbit'),
-      pressure: state.pressure,
-    },
-    waterSurface(),
-  );
+  faunaEnv = {
+    season: cal.season,
+    weather: seasonState.weather,
+    night: isNight(state.dayTimer / SECONDS_PER_DAY),
+    weeds: foodweb.matureWeeds,
+    deepCells: habitat.deepCells,
+    fruit: forest.fruitCount,
+    rabbits: ecosystem.count('rabbit'),
+    pressure: state.pressure,
+  };
+  fauna.update(dt, biotope, faunaEnv, waterSurface());
   faunaView.waterLevel = waterSurface();
   faunaView.update(fauna.animals);
 
@@ -1220,6 +1316,8 @@ function frame(): void {
     state.incident = Math.min(2, state.incident + ATTACK.bearSeverity * bearEvents.attacked);
     hud.flash('クマが来園者を襲いました！魅力が大幅に下がります', 'bad');
     reviews.note('bearAttack');
+    const e = requests.noteIncident();
+    if (e) onRequestEvent(e);
   }
   if (bearEvents.guestsTrapped > 0) {
     state.incident = Math.min(2, state.incident + ATTACK.trapSeverity * bearEvents.guestsTrapped);
@@ -1318,6 +1416,8 @@ function frame(): void {
     state.incident = 1;
     hud.flash('キツネが来園者を襲いました！魅力が大きく下がります', 'bad');
     reviews.note('foxAttack');
+    const e = requests.noteIncident();
+    if (e) onRequestEvent(e);
     appeal = evaluate();
   }
   strollers.update(dt, present);
@@ -1423,6 +1523,8 @@ function frame(): void {
       poachers.spawn();
       hud.flash('夜のうちに密猟者が忍び込みました！「集める」でなぞって捕まえましょう', 'bad');
     }
+    // 朝ごとに、期限の過ぎたお願いを片付けて新しいお願いを受ける
+    for (const e of requests.onNewDay(parkNow(appeal, wild))) onRequestEvent(e);
   }
 
   foodwebPanel.update({
@@ -1471,6 +1573,11 @@ function frame(): void {
     }
     dexSynced = true;
     dexPanel.update(dex, present);
+
+    // 日替わりのお願い：数を満たしたら達成
+    const now = parkNow(appeal, wild);
+    for (const e of requests.update(now)) onRequestEvent(e);
+    requestPanel.update(requests.active, requests.active ? progressOf(requests.active, now) : null, state.day);
   }
 
   rangerPanel.update(rangers.count, state.money);
