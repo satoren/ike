@@ -8,6 +8,8 @@ import type { Poacher } from './poachers';
 import type { Facility } from './facilities';
 import type { ProgressState } from './progress';
 import type { Ranger } from './rangers';
+import type { Animal } from './fauna';
+import type { DexState } from './dex';
 
 /**
  * ゲームの進捗の保存と読み込み。
@@ -44,6 +46,10 @@ export interface SaveData {
   progress?: ProgressState;
   /** 雇った駆除係（古い保存データには無い） */
   rangers?: Ranger[];
+  /** 場所の作り方で現れる生き物（古い保存データには無い） */
+  fauna?: Animal[];
+  /** 生き物図鑑（古い保存データには無い） */
+  dex?: DexState;
   state: {
     money: number;
     day: number;

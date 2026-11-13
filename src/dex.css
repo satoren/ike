@@ -1,0 +1,263 @@
+/* ---------- 生き物図鑑 ---------- */
+.dex-btn {
+  position: absolute;
+  right: calc(120px + var(--sa-r, 0px));
+  bottom: calc(18px + var(--sa-b, 0px));
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--ink-soft);
+}
+.dex-btn:hover {
+  color: var(--ink);
+}
+.dex-btn[aria-expanded='true'] {
+  background: var(--leaf);
+  color: #fff;
+}
+
+.dex-count {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--coin);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dex-btn.ping {
+  animation: rank-ping 1.2s ease-out 3;
+}
+
+.dex-panel {
+  position: absolute;
+  right: calc(16px + var(--sa-r, 0px));
+  bottom: calc(72px + var(--sa-b, 0px));
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  max-height: min(620px, calc(100vh - 170px));
+  padding: 12px 14px;
+}
+.dex-panel[hidden] {
+  display: none;
+}
+
+.dex-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dex-head b {
+  font-size: 16px;
+}
+.dex-head-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--leaf-tint);
+  color: var(--leaf-deep);
+}
+.dex-head-icon svg {
+  width: 17px;
+  height: 17px;
+}
+.dex-total {
+  margin-left: auto;
+  font-weight: 800;
+  color: var(--leaf-deep);
+  font-variant-numeric: tabular-nums;
+}
+.dex-close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink-soft);
+}
+.dex-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.dex-sub {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.dex-body {
+  margin-top: 8px;
+  padding-right: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dex-group {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 10px 0 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.dex-group:first-child {
+  margin-top: 0;
+}
+.dex-group small {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dex-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dex-item {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  column-gap: 8px;
+  font-size: 13px;
+}
+
+.dex-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--leaf-tint);
+  color: var(--leaf-deep);
+}
+.dex-icon svg {
+  width: 21px;
+  height: 21px;
+}
+.dex-item.unknown .dex-icon {
+  background: rgba(36, 57, 45, 0.07);
+  color: var(--ink-soft);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.dex-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dex-item.unknown .dex-text b {
+  color: var(--ink-soft);
+  letter-spacing: 1px;
+}
+.dex-note {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+.dex-item.unknown .dex-note {
+  color: var(--ink);
+}
+
+.dex-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  white-space: nowrap;
+}
+.dex-side small {
+  font-size: 10px;
+  color: var(--ink-soft);
+}
+.dex-go {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--leaf-tint);
+  color: var(--leaf-deep);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.dex-go:hover {
+  background: var(--leaf);
+  color: #fff;
+}
+.dex-away {
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.dex-go[hidden],
+.dex-away[hidden] {
+  display: none;
+}
+
+/* 地図を広く見るときは隠す。地図を触っている間は薄くする */
+#hud .dex-btn,
+#hud .dex-panel {
+  transition: opacity 0.2s;
+}
+#hud.gesturing .dex-btn,
+#hud.gesturing .dex-panel {
+  opacity: 0.2;
+  pointer-events: none;
+}
+#hud.map-mode .dex-btn,
+#hud.map-mode .dex-panel {
+  display: none !important;
+}
+
+/* 縦持ちのスマホ：ボタンは「パネルを隠す」ボタンの左。一覧は上のバーとドックの間いっぱいに出す */
+@media (max-width: 640px) {
+  #hud .dex-btn {
+    right: calc(62px + var(--sa-r, 0px));
+    bottom: calc(var(--dock-top, 196px) + 8px);
+  }
+  #hud .dex-panel {
+    left: calc(10px + var(--sa-l, 0px));
+    right: calc(10px + var(--sa-r, 0px));
+    top: calc(64px + var(--sa-t, 0px));
+    bottom: calc(var(--dock-top, 196px) + 8px);
+    width: auto;
+    max-width: none;
+    max-height: none;
+  }
+}
+
+/* 横持ちのスマホ：右上のボタンの並びに置く */
+@media (max-height: 500px) and (min-width: 641px) {
+  #hud .dex-btn {
+    top: calc(110px + var(--sa-t, 0px));
+    bottom: auto;
+    right: calc(12px + var(--sa-r, 0px));
+  }
+  #hud .dex-panel {
+    top: calc(8px + var(--sa-t, 0px));
+    bottom: calc(8px + var(--sa-b, 0px));
+    right: calc(64px + var(--sa-r, 0px));
+    max-height: none;
+  }
+}
