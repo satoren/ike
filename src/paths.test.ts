@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Heightmap } from './heightmap';
-import { PathGrid, safety } from './paths';
+import { PathGrid, PathView, Strollers, safety } from './paths';
 import { Ecosystem, attackChance, computeAppeal } from './ecology';
 
 function flatMap(): Heightmap {
@@ -91,5 +91,29 @@ describe('キツネ', () => {
     rabbit.speed = 0;
     eco.update(0.01, { waterCells: 0, deepCells: 0, trees: 0, treesNearWater: 0 }, []);
     expect(eco.count('rabbit')).toBe(0);
+  });
+});
+
+describe('来園者の散策', () => {
+  it('長い遊歩道でも奥の突き当たりまで歩いていく', () => {
+    const grid = new PathGrid(flatMap());
+    // 出入口から先を、つづら折りの長い道（約 100 歩）にする
+    const pts: [number, number][] = [[15, 26], [15, 23], [2, 23], [2, 17], [29, 17], [29, 11], [2, 11], [2, 5]];
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = grid.center(...pts[i]);
+      const b = grid.center(...pts[i + 1]);
+      grid.paintSegment(a.x, a.z, b.x, b.z, 0.4);
+    }
+    expect(grid.isConnected(2, 5)).toBe(true);
+    expect(grid.maxDistance).toBeGreaterThanOrEqual(90);
+    const view = { floorY: () => 0 } as unknown as PathView;
+    const strollers = new Strollers(grid, view);
+    const end = grid.center(2, 5);
+    let reached = 0;
+    for (let i = 0; i < 3000; i++) {
+      strollers.update(0.1, 60);
+      reached = Math.max(reached, strollers.positions().filter((p) => Math.hypot(p.x - end.x, p.z - end.z) < 1.5).length);
+    }
+    expect(reached).toBeGreaterThan(0);
   });
 });

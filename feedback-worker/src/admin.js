@@ -92,11 +92,12 @@ function render(d) {
   for (const k in KINDS) {
     const list = d.items[k] || [];
     if (!list.length) continue;
-    const h = el('h2'); h.append(el('span', 'pill k-' + k, KINDS[k]), el('span', 'muted', list.length + ' 種類'));
+    const h = el('h2'); h.append(el('span', 'pill k-' + k, KINDS[k]), el('span', 'muted', list.length + ' 件'));
     const box = el('div', 'card');
     for (const it of list) {
       const row = el('div', 'item');
-      row.append(el('div', 'n' + (it.count >= 5 ? ' many' : ''), '×' + it.count));
+      // 前の形式（同じ文面を束ねていた頃）のまとめだけ件数を出す
+      if (it.count > 1) row.append(el('div', 'n' + (it.count >= 5 ? ' many' : ''), '×' + it.count));
       const body = el('div');
       body.append(el('div', 'msg', it.message));
       const env = Object.entries(it.env || {}).filter(([k]) => k !== 'ブラウザ').map(([k, x]) => k + ': ' + x).join(' / ');

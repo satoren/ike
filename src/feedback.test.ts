@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateFeedback, type FeedbackPayload } from './feedback';
 // @ts-expect-error 中継は素の JS
-import { jstDay, mergeBacklog, normalize, sameKey, summarize, toEntry } from '../feedback-worker/src/index.js';
+import { jstDay, mergeBacklog, sameKey, summarize, toEntry } from '../feedback-worker/src/index.js';
 
 const base: FeedbackPayload = { kind: 'bug', message: 'キツネが遊歩道で客を襲った', version: 'abc1234', userAgent: 'UA', screen: '390×844 @3x', context: { ランク: '★2' } };
 
@@ -29,14 +29,13 @@ describe('中継', () => {
     expect(jstDay(Date.UTC(2026, 10, 12, 15, 0)).start).toBe(Date.UTC(2026, 10, 12, 15, 0));
   });
 
-  it('同じ内容（空白や記号の違いは無視）はまとめて数え、多い順に並べる', () => {
-    expect(normalize('橋が ほしい！')).toBe(normalize('橋がほしい'));
+  it('種類ごとに 1 件ずつ届いた順に並べる（同じ文面でも束ねない）', () => {
     const row = (t: number, kind: string, message: string) => ({ ...toEntry({ ...base, kind, message }, t) });
     const s = summarize([row(1, 'idea', '池に魚を'), row(2, 'idea', '橋がほしい'), row(3, 'idea', '橋が ほしい！'), row(4, 'bug', '止まった'), row(5, 'idea', '橋がほしい')]);
     expect(s.total).toBe(5);
     expect(s.counts).toEqual({ bug: 1, idea: 4, comment: 0 });
-    expect(s.items.idea.map((g: { count: number }) => g.count)).toEqual([3, 1]);
-    expect(s.items.idea[0]).toMatchObject({ message: '橋がほしい', first: 2, last: 5 });
+    expect(s.items.idea.map((g: { message: string }) => g.message)).toEqual(['池に魚を', '橋がほしい', '橋が ほしい！', '橋がほしい']);
+    expect(s.items.idea[1]).toMatchObject({ count: 1, first: 2, last: 2 });
     expect(s.versions).toEqual({ abc1234: 5 });
   });
 

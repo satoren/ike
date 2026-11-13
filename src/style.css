@@ -35,8 +35,18 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
+/* iPhone：ツールバーの出し入れで画面の高さが変わっても、地図が画面からはみ出して
+   ページ自体がスクロールできる状態（スクロールバーが出る）にならないよう、画面に固定する */
+#app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
 #app canvas {
   display: block;
+  width: 100%;
+  height: 100%;
   touch-action: none;
 }
 

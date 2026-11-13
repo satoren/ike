@@ -76,7 +76,8 @@ const TERRAIN_BASE = 1.9; // 地形の基準の高さ（地図の縁もこの高
 const app = document.getElementById('app')!;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+// 見た目の大きさは CSS（画面いっぱいに固定）に任せ、描画の解像度だけ合わせる
+renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1385,5 +1386,16 @@ requestAnimationFrame(frame);
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
 });
+
+// iPhone：文字入力（キーボード）などでページがずれたまま残ると、スクロールバーが出て
+// 地図の操作がしづらくなる。ページ自体は動かないものなので、ずれたら元に戻す
+// （入力中はキーボードで隠れないよう iPhone がずらすので、入力が終わってから戻す）
+function resetPageScroll(): void {
+  const el = document.activeElement;
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+  if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
+}
+window.addEventListener('scroll', resetPageScroll);
+document.addEventListener('focusout', () => setTimeout(resetPageScroll, 100));
