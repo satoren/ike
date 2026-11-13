@@ -54,6 +54,7 @@ import {
 } from './seasons';
 import { SeasonBadge, SeasonView } from './seasonview';
 import { DEFAULT_SPEED, SPEEDS, SpeedButton, clampSpeed } from './speed';
+import { FeedbackDialog, feedbackEnabled } from './feedback';
 import { darkness, foxDangerFactor, isNight, lanternCells, lightingCost, nightFoxCount, nightVisitors } from './night';
 import { NightView } from './nightview';
 import { ReviewFeed } from './reviews';
@@ -302,6 +303,20 @@ function cycleSpeed(): void {
 const rareBadge = new RareBadge((kind) => focusRare(kind));
 const foodwebPanel = new FoodWebPanel(document.querySelector('#hud .basket'));
 const rankBadge = new RankBadge(document.querySelector<HTMLElement>('#hud .brand')!, document.getElementById('hud')!);
+// 「?」の遊び方パネルから、不具合や要望を送れるようにする（送るときに今の状況を添える。送り先が無いビルドでは出さない）
+if (feedbackEnabled()) new FeedbackDialog(document.getElementById('hud')!, () => {
+  const cal = calendarOf(state.day);
+  return {
+    日付: `${cal.year}年目 ${SEASONS[cal.season].name} ${cal.dayInSeason}日目（${state.day}日目）`,
+    ランク: `★${progress.rank.stars} ${progress.rank.name}`,
+    お金: Math.round(state.money),
+    来園者: lastVisitors,
+    木: forest.trees.length,
+    遊歩道: paths.connectedCount,
+    夜間営業: state.nightOpen,
+    速さ: SPEEDS[state.speed].label,
+  };
+});
 const rangerPanel = new RangerPanel(document.querySelector('#hud .basket'), {
   onHire: () => hireRanger(),
   onDismiss: () => dismissRanger(),

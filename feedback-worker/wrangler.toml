@@ -1,0 +1,16 @@
+name = "ike-feedback"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# 毎日 15:00 UTC（日本時間 0:00）に、前の日の投稿をまとめる
+[triggers]
+crons = ["0 15 * * *"]
+
+[vars]
+ALLOWED_ORIGINS = "https://satoren.github.io,http://localhost:5173"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ike-feedback"
+# `npx wrangler d1 create ike-feedback` で表示された id に置き換える
+database_id = "REPLACE_WITH_D1_ID"
