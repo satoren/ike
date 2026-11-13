@@ -1,6 +1,6 @@
 import type { Creature, Inventory } from './ecology';
 import type { Tree } from './trees';
-import type { Bear, Trap } from './bears';
+import type { Bear, BearSign, Trap } from './bears';
 import type { Weather } from './seasons';
 import type { RareState } from './rare';
 import type { Bird, Weed } from './foodweb';
@@ -30,6 +30,8 @@ export interface SaveData {
   creatures: Creature[];
   bears: Bear[];
   traps: Trap[];
+  /** クマの足跡（翌日の出没の予兆）。古い保存データには無い */
+  bearSign?: BearSign | null;
   /** 珍しい生き物（古い保存データには無い） */
   rare?: RareState;
   /** 水草と鳥（古い保存データには無い） */
