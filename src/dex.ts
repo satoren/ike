@@ -180,7 +180,12 @@ export class Dex {
 
   /** 図鑑の充実による、魅力と来園者の倍率 */
   get boost(): number {
-    return 1 + this.count * DEX_BOOST_PER_ENTRY;
+    return this.boostWith(1);
+  }
+
+  /** 図鑑の評判に倍率を掛けたときの来園者の倍率（自然館があると評判が 2倍になる） */
+  boostWith(mult: number): number {
+    return 1 + this.count * DEX_BOOST_PER_ENTRY * mult;
   }
 
   /**

@@ -21,7 +21,6 @@ import {
   decayPressure,
   emptyInventory,
   harvestFruit,
-  inventoryValue,
   type CreatureKind,
   type Habitat,
   type ItemKind,
@@ -79,6 +78,7 @@ import {
 import { FaunaView } from './faunaview';
 import { Dex, type DexId } from './dex';
 import { DexPanel } from './dexview';
+import { Market } from './market';
 import { Requests, clientOf, describe, progressOf, type ParkNow, type RequestEvent } from './requests';
 import { RequestPanel } from './requestview';
 
@@ -216,6 +216,7 @@ scene.add(faunaView.group);
 const dex = new Dex();
 // 日替わりのお願い
 const requests = new Requests();
+const market = new Market();
 const poachers = new Poachers(map, WATER_LEVEL);
 const poacherView = new PoacherView(map, WATER_LEVEL);
 scene.add(poacherView.group);
@@ -678,15 +679,16 @@ function buildFacility(at: THREE.Vector3): void {
     hud.flash(`${info.name}は園のランクが★${Progress.unlockRank(kind)?.stars}になると建てられます`, 'bad');
     return;
   }
-  const why = facilities.whyNot(at.x, at.z, paths);
+  const why = facilities.whyNot(at.x, at.z, paths, kind);
   if (why) {
     hud.flash(why, 'bad');
     return;
   }
   if (!spend(info.cost)) return;
   const f = facilities.build(kind, at.x, at.z, forest.trees);
-  const extra = kind === 'tower' ? `（景色の良さ +${f.view}）` : '';
-  hud.flash(`${info.name}を建てました${extra}`, 'good');
+  const extra =
+    kind === 'tower' ? `（景色の良さ +${f.view}）` : kind === 'center' ? '（図鑑の評判が 2倍になりました）' : '';
+  hud.flash(`${info.name}を${kind === 'bigtree' ? '植えました' : '建てました'}${extra}`, 'good');
   statsDirty = true;
 }
 
@@ -792,11 +794,13 @@ function updateRangers(dt: number): void {
 
 function sell(kind: ItemKind | 'all'): void {
   const kinds = kind === 'all' ? ITEM_ORDER : [kind];
-  const sold = emptyInventory();
-  for (const k of kinds) sold[k] = state.inventory[k];
-  const total = inventoryValue(sold);
+  // 売るほど値が下がる。売り上げは相場（きょうの倍率と売りすぎ）で決まる
+  let total = 0;
+  for (const k of kinds) {
+    total += market.sell(k, state.inventory[k]);
+    state.inventory[k] = 0;
+  }
   if (total === 0) return;
-  for (const k of kinds) state.inventory[k] = 0;
   state.money += total;
   progress.earn(total);
   hud.flash(`売り上げ +${total.toLocaleString()} G`, 'good');
@@ -897,6 +901,7 @@ function snapshot(): SaveData {
     fauna: fauna.animals.map((a) => ({ ...a })),
     dex: dex.snapshot(),
     requests: requests.snapshot(),
+    market: market.snapshot(),
     state: {
       money: state.money,
       day: state.day,
@@ -935,6 +940,7 @@ function restore(data: SaveData): void {
   fauna.restore(data.fauna);
   dex.restore(data.dex);
   requests.restore(data.requests);
+  market.restore(data.market);
   Object.assign(state, data.state, {
     inventory: { ...emptyInventory(), ...data.state.inventory },
     nightOpen: data.state.nightOpen ?? false,
@@ -1349,6 +1355,7 @@ function frame(): void {
   bearView.update(bears.bears, bears.traps, t);
   rareView.update(rare.state, t);
   facilityView.update(facilities.facilities);
+  facilityView.animate(t);
 
   // 密猟者：夜に忍び込んで魚や動物を盗む。来園者に見つかると逃げる
   const poacherEvents = poachers.update(
@@ -1388,7 +1395,7 @@ function frame(): void {
   const evaluate = () =>
     applySeason(
       // 図鑑が埋まるほど評判が広まり、客が増える
-      applyRareBoost(computeAppeal(habitat, wildlife, state.pressure, state.incident, access), boost * dex.boost),
+      applyRareBoost(computeAppeal(habitat, wildlife, state.pressure, state.incident, access), boost * dex.boostWith(facilities.dexBoost)),
       cal.season,
       seasonState.weather,
       bonus,
@@ -1523,6 +1530,9 @@ function frame(): void {
       poachers.spawn();
       hud.flash('夜のうちに密猟者が忍び込みました！「集める」でなぞって捕まえましょう', 'bad');
     }
+    // 朝ごとに相場が動く。きのう予告した品が高値になる
+    market.onNewDay();
+    hud.flash(`相場：${market.note()}`);
     // 朝ごとに、期限の過ぎたお願いを片付けて新しいお願いを受ける
     for (const e of requests.onNewDay(parkNow(appeal, wild))) onRequestEvent(e);
   }
@@ -1572,7 +1582,7 @@ function frame(): void {
       }
     }
     dexSynced = true;
-    dexPanel.update(dex, present);
+    dexPanel.update(dex, present, facilities.dexBoost);
 
     // 日替わりのお願い：数を満たしたら達成
     const now = parkNow(appeal, wild);
@@ -1597,6 +1607,7 @@ function frame(): void {
     pathCellsTotal: paths.count,
     visitors: appeal.visitors,
     inventory: state.inventory,
+    market,
     bears: bears.bears.length,
     bearSign: bears.sign !== null,
     traps: bears.traps.length,

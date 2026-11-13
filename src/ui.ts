@@ -1,5 +1,6 @@
 import { COSTS } from './economy';
-import { ITEMS, ITEM_ORDER, inventoryValue, type Inventory, type ItemKind } from './ecology';
+import { ITEMS, ITEM_ORDER, type Inventory, type ItemKind } from './ecology';
+import type { Market, Trend } from './market';
 import { icons } from './icons';
 import { SAFETY } from './paths';
 import { SHOT_COST, TRAP_COST } from './bears';
@@ -101,6 +102,14 @@ interface HudHandlers {
   onFacilityChange: (kind: FacilityKind) => void;
 }
 
+const TREND_MARK: Record<Trend, string> = { hot: ' ▲', cheap: ' ▼', glut: ' ▼', flat: '' };
+const TREND_TITLE: Record<Trend, string> = {
+  hot: 'きょうは高く売れます',
+  cheap: 'きょうは安値です。急がなければ待ちましょう',
+  glut: '売りすぎて値下がりしています。日がたつと戻ります',
+  flat: 'きょうの売値',
+};
+
 export interface HudData {
   money: number;
   day: number;
@@ -123,6 +132,8 @@ export interface HudData {
   waterCells: number;
   treesNearWater: number;
   inventory: Inventory;
+  /** 相場（きょうの売値と、あすの高値） */
+  market: Market;
   /** いま出没しているクマの数 */
   bears: number;
   /** 翌日クマが現れる足跡が見つかっている */
@@ -159,6 +170,7 @@ export class Hud {
   private readonly dayRing: SVGCircleElement;
   private readonly basketRows = new Map<ItemKind, HTMLElement>();
   private readonly sellAll: HTMLButtonElement;
+  private readonly marketNote: HTMLElement;
   private readonly basketSum: HTMLElement;
   private readonly pathErase: HTMLButtonElement;
   private readonly nightToggle: HTMLButtonElement;
@@ -207,6 +219,7 @@ export class Hud {
           <span class="basket-toggle" aria-hidden="true"></span>
         </button>
         <ul class="basket-list"></ul>
+        <p class="market-note" title="売値は毎朝変わります。同じ品をたくさん売ると値下がりし、日がたつと戻ります"></p>
         <button type="button" class="sell-all"></button>
       </aside>
 
@@ -238,7 +251,7 @@ export class Hud {
       <button class="map-btn card" type="button" aria-pressed="false" aria-label="パネルを隠して地図を広く見る" title="パネルを隠す">${icons.expand}</button>
       <div class="help card" hidden>
         <div class="help-head"><b>遊び方</b><button type="button" class="help-close" aria-label="閉じる">${icons.close}</button></div>
-        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります（つながっていない道は灰色になり、使われません）。ときどきクマが現れ、柵と道を壊して来園者を襲います。現れる前の日には地図の端に足跡が見つかり、そこから続く点線が予想される獣道です。クマは身を隠せる林や水辺を通り、開けた草地を避けるので、木の植え方で通り道が変わります。獣道に先回りして罠を仕掛けるか、銃で狩りましょう（クマの近くには罠を置けません。遊歩道のすぐ脇の罠には来園者がかかってしまいます）。夜には密猟者が忍び込んで魚や動物を盗んでいきます。紫の目印の人を「集める」でなぞると捕まえられ、報奨金がもらえます。来園者に見つかると逃げ出すので、遊歩道を広く巡らせておくと被害を減らせます。かごの下の「駆除係」で係を雇うと、日給と引き換えに園内を巡回し、クマを撃ち、キツネや密猟者を捕まえてくれます（給料が払えないと辞めてしまいます）。左上の「夜間営業」で遊歩道をライトアップすると夜も客が来て入園料が増えますが、電気代がかかり、夜行性のキツネが寄ってきて遊歩道の外が危険になります。水辺の木を増やし、池を深くして荒らさずにいると、ホタルやオオサンショウウオがまれに現れて話題になり、来園者が一気に増えます（捕まえることはできません）。左上の★は園のランクです。押すと次のランクへの目標が見られます。目標を全部達成するとランクが上がり、賞金がもらえて入園料が上がり、休憩所・売店・展望台などの施設を「施設」で遊歩道のそばに建てられるようになります。本のボタンの「生き物図鑑」には、園に現れた生き物が載ります。浅瀬、池の中の小島、木を寄せて植えた林、遊歩道から離れた静かな林など、場所を作り分けると、そこを好む新しい生き物が現れます。まだ見つけていない生き物はヒントだけが載っています。見つけるたびにボーナスがもらえ、評判が広まって来園者が増えます。毎朝、町の人から「お願い」が 1件届きます（手紙のボタン）。魚を届ける、生き物を増やす、水辺に木を植える、今日は何も採らない、などです。期限までに応えると報酬がもらえます。応えられなくても罰はなく、見送ることもできます。</p>
+        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります（つながっていない道は灰色になり、使われません）。ときどきクマが現れ、柵と道を壊して来園者を襲います。現れる前の日には地図の端に足跡が見つかり、そこから続く点線が予想される獣道です。クマは身を隠せる林や水辺を通り、開けた草地を避けるので、木の植え方で通り道が変わります。獣道に先回りして罠を仕掛けるか、銃で狩りましょう（クマの近くには罠を置けません。遊歩道のすぐ脇の罠には来園者がかかってしまいます）。夜には密猟者が忍び込んで魚や動物を盗んでいきます。紫の目印の人を「集める」でなぞると捕まえられ、報奨金がもらえます。来園者に見つかると逃げ出すので、遊歩道を広く巡らせておくと被害を減らせます。かごの下の「駆除係」で係を雇うと、日給と引き換えに園内を巡回し、クマを撃ち、キツネや密猟者を捕まえてくれます（給料が払えないと辞めてしまいます）。左上の「夜間営業」で遊歩道をライトアップすると夜も客が来て入園料が増えますが、電気代がかかり、夜行性のキツネが寄ってきて遊歩道の外が危険になります。水辺の木を増やし、池を深くして荒らさずにいると、ホタルやオオサンショウウオがまれに現れて話題になり、来園者が一気に増えます（捕まえることはできません）。左上の★は園のランクです。押すと次のランクへの目標が見られます。目標を全部達成するとランクが上がり、賞金がもらえて入園料が上がり、休憩所・売店・展望台などの施設を「施設」で遊歩道のそばに建てられるようになります。本のボタンの「生き物図鑑」には、園に現れた生き物が載ります。浅瀬、池の中の小島、木を寄せて植えた林、遊歩道から離れた静かな林など、場所を作り分けると、そこを好む新しい生き物が現れます。まだ見つけていない生き物はヒントだけが載っています。見つけるたびにボーナスがもらえ、評判が広まって来園者が増えます。毎朝、町の人から「お願い」が 1件届きます（手紙のボタン）。魚を届ける、生き物を増やす、水辺に木を植える、今日は何も採らない、などです。期限までに応えると報酬がもらえます。応えられなくても罰はなく、見送ることもできます。売値は毎朝変わります。きょうの高値とあすの高値は、かごの下に出ます。同じ品をたくさん売ると値下がりし、日がたつと戻るので、高い日に少しずつ売るのが得です。ランクが上がると、水車小屋・自然館・大ケヤキといった大きな買い物もできるようになります。</p>
         <dl class="help-mouse">
           <dt>左ドラッグ</dt><dd>道具を使う（移動ではカメラ移動）</dd>
           <dt>右ドラッグ</dt><dd>カメラ移動</dd>
@@ -320,14 +333,15 @@ export class Hud {
       li.className = `basket-row item-${kind}`;
       li.innerHTML = `
         <span class="item-icon">${icons[ITEM_ICON[kind]]}</span>
-        <span class="item-name">${info.name}<small>${info.price}G</small></span>
+        <span class="item-name">${info.name}<small data-price>${info.price}G</small></span>
         <span class="item-wild" data-wild title="野外にいま居る数">0</span>
         <span class="item-count" data-count>0</span>
-        <button type="button" class="sell" title="${info.name}を売る">売る</button>`;
+        <button type="button" class="sell" title="${info.name}を売る">売る<small data-sell-price></small></button>`;
       li.querySelector('.sell')!.addEventListener('click', () => handlers.onSell(kind));
       list.appendChild(li);
       this.basketRows.set(kind, li);
     }
+    this.marketNote = this.root.querySelector('.market-note')!;
     this.sellAll = this.root.querySelector('.sell-all')!;
     this.sellAll.addEventListener('click', () => handlers.onSell('all'));
     this.basketSum = this.root.querySelector('.basket-sum')!;
@@ -417,8 +431,8 @@ export class Hud {
       b.classList.toggle('active', kind === selected && lock === undefined);
       b.classList.toggle('locked', lock !== undefined);
       b.setAttribute('aria-pressed', String(kind === selected));
-      b.title = lock !== undefined ? `${info.name}：★${lock}で解放` : `${info.name}（${info.cost}G）：${info.hint}`;
-      b.innerHTML = `${lock !== undefined ? icons.lock : icons[kind]}<span>${info.name}</span><small>${lock !== undefined ? `★${lock}で解放` : `${info.cost}G`}</small>`;
+      b.title = lock !== undefined ? `${info.name}：★${lock}で解放` : `${info.name}（${info.cost.toLocaleString()}G）：${info.hint}`;
+      b.innerHTML = `${lock !== undefined ? icons.lock : icons[kind]}<span>${info.name}</span><small>${lock !== undefined ? `★${lock}で解放` : `${info.cost.toLocaleString()}G`}</small>`;
     }
     if (this.tool === 'build') {
       const lock = lockedBy[selected];
@@ -532,8 +546,21 @@ export class Hud {
         row.classList.add('pop');
       }
       row.classList.toggle('empty', n === 0);
+      // きょうの売値。高値・安値・売りすぎを色と印で知らせる
+      const trend = d.market.trend(kind);
+      const priceEl = row.querySelector<HTMLElement>('[data-price]')!;
+      const priceText = `${d.market.price(kind)}G${TREND_MARK[trend]}`;
+      // 狭い画面では名前の欄を出さないので、「売る」ボタンの中にも同じ値段を出す
+      const sellPriceEl = row.querySelector<HTMLElement>('[data-sell-price]')!;
+      if (sellPriceEl.textContent !== priceText) priceEl.textContent = sellPriceEl.textContent = priceText;
+      if (sellPriceEl.dataset.trend !== trend) {
+        priceEl.dataset.trend = sellPriceEl.dataset.trend = trend;
+        priceEl.title = TREND_TITLE[trend];
+      }
     }
-    const total = inventoryValue(inv);
+    const note = d.market.note();
+    if (this.marketNote.textContent !== note) this.marketNote.textContent = note;
+    const total = d.market.valueOf(inv);
     this.sellAll.disabled = total === 0;
     this.basketSum.textContent = total > 0 ? `+${total.toLocaleString()}G` : '';
     this.sellAll.innerHTML = total > 0 ? `まとめて売る <b>+${total.toLocaleString()}G</b>` : 'かごは空です';
