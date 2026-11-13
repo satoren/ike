@@ -181,6 +181,8 @@ scene.add(creatureView.group);
 
 const bears = new Bears(map, WATER_LEVEL);
 const bearView = new BearView(map, WATER_LEVEL);
+/** 予想される獣道を見直すまでの秒数 */
+let trailTimer = 0;
 scene.add(bearView.group);
 
 // 珍しい生き物（ホタル・オオサンショウウオ）
@@ -647,8 +649,15 @@ function placeTrap(at: THREE.Vector3): void {
     hud.flash('資金が足りません', 'bad');
     return;
   }
-  if (!bears.placeTrap(at.x, at.z)) {
-    hud.flash('ここには罠を置けません（水の中や、ほかの罠のすぐ近く）', 'bad');
+  const result = bears.placeTrap(at.x, at.z, paths);
+  if (result !== 'ok') {
+    const why = {
+      water: '水の中には罠を置けません',
+      path: '遊歩道の上には罠を置けません',
+      'near-trap': 'ほかの罠のすぐ近くには置けません',
+      'bear-near': 'クマに気づかれます。もっと離れた、クマの通り道に先回りして仕掛けましょう',
+    }[result];
+    hud.flash(why, 'bad');
     return;
   }
   state.money -= TRAP_COST;
@@ -832,6 +841,7 @@ function snapshot(): SaveData {
     creatures: ecosystem.creatures.map((c) => ({ ...c })),
     bears: bears.bears.map((b) => ({ ...b })),
     traps: bears.traps.map((t) => ({ ...t })),
+    bearSign: bears.sign ? { ...bears.sign } : null,
     rare: rare.snapshot(),
     foodweb: { weeds: foodweb.weeds.map((w) => ({ ...w })), birds: foodweb.birds.map((b) => ({ ...b })) },
     poachers: poachers.poachers.map((p) => ({ ...p, loot: [...p.loot] })),
@@ -865,7 +875,8 @@ function restore(data: SaveData): void {
   paths.load(base64ToBytes(data.paths));
   pathView.rebuild();
   ecosystem.restore(data.creatures);
-  bears.restore(data.bears ?? [], data.traps ?? []);
+  bears.restore(data.bears ?? [], data.traps ?? [], data.bearSign ?? null);
+  trailTimer = 0;
   rare.restore(data.rare);
   foodweb.restore(data.foodweb);
   poachers.restore(data.poachers ?? []);
@@ -920,6 +931,9 @@ if (new URLSearchParams(location.search).has('bear')) {
   b.x *= 0.45;
   b.z *= 0.45;
 }
+
+// 確認用：URL に ?bearsign を付けると、最初からクマの足跡が見つかっている
+if (new URLSearchParams(location.search).has('bearsign') && !bears.sign) bears.scout();
 
 // 確認用：URL に ?season=winter のように付けると、その季節から始まる（&weather=snow で天気も）
 {
@@ -1009,7 +1023,7 @@ function removeCreature(id: number): void {
 }
 
 function focusBear(): void {
-  const b = bears.bears[0];
+  const b = bears.bears[0] ?? bears.sign;
   if (!b) return;
   focusAt(b.x, b.z);
 }
@@ -1145,6 +1159,11 @@ function frame(): void {
     hud.flash('クマが来園者を襲いました！魅力が大幅に下がります', 'bad');
     reviews.note('bearAttack');
   }
+  if (bearEvents.guestsTrapped > 0) {
+    state.incident = Math.min(2, state.incident + ATTACK.trapSeverity * bearEvents.guestsTrapped);
+    hud.flash('来園者が罠にかかってけがをしました。遊歩道のそばの罠は危険です', 'bad');
+    reviews.note('guestTrapped');
+  }
   if (bearEvents.trapped > 0) {
     state.inventory.bear += bearEvents.trapped;
     hud.flash('クマが罠にかかりました！かごに入れました', 'good');
@@ -1159,6 +1178,13 @@ function frame(): void {
       hud.flash('キツネが罠にかかりました', 'good');
       break;
     }
+  }
+  // 木の茂り具合と予想される獣道は、ときどき見直す
+  trailTimer -= dt;
+  if (trailTimer <= 0) {
+    trailTimer = 1;
+    bears.updateCover(forest.trees);
+    bearView.setTrail(bears.sign, bears.predictTrail(paths));
   }
   bearView.update(bears.bears, bears.traps, t);
   rareView.update(rare.state, t);
@@ -1300,14 +1326,26 @@ function frame(): void {
       }
     }
     // 日が変わるとき、森が育っているほどクマが出やすい（冬は冬眠して出ない）
-    if (
+    // 前の日に足跡が見つかっていれば、そこからクマが現れる
+    if (bears.sign) {
+      if (SEASONS[next.season].bears) {
+        bears.updateCover(forest.trees);
+        bears.spawn();
+        hud.flash('クマが現れました！仕掛けた罠へ来るのを待つか、銃で狩りましょう', 'bad');
+      } else {
+        bears.sign = null; // 冬眠の季節になった
+      }
+      trailTimer = 0;
+    } else if (
+      // 日が変わるとき、森が育っているほどクマが出やすい（冬は冬眠して出ない）。まず足跡が見つかる
       SEASONS[next.season].bears &&
       state.day >= BEAR.firstDay &&
       bears.bears.length === 0 &&
       Math.random() < BEAR.chance(forest.trees.length)
     ) {
-      bears.spawn();
-      hud.flash('クマが現れました！罠を仕掛けるか、銃で狩りましょう', 'bad');
+      const sign = bears.scout();
+      trailTimer = 0;
+      hud.flash(`${Bears.sideName(sign)}の端でクマの足跡が見つかりました。明日現れそうです。足跡の続く獣道に罠を仕掛けましょう`, 'bad');
     }
     for (const e of rare.onNewDay(rareEnv, waterTrees())) {
       if (e.type === 'arrived') {
@@ -1366,6 +1404,7 @@ function frame(): void {
     visitors: appeal.visitors,
     inventory: state.inventory,
     bears: bears.bears.length,
+    bearSign: bears.sign !== null,
     traps: bears.traps.length,
     darkness: darkness(dayProgress),
     nightOpen: state.nightOpen,

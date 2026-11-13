@@ -23,7 +23,7 @@ export interface ReviewContext {
 }
 
 /** 口コミの話題になる出来事 */
-export type ReviewEvent = 'bearAttack' | 'foxAttack' | 'bearHunted' | 'firefly' | 'salamander';
+export type ReviewEvent = 'bearAttack' | 'foxAttack' | 'bearHunted' | 'guestTrapped' | 'firefly' | 'salamander';
 
 /** 口コミが魅力のどの要素について語っているか（画面で理由として見せる） */
 export type ReviewFactor = 'incident' | 'danger' | 'safety' | 'wildlife' | 'harvest' | 'scenery';
@@ -81,6 +81,12 @@ export const TOPICS: readonly Topic[] = [
     good: false,
     weight: (c) => (c.recent.has('foxAttack') ? 10 : 0),
     lines: ['キツネにかまれた人がいたって。子どもは連れて来られない', '道のない草むらでキツネに追いかけられた', 'キツネが怖かった'],
+  },
+  {
+    factor: 'incident',
+    good: false,
+    weight: (c) => (c.recent.has('guestTrapped') ? 10 : 0),
+    lines: ['遊歩道のすぐ脇に罠があって、足をはさまれた人がいた', '罠でけがをした人がいたらしい。道のそばに置かないでほしい', '子どもが罠に近づきそうでヒヤッとした'],
   },
   {
     factor: 'danger',
