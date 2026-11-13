@@ -27,7 +27,16 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/admin') return new Response(ADMIN_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
-    if (url.pathname.startsWith('/api/')) return api(request, env, url);
+    if (url.pathname.startsWith('/api/')) {
+      try {
+        return await api(request, env, url);
+      } catch (e) {
+        // 管理用 API の中で起きたエラーは、中身を返して原因を追えるようにする（合言葉が通ったときだけ）
+        const auth = request.headers.get('Authorization') ?? '';
+        const detail = sameKey(auth.replace(/^Bearer\s+/i, ''), env.ADMIN_KEY) ? String(e?.message ?? e) : undefined;
+        return json(500, { error: 'server', detail, hasDB: Boolean(env.DB) });
+      }
+    }
     return submit(request, env);
   },
 
