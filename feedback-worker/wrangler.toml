@@ -29,3 +29,13 @@ binding = "DB"
 database_name = "ike-feedback"
 # 本番の D1（秘密ではない。アカウントに入れないと使えない）
 database_id = "127fbba3-60a2-41c6-8b8e-a6c96d952327"
+
+# PR ごとのプレビュー版（Workers Builds）用の設定。
+# 専用の D1 はまだ作っていないので、本番と同じ D1 を使う（プレビューで送ったご意見も本番の一覧に入る）
+[previews.vars]
+ALLOWED_ORIGINS = "http://localhost:5173"
+
+[[previews.d1_databases]]
+binding = "DB"
+database_name = "ike-feedback"
+database_id = "127fbba3-60a2-41c6-8b8e-a6c96d952327"
