@@ -12,7 +12,7 @@ function bare(over: Partial<GuestPark> = {}): GuestPark {
     rests: 0,
     towers: 0,
     pathCells: 0,
-    treesNearWater: 0,
+    richViews: 0,
     waterCells: 0,
     deepCells: 0,
     fish: 0,
@@ -32,7 +32,7 @@ function rich(over: Partial<GuestPark> = {}): GuestPark {
     rests: 10,
     towers: 2,
     pathCells: 200,
-    treesNearWater: 60,
+    richViews: 90,
     waterCells: 2000,
     deepCells: 500,
     fish: 20,
@@ -164,5 +164,12 @@ describe('口コミを書いた人', () => {
       expect(r).not.toBeNull();
       expect(FACTOR_GUESTS[r!.factor]).toContain(r!.by);
     }
+  });
+
+  it('散策の人は、変化のある眺めの道が多いほど満足する', () => {
+    const want = (richViews: number) => wantsOf('walker', bare({ richViews })).find((w) => w.label === '変化のある眺め')!;
+    expect(want(0).ratio).toBe(0);
+    expect(want(30).ratio).toBeCloseTo(0.5);
+    expect(want(200).ratio).toBe(1);
   });
 });

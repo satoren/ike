@@ -15,6 +15,9 @@ export type FacilityKind = 'rest' | 'shop' | 'tower' | 'mill' | 'center' | 'bigt
 
 export const FACILITY_ORDER: FacilityKind[] = ['rest', 'shop', 'tower', 'mill', 'center', 'bigtree'];
 
+/** 遊歩道からの眺めで「名所」になる施設 */
+export const LANDMARK_KINDS: readonly FacilityKind[] = ['tower', 'mill', 'center', 'bigtree'];
+
 export interface FacilityInfo {
   name: string;
   cost: number;

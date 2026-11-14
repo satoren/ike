@@ -27,6 +27,8 @@ export const icons = {
   alert: svg('<path d="M12 3 2 20h20z"/><path d="M12 10v4.5M12 17.3v.1"/>'),
   help: svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6v.6"/><path d="M12 17.2v.1"/>'),
   moon: svg('<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'),
+  flower: svg('<circle cx="12" cy="8.5" r="1.5"/><circle cx="12" cy="4.7" r="1.9"/><circle cx="15.6" cy="7.3" r="1.9"/><circle cx="14.2" cy="11.6" r="1.9"/><circle cx="9.8" cy="11.6" r="1.9"/><circle cx="8.4" cy="7.3" r="1.9"/><path d="M12 13.5V21"/><path d="M12 18.5c-2 0-3.4-.9-4-2.8M12 19.5c2 0 3.4-.9 4-2.8"/>'),
+  rock: svg('<path d="M3 19.5 6 11l5-4.5 6 2 4 7-1 4z"/><path d="m11 6.5 1 6 5-4"/><path d="m12 12.5-3 7"/>'),
   weed: svg('<path d="M3 20h18"/><path d="M12 20c0-5-1-9-3-13"/><path d="M12 20c0-4 1.5-7 4-10"/><path d="M8 20c0-3-1.5-5-3.5-7"/><path d="M16 20c0-2.5 1.2-4.5 3.5-6"/>'),
   build: svg('<path d="M3 11 12 4l9 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5h4v5"/>'),
   rest: svg('<path d="M3 10 12 4l9 6z"/><path d="M6 10v10M18 10v10"/><path d="M8 16h8M8 13.5h8"/>'),

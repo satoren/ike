@@ -10,6 +10,7 @@ import type { GuideState } from './guide';
 import type { GuestsState } from './guests';
 import type { YearbookState } from './yearbook';
 import type { Facility } from './facilities';
+import type { DecorItem } from './decor';
 import type { ProgressState } from './progress';
 import type { Ranger } from './rangers';
 import type { Animal } from './fauna';
@@ -47,6 +48,8 @@ export interface SaveData {
   poachers?: Poacher[];
   /** 建てた施設（古い保存データには無い） */
   facilities?: Facility[];
+  /** 花畑と岩（古い保存データには無い） */
+  decor?: DecorItem[];
   /** 園のランクと目標（古い保存データには無い） */
   progress?: ProgressState;
   /** 雇った駆除係（古い保存データには無い） */

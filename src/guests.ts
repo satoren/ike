@@ -48,7 +48,8 @@ export interface GuestPark {
   towers: number;
   /** 出入口につながった遊歩道のマス数 */
   pathCells: number;
-  treesNearWater: number;
+  /** 変化のある眺め（3種類以上が見える）の遊歩道のマス数 */
+  richViews: number;
   waterCells: number;
   deepCells: number;
   fish: number;
@@ -80,7 +81,7 @@ export function wantsOf(kind: GuestKind, p: GuestPark): Want[] {
     case 'walker':
       return [
         { label: '長い遊歩道', ratio: clamp01(p.pathCells / 120) },
-        { label: '水辺の木立', ratio: clamp01(p.treesNearWater / 40) },
+        { label: '変化のある眺め', ratio: clamp01(p.richViews / 60) },
         { label: '広い池', ratio: clamp01(p.waterCells / 1200) },
       ];
     case 'angler':

@@ -169,30 +169,6 @@ export class PathGrid {
     const cs = this.map.cellSize;
     return { x: (cx + 0.5) * cs - half, z: (cz + 0.5) * cs - half };
   }
-
-  /**
-   * 道からの眺めの良さ。水辺や木道のマスほど高い。
-   * 来園者が歩けるのは出入口とつながった道だけなので、それだけを数える。
-   */
-  scenicValue(waterLevel: number): number {
-    let v = 0;
-    for (let cz = 0; cz < this.size; cz++) {
-      for (let cx = 0; cx < this.size; cx++) {
-        if (!this.isConnected(cx, cz)) continue;
-        v += this.nearWater(cx, cz, waterLevel) ? 0.6 : 0.15;
-      }
-    }
-    return v;
-  }
-
-  private nearWater(cx: number, cz: number, waterLevel: number): boolean {
-    for (let dz = -3; dz <= 3; dz++) {
-      for (let dx = -3; dx <= 3; dx++) {
-        if (this.map.get(cx + dx, cz + dz) < waterLevel) return true;
-      }
-    }
-    return false;
-  }
 }
 
 /** 遊歩道の安全さ */
@@ -215,6 +191,10 @@ const PLANK = new THREE.Color('#c9a777');
 const BOARDWALK = new THREE.Color('#a8794b');
 /** 出入口とつながっていない道は色を落として見分けやすくする */
 const DISCONNECTED = new THREE.Color('#8f8a80');
+/** 眺めの色分け。見える種類が多いマスほど暖かい色にする（0〜4種類） */
+const VIEW_COLORS = ['#7d93b5', '#7fbf9f', '#e6d552', '#f59b2f', '#ea5b6e'].map((c) => new THREE.Color(c));
+/** viewCounts で「眺めを数えていないマス」を表す値 */
+const NO_VIEW = 255;
 
 /** 遊歩道を描く。板の床と、外周に柵の杭を立てる */
 export class PathView {
@@ -227,6 +207,11 @@ export class PathView {
   private readonly grid: PathGrid;
   private readonly map: Heightmap;
   private readonly waterLevel: number;
+  /**
+   * 眺めの色分け（マスごとの、見える種類の数）。入れておくと、床を眺めのよさで塗り分ける。
+   * null ならふだんの板の色
+   */
+  viewCounts: Uint8Array | null = null;
 
   constructor(grid: PathGrid, map: Heightmap, waterLevel: number) {
     this.grid = grid;
@@ -362,11 +347,14 @@ export class PathView {
         positions.push(...A, ...B, ...D, ...B, ...C, ...D);
 
         const { x, z } = this.grid.center(cx, cz);
+        const seen = this.viewCounts ? this.viewCounts[cz * this.grid.size + cx] : NO_VIEW;
         const color = !this.grid.isConnected(cx, cz)
           ? DISCONNECTED
-          : this.map.heightAt(x, z) < this.waterLevel
-            ? BOARDWALK
-            : PLANK;
+          : seen !== NO_VIEW
+            ? VIEW_COLORS[Math.min(seen, VIEW_COLORS.length - 1)]
+            : this.map.heightAt(x, z) < this.waterLevel
+              ? BOARDWALK
+              : PLANK;
         for (let k = 0; k < 6; k++) colors.push(color.r, color.g, color.b);
 
         // 隣が道でない辺に柵を立てる（辺の両端の角を結ぶ）

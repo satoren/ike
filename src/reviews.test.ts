@@ -59,4 +59,16 @@ describe('口コミ', () => {
     for (let i = 0; i < 400; i++) feed.update(0.5, ctx, 1);
     expect(feed.reviews.length).toBe(12);
   });
+
+  it('見どころの多い道は景色の口コミでほめられ、同じ景色の長い道は飽きられる', () => {
+    const varied = sample({ ...calm, views: { cells: 100, rich: 70, average: 3.2 } });
+    expect(varied.some((r) => r.text.includes('景色が変わって') || r.text.includes('見どころがあった') || r.text.includes('写真を撮りたく'))).toBe(true);
+    const dull = sample({ ...calm, views: { cells: 100, rich: 0, average: 0.6 } });
+    const bored = dull.filter((r) => r.factor === 'scenery' && !r.good);
+    expect(bored.length).toBeGreaterThan(0);
+    expect(varied.some((r) => r.text.includes('飽きた'))).toBe(false);
+    // 道が短いうちは、眺めの話は出ない
+    const short = sample({ ...calm, views: { cells: 10, rich: 0, average: 0 } });
+    expect(short.some((r) => r.factor === 'scenery' && !r.good)).toBe(false);
+  });
 });

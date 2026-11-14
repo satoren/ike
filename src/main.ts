@@ -61,7 +61,10 @@ import { ReviewFeed } from './reviews';
 import { ReviewPanel } from './reviewview';
 import { BIRDS, BIRD_NEEDS, FoodWeb, WEED, birdCapacity, fishCapacity } from './foodweb';
 import { FoodWebPanel, FoodWebView } from './foodwebview';
-import { FACILITIES, FACILITY, FACILITY_ORDER, Facilities, type FacilityKind } from './facilities';
+import { FACILITIES, FACILITY, FACILITY_ORDER, Facilities, LANDMARK_KINDS, type FacilityKind } from './facilities';
+import { DECOR, Decor, type DecorKind } from './decor';
+import { DecorView } from './decorview';
+import { ViewMap, describeView } from './views';
 import { FacilityView } from './facilityview';
 import { Progress, RANKS, type ParkStats } from './progress';
 import { RankBadge, rewardText } from './progressview';
@@ -242,6 +245,12 @@ const facilityView = new FacilityView(map);
 scene.add(facilityView.group);
 const progress = new Progress();
 
+// 花畑と岩、遊歩道からの眺め
+const decor = new Decor(map, WATER_LEVEL);
+const decorView = new DecorView(map, WATER_LEVEL);
+scene.add(decorView.group);
+const views = new ViewMap(map, WATER_LEVEL);
+
 const cursor = new BrushCursor(map);
 scene.add(cursor.line);
 
@@ -294,6 +303,19 @@ let biotope: Biotope = emptyBiotope();
 let faunaEnv: FaunaEnv | null = null;
 let scenic = 0;
 let statsDirty = false;
+/** 遊歩道の 1マスごとに、見えるものの種類を数え直す。種類が多い道ほど魅力が上がる */
+function surveyViews(): void {
+  views.survey(paths, {
+    trees: forest.trees,
+    flowers: decor.of('flower'),
+    rocks: decor.of('rock'),
+    islands: biotope.island,
+    landmarks: facilities.facilities.filter((f) => LANDMARK_KINDS.includes(f.kind)),
+  });
+  scenic = views.total;
+  // 眺めの色分けを出しているあいだは、道の色も塗り直す
+  if (pathView.viewCounts) pathView.rebuild();
+}
 
 // 最初から少し生き物がいる状態にする
 for (const kind of ['rabbit', 'rabbit', 'rabbit', 'duck', 'fish', 'fish', 'fish', 'fish'] as CreatureKind[]) {
@@ -306,6 +328,7 @@ for (let i = 0, n = 0; i < 4000 && n < 12; i++) {
 }
 habitat = habitatNow();
 biotope = biotopeNow();
+surveyViews();
 
 /** タッチでも遊歩道を撤去できるよう、ドックの「撤去」ボタンで切り替える */
 let pathErase = false;
@@ -342,6 +365,7 @@ const seasonView = new SeasonView({
 });
 const seasonBadge = new SeasonBadge(document.querySelector<HTMLElement>('#hud .brand')!);
 seasonView.set(calendarOf(state.day).season, seasonState.weather, true);
+decorView.setSeason(calendarOf(state.day).season);
 const speedButton = new SpeedButton(document.querySelector('#hud .brand .day')!, SECONDS_PER_DAY, () => cycleSpeed());
 speedButton.set(state.speed);
 function cycleSpeed(): void {
@@ -396,8 +420,11 @@ updateCursorRadius();
 
 /** 遊歩道はブラシより細く敷くので、カーソルの円もそれに合わせる */
 function updateCursorRadius(): void {
-  cursor.setRadius(state.tool === 'path' ? pathWidth() : state.brushRadius);
+  cursor.setRadius(state.tool === 'path' ? pathWidth() : state.tool === 'rock' ? ROCK_REACH : state.brushRadius);
 }
+
+/** 岩は狙った場所に 1つずつ置く。片づけるときも、このくらいの範囲だけ */
+const ROCK_REACH = 1;
 
 function pathWidth(): number {
   return Math.max(0.6, state.brushRadius / 3);
@@ -421,6 +448,13 @@ function setTool(tool: Tool): void {
   cursor.line.visible = tool !== 'pan';
   updateCursorRadius();
   if (tool === 'build') refreshFacilityUi();
+  // 道・花畑・岩を選んでいるあいだは、遊歩道を眺めのよさで塗り分ける
+  const counts = tool === 'path' || tool === 'flower' || tool === 'rock' ? views.counts : null;
+  if (pathView.viewCounts !== counts) {
+    pathView.viewCounts = counts;
+    pathView.rebuild();
+  }
+  hud.setViewLegend(counts !== null);
 }
 
 /** 施設の選択肢を、いまのランクで建てられるかに合わせて表示する */
@@ -467,6 +501,10 @@ function startTool(): void {
   if (state.tool === 'weed') {
     const hit = pick();
     if (hit) plantWeeds(hit);
+  }
+  if (state.tool === 'flower' || state.tool === 'rock') {
+    const hit = pick();
+    if (hit) placeDecor(hit, state.tool);
   }
   if (state.tool === 'trap') {
     const hit = pick();
@@ -576,8 +614,11 @@ window.addEventListener('keydown', (e) => {
     '9': 'gun',
     '0': 'weed',
     '-': 'build',
+    f: 'flower',
+    r: 'rock',
   };
-  if (keys[e.key]) setTool(keys[e.key]);
+  const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (keys[key] && !e.ctrlKey && !e.metaKey && !e.altKey) setTool(keys[key]);
   if (e.key === 't' || e.key === 'T') cycleSpeed();
   if (e.key === '[') hud.stepBrush(state.brushRadius, -1);
   if (e.key === ']') hud.stepBrush(state.brushRadius, 1);
@@ -606,6 +647,11 @@ function onTerrainEdited(region: BrushResult): void {
   if (drowned > 0) hud.flash(`木が ${drowned} 本、水に沈みました`, 'bad');
   const sunk = facilities.removeDrowned();
   if (sunk > 0) hud.flash(`施設が ${sunk} 軒、水に沈みました`, 'bad');
+  if (decor.items.length > 0) {
+    const lost = decor.removeDrowned();
+    if (lost > 0) hud.flash(`花畑や岩が ${lost} か所、水に沈みました`, 'bad');
+    decorView.rebuild(decor.items);
+  }
   statsDirty = true;
 }
 
@@ -641,6 +687,45 @@ function plantWeeds(at: THREE.Vector3): void {
     planted++;
   }
   if (planted === 0 && state.money >= WEED.cost) hud.flash('水草は池の浅いところ〜中くらいの深さに植えられます', 'bad');
+}
+
+/** 花畑を植える・岩を置く（「撤去」のときは範囲の中のものを片づける） */
+function placeDecor(at: THREE.Vector3, kind: DecorKind): void {
+  const reach = kind === 'rock' ? ROCK_REACH : state.brushRadius;
+  if (pathErase || shiftDown) {
+    const removed = decor.removeWithin(at.x, at.z, reach);
+    if (removed.length === 0) return;
+    hud.flash(`花畑や岩を ${removed.length} か所、片づけました`);
+    onDecorChanged();
+    return;
+  }
+  const isPath = (x: number, z: number) => paths.isPathAt(x, z);
+  // 岩は狙った場所に 1つ、花畑はブラシの範囲にいくつかまとめて
+  const n = kind === 'rock' ? 1 : Math.max(1, Math.round(state.brushRadius * 0.6));
+  let placed = 0;
+  let why: string | null = null;
+  const tries = kind === 'rock' ? 1 : n * 4;
+  for (let i = 0; i < tries && placed < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = i === 0 ? 0 : Math.sqrt(Math.random()) * state.brushRadius;
+    const x = at.x + Math.cos(a) * r;
+    const z = at.z + Math.sin(a) * r;
+    const no = decor.whyNot(kind, x, z, isPath);
+    if (no) {
+      if (i === 0) why = no;
+      continue;
+    }
+    if (!spend(DECOR[kind].cost)) break;
+    decor.place(kind, x, z);
+    placed++;
+  }
+  if (placed > 0) onDecorChanged();
+  else if (why && state.money >= DECOR[kind].cost) hud.flash(why, 'bad');
+}
+
+function onDecorChanged(): void {
+  decorView.rebuild(decor.items);
+  statsDirty = true;
 }
 
 /** なぞった範囲の果物と生き物をかごに入れる */
@@ -893,7 +978,23 @@ function applyTool(dt: number): void {
   if (region) onTerrainEdited(region);
 }
 
+/** 眺めの色分けを出しているあいだ、指している道のマスから何が見えるかをヒントに出す */
+let viewHint: string | null = null;
+function updateViewHint(): void {
+  let text: string | null = null;
+  if (pathView.viewCounts && lastHit) {
+    const { gx, gz } = map.toGrid(lastHit.x, lastHit.z);
+    const kinds = views.kindsAt(Math.floor(gx), Math.floor(gz));
+    if (kinds) text = describeView(kinds);
+  }
+  if (text === viewHint) return;
+  viewHint = text;
+  hud.setHintNote(text);
+}
+
 function onPathsChanged(): void {
+  // 道を上に敷いた花畑や岩は片づける
+  if (decor.items.length > 0 && decor.removeWhere((d) => paths.isPathAt(d.x, d.z)) > 0) decorView.rebuild(decor.items);
   pathView.rebuild();
   refreshLanterns();
   statsDirty = true;
@@ -923,6 +1024,7 @@ function snapshot(): SaveData {
     foodweb: { weeds: foodweb.weeds.map((w) => ({ ...w })), birds: foodweb.birds.map((b) => ({ ...b })) },
     poachers: poachers.poachers.map((p) => ({ ...p, loot: [...p.loot] })),
     facilities: facilities.facilities.map((f) => ({ ...f })),
+    decor: decor.snapshot(),
     progress: progress.snapshot(),
     rangers: rangers.rangers.map((r) => ({ ...r })),
     fauna: fauna.animals.map((a) => ({ ...a })),
@@ -965,6 +1067,7 @@ function restore(data: SaveData): void {
   foodweb.restore(data.foodweb);
   poachers.restore(data.poachers ?? []);
   facilities.restore(data.facilities);
+  decor.restore(data.decor);
   progress.restore(data.progress);
   rangers.restore(data.rangers ?? []);
   fauna.restore(data.fauna);
@@ -990,9 +1093,11 @@ function restore(data: SaveData): void {
     seasonState.waterOffset = seasonState.habitatOffset = data.seasons.waterOffset;
   }
   seasonView.set(calendarOf(state.day).season, seasonState.weather, true);
+  decorView.setSeason(calendarOf(state.day).season);
+  decorView.rebuild(decor.items);
   habitat = habitatNow();
   biotope = biotopeNow();
-  scenic = paths.scenicValue(WATER_LEVEL);
+  surveyViews();
 }
 
 /** 入園料。ランクの倍率に加えて、客層ごとの払いの違い（釣り券・撮影料）が掛かる */
@@ -1053,6 +1158,7 @@ if (new URLSearchParams(location.search).has('bearsign') && !bears.sign) bears.s
     seasonState.weather = w && w in WEATHER ? w : rollWeather(calendarOf(state.day).season);
     if (si === 1 && q.has('drought')) seasonState.waterOffset = -0.2;
     seasonView.set(calendarOf(state.day).season, seasonState.weather, true);
+    decorView.setSeason(calendarOf(state.day).season);
     statsDirty = true;
   }
 }
@@ -1285,6 +1391,7 @@ function frame(): void {
   lastHit = pointerOnCanvas && state.tool !== 'pan' ? pick() : null;
   cursor.update(lastHit);
   applyTool(realDt);
+  updateViewHint();
 
   // 統計は重めなので、変化があったときだけ間引いて計算する
   statsTimer += realDt;
@@ -1292,7 +1399,7 @@ function frame(): void {
     habitat = habitatNow();
     biotope = biotopeNow();
     biotopeTimer = 0;
-    scenic = paths.scenicValue(WATER_LEVEL);
+    surveyViews();
     facilities.refreshViews(forest.trees);
     statsDirty = false;
     statsTimer = 0;
@@ -1462,7 +1569,7 @@ function frame(): void {
       rests: facilities.count('rest'),
       towers: facilities.count('tower'),
       pathCells: paths.connectedCount,
-      treesNearWater: habitat.treesNearWater,
+      richViews: views.rich,
       waterCells: habitat.waterCells,
       deepCells: habitat.deepCells,
       fish: wild.fish,
@@ -1515,6 +1622,7 @@ function frame(): void {
       trees: forest.trees.length,
       treesNearWater: habitat.treesNearWater,
       wild,
+      views: { cells: views.cells, rich: views.rich, average: views.average },
     },
     state.day,
   );
@@ -1551,6 +1659,7 @@ function frame(): void {
     else if (seasonState.weather === 'rain' && prevWeather !== 'rain') hud.flash('雨が降ってきました。今日は客が少なめです');
     else if (seasonState.weather === 'snow' && prevWeather !== 'snow') hud.flash('雪が降ってきました');
     seasonView.set(next.season, seasonState.weather);
+    decorView.setSeason(next.season);
     // 夜も営業していれば、営業していた時間の分だけ夜の部の入園料が入り、電気代を払う
     if (nightOpenTime > 0) {
       const share = Math.min(1, nightOpenTime / Math.max(nightTime, 0.001));
