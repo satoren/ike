@@ -1,5 +1,6 @@
 import type { Heightmap } from './heightmap';
 import { fishCapacity } from './foodweb';
+import { t } from './i18n';
 
 /**
  * 生態系のロジック（描画から独立）。
@@ -21,12 +22,12 @@ export interface ItemInfo {
 }
 
 export const ITEMS: Record<ItemKind, ItemInfo> = {
-  fruit: { name: '木の実', price: 6, group: '果物' },
-  rabbit: { name: 'ウサギ', price: 45, group: '動物' },
-  duck: { name: 'カモ', price: 70, group: '動物' },
-  fish: { name: 'サカナ', price: 30, group: '水生生物' },
-  fox: { name: 'キツネ', price: 120, group: '動物' },
-  bear: { name: 'クマ', price: 300, group: '動物' },
+  fruit: { name: t('木の実'), price: 6, group: '果物' },
+  rabbit: { name: t('ウサギ'), price: 45, group: '動物' },
+  duck: { name: t('カモ'), price: 70, group: '動物' },
+  fish: { name: t('サカナ'), price: 30, group: '水生生物' },
+  fox: { name: t('キツネ'), price: 120, group: '動物' },
+  bear: { name: t('クマ'), price: 300, group: '動物' },
 };
 
 export const ITEM_ORDER: ItemKind[] = ['fruit', 'rabbit', 'duck', 'fish', 'fox', 'bear'];
@@ -360,7 +361,7 @@ export const PRESSURE = {
   /** 魅力が最大で何割まで下がるか */
   maxPenalty: 0.7,
   /** この値で魅力が半分の下がり幅（maxPenalty / 2）になる */
-  half: 60,
+  half: 150,
 } as const;
 
 export function addPressure(current: number, kind: ItemKind, n: number): number {

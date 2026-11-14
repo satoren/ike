@@ -1,5 +1,6 @@
 import type { Heightmap } from './heightmap';
 import type { Appeal, Habitat } from './ecology';
+import { t } from './i18n';
 
 /**
  * 珍しい生き物（描画から独立したロジック）。
@@ -38,17 +39,17 @@ export interface RareInfo {
 
 export const RARE: Record<RareKind, RareInfo> = {
   firefly: {
-    name: 'ホタル',
+    name: t('ホタル'),
     needs: ({ habitat: h, pressure }) => h.treesNearWater >= 45 && h.waterCells >= 600 && pressure < 20,
     chance: 0.25,
     stayDays: 6,
     cooldownDays: 6,
     presence: 0.15,
     buzz: 0.5,
-    arrive: 'ホタルが現れました！水辺が光って話題になり、来園者が増えています',
+    arrive: t('ホタルが現れました！水辺が光って話題になり、来園者が増えています'),
   },
   salamander: {
-    name: 'オオサンショウウオ',
+    name: t('オオサンショウウオ'),
     needs: ({ habitat: h, fish, pressure }) =>
       h.deepCells >= 250 && h.treesNearWater >= 30 && fish >= 8 && pressure < 10,
     chance: 0.12,
@@ -56,7 +57,7 @@ export const RARE: Record<RareKind, RareInfo> = {
     cooldownDays: 10,
     presence: 0.25,
     buzz: 0.8,
-    arrive: 'オオサンショウウオが現れました！大きな話題になり、来園者が押し寄せています',
+    arrive: t('オオサンショウウオが現れました！大きな話題になり、来園者が押し寄せています'),
   },
 };
 

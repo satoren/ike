@@ -1,6 +1,7 @@
 import './yearbook.css';
 import { icons } from './icons';
 import type { YearSummary } from './yearbook';
+import { t } from './i18n';
 
 const G = (n: number) => `${n.toLocaleString()}G`;
 
@@ -19,12 +20,12 @@ export class YearPanel {
     this.panel.className = 'year-panel card';
     this.panel.hidden = true;
     this.panel.setAttribute('role', 'dialog');
-    this.panel.setAttribute('aria-label', '1年のまとめ');
+    this.panel.setAttribute('aria-label', t('1年のまとめ'));
     this.panel.innerHTML = `
-      <button type="button" class="year-close" aria-label="閉じる">${icons.close}</button>
+      <button type="button" class="year-close" aria-label="${t('閉じる')}">${icons.close}</button>
       <div class="year-body"></div>
       <div class="year-extra"></div>
-      <button type="button" class="year-ok">つぎの年へ</button>`;
+      <button type="button" class="year-ok">${t('つぎの年へ')}</button>`;
     this.body = this.panel.querySelector('.year-body')!;
     this.extra = this.panel.querySelector('.year-extra')!;
     for (const b of this.panel.querySelectorAll('.year-close, .year-ok')) b.addEventListener('click', () => this.close());
@@ -40,24 +41,24 @@ export class YearPanel {
   }
 
   show(y: YearSummary): void {
-    const record = (on: boolean) => (on ? '<em class="year-record">記録更新</em>' : '');
+    const record = (on: boolean) => (on ? `<em class="year-record">${t('記録更新')}</em>` : '');
     const row = (label: string, value: string, extra = '') => `<li><span>${label}</span><b>${value}</b>${extra}</li>`;
     const sub = (label: string, value: number) => (value > 0 ? `<li class="year-sub"><span>${label}</span><b>${G(value)}</b></li>` : '');
-    const partial = y.days < 20 ? `<small>（途中から数えた ${y.days}日ぶん）</small>` : '';
+    const partial = y.days < 20 ? `<small>${t('（途中から数えた {0}日ぶん）', y.days)}</small>` : '';
     const rank = y.rankEnd > y.rankStart ? `★${y.rankStart} → ★${y.rankEnd}` : `★${y.rankEnd}`;
     this.body.innerHTML = `
-      <p class="year-title"><b>${y.year}年目のまとめ</b>${partial}</p>
+      <p class="year-title"><b>${t('{0}年目のまとめ', y.year)}</b>${partial}</p>
       <p class="year-comment"></p>
       <ul class="year-list">
-        ${row('来園者の合計', `${y.visitors.toLocaleString()}人`, record(y.records.visitors))}
-        ${row('いちばん多かった日', `${y.bestDay.toLocaleString()}人`, record(y.records.bestDay))}
-        ${row('収入の合計', G(y.income), record(y.records.income))}
-        ${sub('入園料', y.tickets)}${sub('売店', y.shop)}${sub('売り上げ', y.sales)}${sub('賞金・報酬', y.rewards)}
-        ${row('園のランク', rank)}
-        ${row('図鑑に載った生き物', `${y.found}種`)}
-        ${row('応えたお願い', `${y.requests}件`)}
-        ${row('客が襲われた事件', `${y.incidents}件`)}
-        ${y.bears > 0 ? row('仕留めたクマ', `${y.bears}頭`) : ''}
+        ${row(t('来園者の合計'), t('{0}人', y.visitors.toLocaleString()), record(y.records.visitors))}
+        ${row(t('いちばん多かった日'), t('{0}人', y.bestDay.toLocaleString()), record(y.records.bestDay))}
+        ${row(t('収入の合計'), G(y.income), record(y.records.income))}
+        ${sub(t('入園料'), y.tickets)}${sub(t('売店'), y.shop)}${sub(t('売り上げ'), y.sales)}${sub(t('賞金・報酬'), y.rewards)}
+        ${row(t('園のランク'), rank)}
+        ${row(t('図鑑に載った生き物'), t('{0}種', y.found))}
+        ${row(t('応えたお願い'), t('{0}件', y.requests))}
+        ${row(t('客が襲われた事件'), t('{0}件', y.incidents))}
+        ${y.bears > 0 ? row(t('仕留めたクマ'), t('{0}頭', y.bears)) : ''}
       </ul>`;
     this.body.querySelector('.year-comment')!.textContent = y.comment;
     this.extra.replaceChildren();

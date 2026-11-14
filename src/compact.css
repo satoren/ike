@@ -1,0 +1,410 @@
+/*
+ * スマホ（狭い・低い画面）で地図を広く使うための調整。
+ * 上の数字は 1 行、案内は 1 行（押すと説明が開く）、口コミは畳むと見出しだけ、ドックは薄く。
+ * 他の CSS より後に読み込み、#hud を付けて優先させる。
+ */
+
+/* 地図を触っている間は、案内も薄くして邪魔しない */
+#hud .guide {
+  transition: opacity 0.2s;
+}
+#hud.gesturing .guide {
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+@media (max-width: 640px), (max-height: 500px) {
+  /* ---- 案内：1 行。押すとやり方の説明が開く ---- */
+  #hud .guide {
+    top: calc(var(--top-bottom, 100px) + 6px);
+    padding: 4px 4px 4px 8px;
+    gap: 6px;
+  }
+  #hud .bear-alert:not([hidden]) ~ .guide {
+    top: calc(var(--top-bottom, 100px) + 50px);
+  }
+  #hud .guide-step-word {
+    display: none;
+  }
+  #hud .guide-step {
+    padding: 2px 7px;
+  }
+  #hud .guide-body {
+    flex: 1 1 auto;
+    cursor: pointer;
+  }
+  #hud .guide-line {
+    font-size: 13px;
+  }
+  #hud .guide-how {
+    display: none;
+  }
+  #hud .guide.open .guide-how,
+  #hud .guide.pinned .guide-how {
+    display: block;
+    margin: 0 0 3px;
+    font-size: 11.5px;
+  }
+  #hud .guide-skip {
+    width: 26px;
+    height: 26px;
+  }
+
+  /* クマの警報も上の数字のすぐ下に */
+  #hud .bear-alert {
+    top: calc(var(--top-bottom, 100px) + 6px);
+    padding: 5px 12px 5px 8px;
+    font-size: 13px;
+  }
+
+  /* ---- 上の数字：小さな丸に（見出しは省き、title で分かる） ---- */
+  #hud .chip-label {
+    display: none;
+  }
+  #hud .chip {
+    padding: 3px 9px 3px 3px;
+    gap: 5px;
+  }
+  #hud .chip-icon {
+    width: 24px;
+    height: 24px;
+  }
+  #hud .chip-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+  #hud .chip-value {
+    font-size: 14px;
+  }
+
+  /* ---- 口コミ：畳んでいるときは見出しだけ ---- */
+  #hud .reviews:not(.open) {
+    width: auto;
+    padding: 6px 10px 6px 6px;
+  }
+  #hud .reviews:not(.open) .reviews-list {
+    display: none;
+  }
+  #hud .reviews:not(.open) .reviews-head {
+    width: auto;
+  }
+}
+
+/* ---------- 縦持ち ---------- */
+@media (max-width: 640px) {
+  #hud .topbar {
+    gap: 6px;
+  }
+  #hud .brand {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+  /* 6つの数字は 1 行の横スクロールに（2 行だと地図が狭くなる） */
+  #hud .chips {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 5px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+  }
+  #hud .chips::-webkit-scrollbar {
+    display: none;
+  }
+  #hud .chip {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  /* 括弧の中の細かい数（遊歩道のマス数・水辺の木）は省く */
+  #hud .chip-value small {
+    display: none;
+  }
+
+  #hud .guide,
+  #hud .bear-alert:not([hidden]) ~ .guide {
+    width: auto;
+    left: calc(10px + var(--sa-l, 0px));
+    right: calc(10px + var(--sa-r, 0px));
+    transform: none;
+  }
+
+  /* ---- ドック：道具とブラシを薄く ---- */
+  #hud .dock {
+    padding: 4px;
+  }
+  #hud .tool {
+    min-height: 50px;
+    padding: 3px 2px 2px;
+  }
+  #hud .tool-icon {
+    width: 30px;
+    height: 30px;
+  }
+  #hud .tool-label {
+    font-size: 10.5px;
+  }
+  #hud .sizes {
+    padding-top: 4px;
+    gap: 6px;
+  }
+  #hud .sizes-row .size {
+    height: 32px;
+  }
+  #hud .sizes:has(.sizes-row:not([hidden])) .sizes-label {
+    display: none;
+  }
+  #hud .subtool {
+    min-height: 32px;
+  }
+}
+
+/* ---------- 横持ち ---------- */
+@media (max-height: 500px) and (min-width: 641px) {
+  /* 案内は真ん中に。左右の口コミ・かごと重ならない幅にする */
+  #hud .guide {
+    max-width: calc(100vw - 380px);
+  }
+  #hud .guide-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #hud .guide-line {
+    min-width: 0;
+  }
+  #hud .chips {
+    gap: 5px;
+  }
+
+  /* 口コミとかごは、下のドックの横ではなく上の数字のすぐ下に（畳むと見出しだけ） */
+  #hud .reviews,
+  #hud .basket {
+    top: calc(var(--top-bottom, 100px) + 6px);
+    bottom: auto;
+    max-height: calc(100dvh - var(--top-bottom, 100px) - 100px - var(--sa-b, 0px));
+  }
+  #hud .basket {
+    right: calc(64px + var(--sa-r, 0px));
+  }
+  #hud .reviews.open {
+    width: 240px;
+  }
+}
+
+/* 珍しい生き物の話題は、畳んだ案内（縦）や口コミの見出し（横）の下に */
+@media (max-width: 640px) {
+  #hud .rare-badge {
+    top: calc(var(--top-bottom, 100px) + 50px);
+  }
+}
+@media (max-height: 500px) and (min-width: 641px) {
+  #hud .rare-badge {
+    top: calc(var(--top-bottom, 100px) + 54px);
+  }
+}
+
+/* ---------- 通知：長い文は折り返し、パネルより手前に出す ---------- */
+#hud .toasts {
+  z-index: 9;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  pointer-events: none;
+}
+#hud .toast {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.4;
+  border-radius: 18px;
+}
+
+@media (max-width: 640px), (max-height: 500px) {
+  #hud .toast {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+}
+
+/* 縦持ち：下のボタンの列（口コミ・かご・お願い・図鑑・隠す）より上に出す */
+@media (max-width: 640px) {
+  #hud .toasts {
+    top: auto;
+    bottom: calc(var(--dock-top, 196px) + 60px);
+    width: calc(100vw - 20px);
+  }
+}
+/* 横持ち：上は数字・案内・警報で埋まるので、ドックのすぐ上に出す */
+@media (max-height: 500px) and (min-width: 641px) {
+  #hud .toasts,
+  #hud .bear-alert:not([hidden]) ~ .toasts {
+    top: auto;
+    bottom: calc(var(--dock-top, 130px) + 8px);
+    max-width: calc(100vw - 140px);
+  }
+}
+
+/* ---------- 縦持ち：ドックを 2 段に（上：道具の中身とブラシ、下：道具） ---------- */
+@media (max-width: 640px) {
+  #hud .dock-wrap {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    justify-content: center;
+    gap: 6px;
+  }
+  /* ドックの枠をほどき、中の道具の列とブラシをドックの外の段に並べる */
+  #hud .dock {
+    display: contents;
+  }
+  #hud .divider {
+    display: none;
+  }
+  #hud .dock-wrap > .hint,
+  #hud .dock-wrap > .view-legend {
+    order: 0;
+    max-width: 100%;
+  }
+  #hud .subtools {
+    order: 1;
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+  #hud .sizes,
+  #hud .tools {
+    pointer-events: auto;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px) saturate(1.2);
+  }
+  #hud .sizes {
+    order: 2;
+    flex: 0 0 auto;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-top: 1px solid var(--card-border);
+    border-radius: 18px;
+  }
+  #hud .sizes.disabled {
+    display: none;
+  }
+  #hud .sizes-label {
+    display: none;
+  }
+  #hud .sizes-row {
+    gap: 2px;
+  }
+  #hud .sizes-row .size {
+    min-width: 34px;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+  #hud .sizes-row .size i {
+    display: none;
+  }
+  #hud .path-erase {
+    height: 34px;
+    padding: 0 10px;
+  }
+  /* 施設を選ぶときは 1 段まるごと使う */
+  #hud .sizes:has(.facility-row:not([hidden])) {
+    flex: 1 1 100%;
+  }
+  #hud .tools {
+    order: 3;
+    flex: 0 0 100%;
+    padding: 4px;
+    border-radius: 20px;
+  }
+  #hud .subtool {
+    padding: 2px 6px;
+    gap: 4px;
+  }
+  #hud .subtool svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* ---- 下のボタン類を 1 列に：左に口コミ・かご、右にお願い・図鑑・隠す ---- */
+  #hud .reviews:not(.open) {
+    bottom: calc(var(--dock-top, 196px) + 8px);
+    left: calc(10px + var(--sa-l, 0px));
+    width: 84px;
+    height: 44px;
+    padding: 0 8px 0 8px;
+    display: flex;
+    align-items: center;
+  }
+  #hud .reviews:not(.open) .reviews-head b,
+  #hud .reviews:not(.open) .reviews-toggle {
+    display: none;
+  }
+  #hud .reviews:not(.open) .reviews-avg {
+    margin-left: 0;
+    font-size: 13px;
+  }
+  #hud .reviews.open {
+    bottom: calc(var(--dock-top, 196px) + 60px);
+    left: calc(10px + var(--sa-l, 0px));
+    right: calc(10px + var(--sa-r, 0px));
+    width: auto;
+    max-width: none;
+    max-height: calc(100dvh - var(--dock-top, 196px) - var(--top-bottom, 100px) - 80px);
+    overflow-y: auto;
+    z-index: 4;
+  }
+  #hud .basket.collapsed {
+    bottom: calc(var(--dock-top, 196px) + 8px);
+    left: calc(100px + var(--sa-l, 0px));
+    right: auto;
+    height: 44px;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+  }
+  #hud .basket.collapsed .basket-head b,
+  #hud .basket.collapsed .basket-toggle {
+    display: none;
+  }
+  #hud .basket.collapsed .basket-head {
+    gap: 6px;
+  }
+  #hud .basket:not(.collapsed) {
+    bottom: calc(var(--dock-top, 196px) + 60px);
+    max-height: calc(100dvh - var(--dock-top, 196px) - var(--top-bottom, 100px) - 80px);
+    z-index: 4;
+  }
+}
+
+@media (max-width: 640px) {
+  /* 遊歩道の眺めの凡例はドックの段を増やさないよう、下のボタンの列より上に浮かせる */
+  #hud .dock-wrap > .view-legend {
+    position: absolute;
+    bottom: calc(100% + 60px);
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  /* 中身が 4つ（自然）のときは、アイコンの下に名前を小さく出してブラシと 1 段に収める */
+  #hud .subtools:has(.subtool:nth-child(4)) .subtool {
+    flex-direction: column;
+    gap: 0;
+    padding: 2px 2px;
+    font-size: 10.5px;
+    line-height: 1.2;
+  }
+}
+
+/* 横持ち：高さが足りず通知と重なるので、説明は自動では開かず、押したときだけ開く */
+@media (max-height: 500px) and (min-width: 641px) {
+  #hud .guide.open:not(.pinned) .guide-how {
+    display: none;
+  }
+}

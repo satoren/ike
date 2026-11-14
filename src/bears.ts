@@ -1,5 +1,6 @@
 import type { Heightmap } from './heightmap';
 import type { PathGrid } from './paths';
+import { t } from './i18n';
 
 /**
  * クマの出没イベント（描画から独立）。
@@ -161,8 +162,8 @@ export class Bears {
 
   /** 足跡の場所から何方向か（北・西・東） */
   static sideName(sign: BearSign): string {
-    if (Math.abs(sign.z) >= Math.abs(sign.x)) return sign.z < 0 ? '北' : '南';
-    return sign.x < 0 ? '西' : '東';
+    if (Math.abs(sign.z) >= Math.abs(sign.x)) return sign.z < 0 ? t('北') : t('南');
+    return sign.x < 0 ? t('西') : t('東');
   }
 
   /** クマを 1 頭出す。足跡があればそこから、無ければ地図の端のどこかから */

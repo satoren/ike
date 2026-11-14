@@ -1,4 +1,5 @@
 import type { Heightmap } from './heightmap';
+import { t } from './i18n';
 
 /**
  * 花畑と岩（描画から独立）。
@@ -8,8 +9,8 @@ import type { Heightmap } from './heightmap';
 export type DecorKind = 'flower' | 'rock';
 
 export const DECOR: Record<DecorKind, { name: string; cost: number; counter: string }> = {
-  flower: { name: '花畑', cost: 25, counter: 'か所' },
-  rock: { name: '岩', cost: 40, counter: '個' },
+  flower: { name: t('花畑'), cost: 25, counter: t('か所') },
+  rock: { name: t('岩'), cost: 40, counter: t('個') },
 };
 
 export const DECOR_RULES = {
@@ -55,14 +56,14 @@ export class Decor {
   /** 置けない理由（置けるなら null） */
   whyNot(kind: DecorKind, x: number, z: number, isPath: (x: number, z: number) => boolean = () => false): string | null {
     const half = this.map.worldSize / 2 - 1;
-    if (Math.abs(x) > half || Math.abs(z) > half) return '地図の端には置けません';
-    if (this.items.length >= DECOR_RULES.max) return 'これ以上は置けません';
+    if (Math.abs(x) > half || Math.abs(z) > half) return t('地図の端には置けません');
+    if (this.items.length >= DECOR_RULES.max) return t('これ以上は置けません');
     if (!this.standsAt(kind, x, z)) {
-      return kind === 'rock' ? '岩は陸か、池の浅いところに置けます' : '花畑は水の中には植えられません';
+      return kind === 'rock' ? t('岩は陸か、池の浅いところに置けます') : t('花畑は水の中には植えられません');
     }
-    if (isPath(x, z)) return '遊歩道の上には置けません（道のそばに置きます）';
+    if (isPath(x, z)) return t('遊歩道の上には置けません（道のそばに置きます）');
     const s = DECOR_RULES.spacing;
-    if (this.items.some((d) => (d.x - x) ** 2 + (d.z - z) ** 2 < s * s)) return 'ほかの花畑や岩に近すぎます';
+    if (this.items.some((d) => (d.x - x) ** 2 + (d.z - z) ** 2 < s * s)) return t('ほかの花畑や岩に近すぎます');
     return null;
   }
 

@@ -1,4 +1,5 @@
 import type { YearSummary } from './yearbook';
+import { t } from './i18n';
 
 /**
  * 1年のランキング（描画から独立）。ログイン不要。
@@ -14,9 +15,9 @@ export const NAME_MAX = 12;
 export type BoardId = 'visitors' | 'income' | 'safe';
 
 export const BOARDS: readonly { id: BoardId; label: string; about: string; unit: 'people' | 'gold' }[] = [
-  { id: 'visitors', label: '来園者', about: '1年の来園者の合計', unit: 'people' },
-  { id: 'income', label: '収入', about: '1年の収入の合計', unit: 'gold' },
-  { id: 'safe', label: '安心な園', about: '客が襲われる事件が 1件も無かった年の来園者', unit: 'people' },
+  { id: 'visitors', label: t('来園者'), about: t('1年の来園者の合計'), unit: 'people' },
+  { id: 'income', label: t('収入'), about: t('1年の収入の合計'), unit: 'gold' },
+  { id: 'safe', label: t('安心な園'), about: t('客が襲われる事件が 1件も無かった年の来園者'), unit: 'people' },
 ];
 
 export interface BoardEntry {
@@ -75,16 +76,16 @@ export function parseMemo(text: string | null): RankingMemo {
 /** 送る前の名前の確認（中継でもう一度確かめる）。問題があれば理由を返す */
 export function validateName(raw: string): string | null {
   const name = raw.normalize('NFKC').replace(/\s+/g, ' ').trim();
-  if (!name) return '名前を入れてください';
-  if ([...name].length > NAME_MAX) return `${NAME_MAX}文字までにしてください`;
-  if (/[<>]/.test(name)) return '< と > は使えません';
+  if (!name) return t('名前を入れてください');
+  if ([...name].length > NAME_MAX) return t('{0}文字までにしてください', NAME_MAX);
+  if (/[<>]/.test(name)) return t('< と > は使えません');
   return null;
 }
 
 /** この年をランキングに載せられるか。載せられなければ理由 */
 export function eligibility(y: YearSummary): string | null {
-  if (y.days < YEAR_DAYS) return '途中から数えた年は、ランキングに載せられません';
-  if (y.visitors < 1) return '来園者がいなかった年は、ランキングに載せられません';
+  if (y.days < YEAR_DAYS) return t('途中から数えた年は、ランキングに載せられません');
+  if (y.visitors < 1) return t('来園者がいなかった年は、ランキングに載せられません');
   return null;
 }
 
@@ -118,21 +119,21 @@ export function toPayload(memo: RankingMemo, run: string, name: string, y: YearS
 export function errorText(code: string | undefined, status: number): string {
   switch (code) {
     case 'name':
-      return 'その名前は使えません。別の名前にしてください';
+      return t('その名前は使えません。別の名前にしてください');
     case 'partial':
-      return '途中から数えた年は、ランキングに載せられません';
+      return t('途中から数えた年は、ランキングに載せられません');
     case 'empty':
-      return '来園者がいなかった年は、ランキングに載せられません';
+      return t('来園者がいなかった年は、ランキングに載せられません');
     case 'unlikely':
-      return 'この成績は受け付けられませんでした';
+      return t('この成績は受け付けられませんでした');
     case 'rate':
-      return '続けて送りすぎです。少し時間をおいてください';
+      return t('続けて送りすぎです。少し時間をおいてください');
     default:
-      return status >= 500 || status === 0 ? '送れませんでした。時間をおいて試してください' : '送れませんでした';
+      return status >= 500 || status === 0 ? t('送れませんでした。時間をおいて試してください') : t('送れませんでした');
   }
 }
 
 /** 順位をひとことで（"3位 / 42人"） */
 export function rankText(b: Board): string {
-  return b.me ? `${b.me.rank}位 / ${b.players}人` : '—';
+  return b.me ? t('{0}位 / {1}人', b.me.rank, b.players) : '—';
 }

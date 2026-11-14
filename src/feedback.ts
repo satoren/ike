@@ -1,4 +1,5 @@
 import './feedback.css';
+import { locale, t } from './i18n';
 
 /**
  * プレイヤーのフィードバック（不具合・要望・感想）。
@@ -7,9 +8,9 @@ import './feedback.css';
  */
 
 export const FEEDBACK_KINDS = [
-  { id: 'bug', label: '不具合' },
-  { id: 'idea', label: '要望・アイデア' },
-  { id: 'comment', label: '感想' },
+  { id: 'bug', label: t('不具合') },
+  { id: 'idea', label: t('要望・アイデア') },
+  { id: 'comment', label: t('感想') },
 ] as const;
 
 export type FeedbackKind = (typeof FEEDBACK_KINDS)[number]['id'];
@@ -24,6 +25,8 @@ export interface FeedbackPayload {
   version: string;
   userAgent: string;
   screen: string;
+  /** 遊んでいる言語（ご意見がどの言語で書かれたかの手がかり） */
+  locale?: string;
   /** ボット避け。人には見えない欄で、埋まっていたら中継が捨てる */
   website?: string;
 }
@@ -34,10 +37,10 @@ export function isFeedbackKind(v: unknown): v is FeedbackKind {
 
 /** 送る前の確認。問題があれば理由を返す */
 export function validateFeedback(p: Pick<FeedbackPayload, 'kind' | 'message'>): string | null {
-  if (!isFeedbackKind(p.kind)) return '種類を選んでください';
+  if (!isFeedbackKind(p.kind)) return t('種類を選んでください');
   const m = p.message.trim();
-  if (m.length < 3) return 'もう少し詳しく書いてください';
-  if (m.length > MESSAGE_MAX) return `${MESSAGE_MAX} 文字までにしてください`;
+  if (m.length < 3) return t('もう少し詳しく書いてください');
+  if (m.length > MESSAGE_MAX) return t('{0} 文字までにしてください', MESSAGE_MAX);
   return null;
 }
 
@@ -62,7 +65,7 @@ export class FeedbackDialog {
 
     const open = document.createElement('div');
     open.className = 'help-feedback';
-    open.innerHTML = `<span>気づいたこと・ほしい機能を教えてください</span><button type="button" class="feedback-open">ご意見を送る</button>`;
+    open.innerHTML = `<span>${t('気づいたこと・ほしい機能を教えてください')}</span><button type="button" class="feedback-open">${t('ご意見を送る')}</button>`;
     // 長い遊び方の文の下だと気づかれないので、見出しのすぐ下に置く
     const help = hud.querySelector<HTMLElement>('.help');
     const head = help?.querySelector('.help-head');
@@ -73,21 +76,21 @@ export class FeedbackDialog {
     this.el.className = 'feedback card';
     this.el.hidden = true;
     this.el.setAttribute('role', 'dialog');
-    this.el.setAttribute('aria-label', 'ご意見を送る');
+    this.el.setAttribute('aria-label', t('ご意見を送る'));
     this.el.innerHTML = `
       <form>
-        <div class="feedback-head"><b>ご意見を送る</b><button type="button" class="feedback-close" aria-label="閉じる">×</button></div>
-        <div class="feedback-kinds" role="radiogroup" aria-label="種類">
+        <div class="feedback-head"><b>${t('ご意見を送る')}</b><button type="button" class="feedback-close" aria-label="${t('閉じる')}">×</button></div>
+        <div class="feedback-kinds" role="radiogroup" aria-label="${t('種類')}">
           ${FEEDBACK_KINDS.map((k, i) => `<label><input type="radio" name="kind" value="${k.id}" ${i === 0 ? 'checked' : ''}/><span>${k.label}</span></label>`).join('')}
         </div>
-        <textarea name="message" rows="5" maxlength="${MESSAGE_MAX}" placeholder="例：キツネが遊歩道の上でも客を襲っていた／池に橋をかけたい" required></textarea>
+        <textarea name="message" rows="5" maxlength="${MESSAGE_MAX}" placeholder="${t('例：キツネが遊歩道の上でも客を襲っていた／池に橋をかけたい')}" required></textarea>
         <input class="feedback-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
-        <label class="feedback-ctx"><input type="checkbox" name="ctx" checked /> ゲームの状況（日付・ランク・お金など）と端末の種類を添える</label>
-        <p class="feedback-paused">書いているあいだ、園の時間は止まっています</p>
-        <p class="feedback-note">送った内容は開発者が読み、改善に使います。返信はできないので、名前や連絡先は書かないでください。</p>
+        <label class="feedback-ctx"><input type="checkbox" name="ctx" checked /> ${t('ゲームの状況（日付・ランク・お金など）と端末の種類を添える')}</label>
+        <p class="feedback-paused">${t('書いているあいだ、園の時間は止まっています')}</p>
+        <p class="feedback-note">${t('送った内容は開発者が読み、改善に使います。返信はできないので、名前や連絡先は書かないでください。')}</p>
         <div class="feedback-foot">
           <span class="feedback-status" aria-live="polite"></span>
-          <button type="submit" class="feedback-send">送る</button>
+          <button type="submit" class="feedback-send">${t('送る')}</button>
         </div>
       </form>`;
     hud.append(this.el);
@@ -130,7 +133,9 @@ export class FeedbackDialog {
       message: String(f.get('message') ?? '').trim(),
       context: f.get('ctx') ? this.getContext() : undefined,
       version: APP_VERSION,
+      // 管理ページ（開発者が読む）に出す値なので日本語のまま
       userAgent: f.get('ctx') ? navigator.userAgent : '（添えない）',
+      locale,
       screen: `${window.innerWidth}×${window.innerHeight} @${window.devicePixelRatio}x`,
       website: String(f.get('website') ?? ''),
     };
@@ -143,14 +148,14 @@ export class FeedbackDialog {
 
     const btn = this.form.querySelector<HTMLButtonElement>('.feedback-send')!;
     btn.disabled = true;
-    this.setStatus('送信中…');
+    this.setStatus(t('送信中…'));
     try {
       const res = await fetch(ENDPOINT!, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
       if (!res.ok) throw new Error(String(res.status));
       this.form.querySelector('textarea')!.value = '';
-      this.setStatus('ありがとうございます！届きました', 'good');
+      this.setStatus(t('ありがとうございます！届きました'), 'good');
     } catch {
-      this.setStatus('送れませんでした。時間をおいて試してください', 'bad');
+      this.setStatus(t('送れませんでした。時間をおいて試してください'), 'bad');
     } finally {
       btn.disabled = false;
     }

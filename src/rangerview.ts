@@ -3,6 +3,7 @@ import type { Heightmap } from './heightmap';
 import { RANGER, type Ranger } from './rangers';
 import { CreatureMeshes, type Part } from './creatures';
 import { icons } from './icons';
+import { t } from './i18n';
 
 /** 駆除係の形（頭が +X 方向）。緑の作業着につば広の帽子、肩に猟銃 */
 function rangerParts(): Part[] {
@@ -91,11 +92,11 @@ export class RangerPanel {
   constructor(parent: Element | null, handlers: { onHire: () => void; onDismiss: () => void }) {
     this.el = document.createElement('div');
     this.el.className = 'rangers';
-    this.el.title = '日給を払うと園内を巡回し、クマを撃ち、キツネや密猟者を捕まえます';
+    this.el.title = t('日給を払うと園内を巡回し、クマを撃ち、キツネや密猟者を捕まえます');
     this.el.innerHTML = `
       <span class="rg-icon">${icons.shield}</span>
-      <span class="rg-text"><b>駆除係</b> <span class="rg-count"></span></span>
-      <button type="button" class="rg-fire" aria-label="1 人辞めてもらう">−</button>
+      <span class="rg-text"><b>${t('駆除係')}</b> <span class="rg-count"></span></span>
+      <button type="button" class="rg-fire" aria-label="${t('1 人辞めてもらう')}">−</button>
       <button type="button" class="rg-hire"></button>`;
     this.countEl = this.el.querySelector('.rg-count')!;
     this.hireBtn = this.el.querySelector('.rg-hire')!;
@@ -110,9 +111,9 @@ export class RangerPanel {
     if (key === this.last) return;
     this.last = key;
     this.countEl.innerHTML =
-      count > 0 ? `${count}人 <small>日給 ${count * RANGER.wage}G</small>` : `<small>日給 ${RANGER.wage}G/人</small>`;
+      count > 0 ? `${t('{0}人', count)} <small>${t('日給 {0}G', count * RANGER.wage)}</small>` : `<small>${t('日給 {0}G/人', RANGER.wage)}</small>`;
     const full = count >= RANGER.max;
-    this.hireBtn.textContent = full ? '満員' : `雇う ${RANGER.hireCost}G`;
+    this.hireBtn.textContent = full ? t('満員') : t('雇う {0}G', RANGER.hireCost);
     this.hireBtn.disabled = full || money < RANGER.hireCost;
     this.fireBtn.hidden = count === 0;
   }

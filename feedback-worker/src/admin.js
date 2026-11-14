@@ -43,13 +43,13 @@ export const ADMIN_HTML = `<!doctype html>
 </head>
 <body>
 <main>
-  <h1>ご意見まとめ</h1>
+  <h1 data-t>ご意見まとめ</h1>
   <form id="login" class="card" hidden>
-    <label>合言葉<input type="password" name="key" autocomplete="current-password" required /></label>
-    <button class="on">見る</button> <span class="err" id="loginErr"></span>
+    <label><span data-t>合言葉</span><input type="password" name="key" autocomplete="current-password" required /></label>
+    <button class="on" data-t>見る</button> <span class="err" id="loginErr"></span>
   </form>
   <div id="app" hidden>
-    <div class="tabs"><button id="tabDays" class="on">日ごとのまとめ</button><button id="tabBacklog">改善リスト</button><button id="tabScores">ランキング</button></div>
+    <div class="tabs"><button id="tabDays" class="on" data-t>日ごとのまとめ</button><button id="tabBacklog" data-t>改善リスト</button><button id="tabScores" data-t>ランキング</button></div>
     <div id="daysPane">
       <div class="card"><div class="days" id="days"></div></div>
       <div id="view"></div>
@@ -59,19 +59,40 @@ export const ADMIN_HTML = `<!doctype html>
       <div id="backlog"></div>
     </div>
     <div id="scoresPane" hidden>
-      <p class="muted">届いた成績（新しい順）。荒らしの名前やおかしな成績は「隠す」でランキングから外せます。</p>
+      <p class="muted" data-t>届いた成績（新しい順）。荒らしの名前やおかしな成績は「隠す」でランキングから外せます。</p>
       <div id="scores"></div>
     </div>
   </div>
 </main>
 <script>
-const KINDS = { bug: '不具合', idea: '要望・アイデア', comment: '感想' };
+// 開発者向けの画面なので日本語が基本。ブラウザが日本語でなければ英語で出す
+const EN = navigator.language && !navigator.language.startsWith('ja') ? {
+  'ご意見まとめ': 'Feedback digest', '合言葉': 'Passphrase', '見る': 'Open', '日ごとのまとめ': 'Daily digests', '改善リスト': 'Backlog',
+  '不具合': 'Bug', '要望・アイデア': 'Request / idea', '感想': 'Impression',
+  '未対応': 'Open', '対応中': 'In progress', '済': 'Done', '見送り': "Won't fix", 'すべて': 'All',
+  ' 件': ' items', '（今日・集計中）': ' (today, in progress)', 'バージョン: ': 'Versions: ',
+  'ほかに ': '', ' 種類の投稿は件数が少ないため省略': ' more kinds omitted (few posts)',
+  'この日の投稿はありません': 'No posts on this day', '読み込み中…': 'Loading…', '読み込めませんでした': "Couldn't load",
+  '今日': 'Today', '合言葉が違います': 'Wrong passphrase',
+  'まだ項目はありません。毎日のルーチンがまとめを読んで足していきます': 'No items yet. The daily routine adds them from the digests',
+  '投稿の例 ': 'Sample posts ', '変えられませんでした': "Couldn't update",
+  'ランキング': 'Ranking', 'まだ成績は届いていません': 'No scores yet', '{0}年目': 'Year {0}', '隠し中': 'Hidden', '隠す': 'Hide', '戻す': 'Show',
+  '来園者': 'Visitors', '収入': 'Income', '事件': 'Incidents', '図鑑': 'Dex',
+  '届いた成績（新しい順）。荒らしの名前やおかしな成績は「隠す」でランキングから外せます。': 'Submitted scores (newest first). Use “Hide” to take abusive names or odd scores off the ranking.',
+} : null;
+const tr = (s) => (EN && EN[s] != null ? EN[s] : s);
+if (EN) {
+  document.documentElement.lang = 'en';
+  document.title = 'Feedback digest';
+  document.querySelectorAll('[data-t]').forEach((e) => (e.textContent = tr(e.textContent)));
+}
+const KINDS = { bug: tr('不具合'), idea: tr('要望・アイデア'), comment: tr('感想') };
 let key = '';
 try { key = localStorage.getItem('fb-key') || ''; } catch {}
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
-const STATUSES = { open: '未対応', doing: '対応中', done: '済', wontfix: '見送り' };
+const STATUSES = { open: tr('未対応'), doing: tr('対応中'), done: tr('済'), wontfix: tr('見送り') };
 
 async function get(path, opts = {}) {
   const r = await fetch(path, { ...opts, headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' } });
@@ -86,17 +107,17 @@ function render(d) {
   const v = $('#view'); v.replaceChildren();
   const head = el('div', 'card');
   const sum = el('div', 'sum');
-  sum.append(el('b', '', d.total + ' 件'), el('span', 'muted', d.day + (d.live ? '（今日・集計中）' : '')));
+  sum.append(el('b', '', d.total + tr(' 件')), el('span', 'muted', d.day + (d.live ? tr('（今日・集計中）') : '')));
   for (const k in KINDS) sum.append(el('span', 'pill k-' + k, KINDS[k] + ' ' + d.counts[k]));
   head.append(sum);
   const vers = Object.entries(d.versions || {}).sort((a, b) => b[1] - a[1]).map(([k, n]) => k + '×' + n).join('  ');
-  if (vers) head.append(el('div', 'meta', 'バージョン: ' + vers));
-  if (d.truncated) head.append(el('div', 'meta', 'ほかに ' + d.truncated + ' 種類の投稿は件数が少ないため省略'));
+  if (vers) head.append(el('div', 'meta', tr('バージョン: ') + vers));
+  if (d.truncated) head.append(el('div', 'meta', tr('ほかに ') + d.truncated + tr(' 種類の投稿は件数が少ないため省略')));
   v.append(head);
   for (const k in KINDS) {
     const list = d.items[k] || [];
     if (!list.length) continue;
-    const h = el('h2'); h.append(el('span', 'pill k-' + k, KINDS[k]), el('span', 'muted', list.length + ' 件'));
+    const h = el('h2'); h.append(el('span', 'pill k-' + k, KINDS[k]), el('span', 'muted', list.length + tr(' 件')));
     const box = el('div', 'card');
     for (const it of list) {
       const row = el('div', 'item');
@@ -111,13 +132,13 @@ function render(d) {
     }
     v.append(h, box);
   }
-  if (!d.total) v.append(el('p', 'muted', 'この日の投稿はありません'));
+  if (!d.total) v.append(el('p', 'muted', tr('この日の投稿はありません')));
 }
 
 async function show(path, btn) {
   document.querySelectorAll('.days button').forEach((b) => b.classList.toggle('on', b === btn));
-  $('#view').replaceChildren(el('p', 'muted', '読み込み中…'));
-  try { render(await get(path)); } catch (e) { $('#view').replaceChildren(el('p', 'err', '読み込めませんでした（' + e.message + '）')); }
+  $('#view').replaceChildren(el('p', 'muted', tr('読み込み中…')));
+  try { render(await get(path)); } catch (e) { $('#view').replaceChildren(el('p', 'err', tr('読み込めませんでした') + '（' + e.message + '）')); }
 }
 
 async function start() {
@@ -125,7 +146,7 @@ async function start() {
     const list = await get('/api/digests');
     $('#login').hidden = true; $('#app').hidden = false;
     const days = $('#days'); days.replaceChildren();
-    const today = el('button', '', '今日'); today.onclick = () => show('/api/today', today); days.append(today);
+    const today = el('button', '', tr('今日')); today.onclick = () => show('/api/today', today); days.append(today);
     for (const d of list) {
       const b = el('button', '', d.day.slice(5).replace('-', '/') + ' (' + d.total + ')');
       b.onclick = () => show('/api/digests/' + d.day, b); days.append(b);
@@ -134,14 +155,14 @@ async function start() {
     first.click();
   } catch (e) {
     $('#app').hidden = true; $('#login').hidden = false;
-    if (key) $('#loginErr').textContent = e.message === 'key' ? '合言葉が違います' : '読み込めませんでした';
+    if (key) $('#loginErr').textContent = e.message === 'key' ? tr('合言葉が違います') : tr('読み込めませんでした');
   }
 }
 
 let statusFilter = '';
 function renderBacklog(list) {
   const v = $('#backlog'); v.replaceChildren();
-  if (!list.length) { v.append(el('p', 'muted', 'まだ項目はありません。毎日のルーチンがまとめを読んで足していきます')); return; }
+  if (!list.length) { v.append(el('p', 'muted', tr('まだ項目はありません。毎日のルーチンがまとめを読んで足していきます'))); return; }
   const box = el('div', 'card');
   for (const it of list) {
     const row = el('div', 'item');
@@ -158,7 +179,7 @@ function renderBacklog(list) {
       body.append(m);
     }
     if (it.samples && it.samples.length) {
-      const d = el('details'); d.append(el('summary', '', '投稿の例 ' + it.samples.length + ' 件'));
+      const d = el('details'); d.append(el('summary', '', tr('投稿の例 ') + it.samples.length + tr(' 件')));
       for (const smp of it.samples) d.append(el('div', 'msg meta', '・' + smp));
       body.append(d);
     }
@@ -166,7 +187,7 @@ function renderBacklog(list) {
     for (const k in STATUSES) { const o = el('option', '', STATUSES[k]); o.value = k; o.selected = k === it.status; sel.append(o); }
     sel.onchange = async () => {
       try { await get('/api/backlog/' + it.id, { method: 'PATCH', body: JSON.stringify({ status: sel.value }) }); sel.className = 's-' + sel.value; }
-      catch { sel.value = it.status; alert('変えられませんでした'); }
+      catch { sel.value = it.status; alert(tr('変えられませんでした')); }
     };
     row.append(body, sel); box.append(row);
   }
@@ -175,38 +196,38 @@ function renderBacklog(list) {
 
 async function showBacklog() {
   const bar = $('#statuses'); bar.replaceChildren();
-  for (const [k, label] of [['', 'すべて'], ...Object.entries(STATUSES)]) {
+  for (const [k, label] of [['', tr('すべて')], ...Object.entries(STATUSES)]) {
     const b = el('button', k === statusFilter ? 'on' : '', label);
     b.onclick = () => { statusFilter = k; showBacklog(); };
     bar.append(b);
   }
-  $('#backlog').replaceChildren(el('p', 'muted', '読み込み中…'));
+  $('#backlog').replaceChildren(el('p', 'muted', tr('読み込み中…')));
   try { renderBacklog(await get('/api/backlog' + (statusFilter ? '?status=' + statusFilter : ''))); }
-  catch (e) { $('#backlog').replaceChildren(el('p', 'err', '読み込めませんでした（' + e.message + '）')); }
+  catch (e) { $('#backlog').replaceChildren(el('p', 'err', tr('読み込めませんでした') + '（' + e.message + '）')); }
 }
 
 async function showScores() {
   const v = $('#scores');
-  v.replaceChildren(el('p', 'muted', '読み込み中…'));
+  v.replaceChildren(el('p', 'muted', tr('読み込み中…')));
   let list;
   try { list = await get('/api/scores'); }
-  catch (e) { v.replaceChildren(el('p', 'err', '読み込めませんでした（' + e.message + '）')); return; }
+  catch (e) { v.replaceChildren(el('p', 'err', tr('読み込めませんでした') + '（' + e.message + '）')); return; }
   v.replaceChildren();
-  if (!list.length) { v.append(el('p', 'muted', 'まだ成績は届いていません')); return; }
+  if (!list.length) { v.append(el('p', 'muted', tr('まだ成績は届いていません'))); return; }
   const box = el('div', 'card');
   for (const it of list) {
     const row = el('div', 'item');
     const body = el('div'); body.style.flex = '1';
     const head = el('div', 'bl-head');
-    head.append(el('span', 'bl-title', it.name), el('span', 'muted', it.year + '年目 · ★' + it.rank_end));
+    head.append(el('span', 'bl-title', it.name), el('span', 'muted', tr('{0}年目').replace('{0}', it.year) + ' · ★' + it.rank_end));
     if (it.env !== 'production') head.append(el('span', 'pill s-wontfix', it.env));
-    if (it.hidden) head.append(el('span', 'pill s-open', '隠し中'));
+    if (it.hidden) head.append(el('span', 'pill s-open', tr('隠し中')));
     body.append(head);
-    body.append(el('div', 'meta', '来園者 ' + it.visitors.toLocaleString() + '人 · 収入 ' + it.income.toLocaleString() + 'G · 事件 ' + it.incidents + ' · 図鑑 ' + it.found + ' · ' + fmt(it.created_at) + ' · ' + it.player));
-    const btn = el('button', '', it.hidden ? '戻す' : '隠す');
+    body.append(el('div', 'meta', tr('来園者') + ' ' + it.visitors.toLocaleString() + ' · ' + tr('収入') + ' ' + it.income.toLocaleString() + 'G · ' + tr('事件') + ' ' + it.incidents + ' · ' + tr('図鑑') + ' ' + it.found + ' · ' + fmt(it.created_at) + ' · ' + it.player));
+    const btn = el('button', '', it.hidden ? tr('戻す') : tr('隠す'));
     btn.onclick = async () => {
       try { await get('/api/scores/' + it.id, { method: 'PATCH', body: JSON.stringify({ hidden: !it.hidden }) }); showScores(); }
-      catch { alert('変えられませんでした'); }
+      catch { alert(tr('変えられませんでした')); }
     };
     row.append(body, btn); box.append(row);
   }

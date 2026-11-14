@@ -1,6 +1,7 @@
 import './requests.css';
 import { icons } from './icons';
 import { clientOf, describe, dueText, type Request, type RequestProgress } from './requests';
+import { t } from './i18n';
 
 interface Handlers {
   /** かごの中身を届ける */
@@ -32,7 +33,7 @@ export class RequestPanel {
     this.button.className = 'req-btn card';
     this.button.hidden = true;
     this.button.setAttribute('aria-expanded', 'false');
-    this.button.title = '今日のお願い';
+    this.button.title = t('今日のお願い');
     this.button.innerHTML = `<span class="req-btn-icon">${icons.mail}</span><span class="req-btn-text"></span>`;
     this.label = this.button.querySelector('.req-btn-text')!;
     root.appendChild(this.button);
@@ -40,20 +41,20 @@ export class RequestPanel {
     this.panel = document.createElement('section');
     this.panel.className = 'req-panel card';
     this.panel.hidden = true;
-    this.panel.setAttribute('aria-label', '今日のお願い');
+    this.panel.setAttribute('aria-label', t('今日のお願い'));
     this.panel.innerHTML = `
       <div class="req-head">
         <span class="req-head-icon">${icons.mail}</span>
         <b class="req-client"></b>
-        <button type="button" class="req-close" aria-label="閉じる">${icons.close}</button>
+        <button type="button" class="req-close" aria-label="${t('閉じる')}">${icons.close}</button>
       </div>
       <p class="req-title"></p>
       <p class="req-detail"></p>
       <div class="req-progress"><span class="req-bar"><i></i></span><span class="req-value"></span></div>
       <p class="req-meta"></p>
       <div class="req-actions">
-        <button type="button" class="req-deliver">届ける</button>
-        <button type="button" class="req-dismiss">見送る</button>
+        <button type="button" class="req-deliver">${t('届ける')}</button>
+        <button type="button" class="req-dismiss">${t('見送る')}</button>
       </div>`;
     this.client = this.panel.querySelector('.req-client')!;
     this.title = this.panel.querySelector('.req-title')!;
@@ -105,12 +106,12 @@ export class RequestPanel {
     this.label.querySelector('.req-short')!.textContent = text.short;
     this.label.querySelector('b')!.textContent = progress.brief;
 
-    this.client.textContent = `${clientOf(r)}からのお願い`;
+    this.client.textContent = t('{0}からのお願い', clientOf(r));
     this.title.textContent = text.title;
     this.detail.textContent = text.detail;
     this.bar.style.width = `${Math.round(progress.ratio * 100)}%`;
     this.value.textContent = progress.text;
-    this.meta.innerHTML = `報酬 <b>${r.reward.toLocaleString()}G</b>　期限 <b>${due}</b>`;
+    this.meta.innerHTML = `${t('報酬')} <b>${r.reward.toLocaleString()}G</b>${t('　')}${t('期限')} <b>${due}</b>`;
     this.deliver.hidden = r.kind !== 'deliver';
     this.deliver.disabled = !progress.ready;
   }

@@ -1,4 +1,5 @@
 import { ITEMS, ITEM_ORDER, type Inventory, type ItemKind } from './ecology';
+import { t } from './i18n';
 
 /**
  * 相場（描画から独立）。
@@ -56,6 +57,8 @@ export type Trend = 'hot' | 'cheap' | 'glut' | 'flat';
 
 export class Market {
   state: MarketState;
+  /** 園の評判による上乗せ（★が上がると「名所の産物」として高く売れる）。保存せず、毎フレーム決め直す */
+  premium = 1;
 
   constructor(rand: () => number = Math.random) {
     this.state = Market.fresh(rand);
@@ -74,13 +77,13 @@ export class Market {
 
   /** いま 1個売ったときの値段 */
   price(kind: ItemKind): number {
-    return Math.max(1, Math.round(ITEMS[kind].price * this.state.rate[kind] * Market.glut(kind, this.state.sold[kind])));
+    return Math.max(1, Math.round(ITEMS[kind].price * this.premium * this.state.rate[kind] * Market.glut(kind, this.state.sold[kind])));
   }
 
   /** n 個まとめて売ったときの合計（売るほど 1個ごとに値が下がる） */
   quote(kind: ItemKind, n: number): number {
     let total = 0;
-    const base = ITEMS[kind].price * this.state.rate[kind];
+    const base = ITEMS[kind].price * this.premium * this.state.rate[kind];
     for (let i = 0; i < n; i++) total += base * Market.glut(kind, this.state.sold[kind] + i);
     return Math.round(total);
   }
@@ -125,9 +128,9 @@ export class Market {
   /** きょうとあすの相場をひとことで（かごの下と朝の知らせに出す） */
   note(): string {
     const s = this.state;
-    const tomorrow = `あすは${ITEMS[s.nextHot].name}が高値`;
+    const tomorrow = t('あすは{0}が高値', ITEMS[s.nextHot].name);
     if (!s.hot) return tomorrow;
-    return `きょうは${ITEMS[s.hot].name}が高値 ×${s.rate[s.hot].toFixed(1)}・${tomorrow}`;
+    return t('きょうは{0}が高値 ×{1}・{2}', ITEMS[s.hot].name, s.rate[s.hot].toFixed(1), tomorrow);
   }
 
   snapshot(): MarketState {

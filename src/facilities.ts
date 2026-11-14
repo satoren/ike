@@ -1,5 +1,6 @@
 import type { Heightmap } from './heightmap';
 import type { PathGrid } from './paths';
+import { t } from './i18n';
 
 /**
  * 遊歩道沿いに建てる施設。園のランクが上がると解放される。
@@ -29,25 +30,25 @@ export interface FacilityInfo {
 }
 
 export const FACILITIES: Record<FacilityKind, FacilityInfo> = {
-  rest: { name: '休憩所', cost: 300, hint: '客がひと息つけて魅力が上がります。来園者 80人ごとに 1軒まで効きます' },
-  shop: { name: '売店', cost: 600, hint: '来園者 1人あたり 2G の売り上げが毎日入ります。1軒で 150人まで相手できます' },
-  tower: { name: '展望台', cost: 1200, hint: 'まわりの池と木が広いほど魅力が上がります。池を見渡せる場所に建てましょう' },
+  rest: { name: t('休憩所'), cost: 300, hint: t('客がひと息つけて魅力が上がります。来園者 80人ごとに 1軒まで効きます') },
+  shop: { name: t('売店'), cost: 600, hint: t('来園者 1人あたり 2G の売り上げが毎日入ります。1軒で 150人まで相手できます') },
+  tower: { name: t('展望台'), cost: 1200, hint: t('まわりの池と木が広いほど魅力が上がります。池を見渡せる場所に建てましょう') },
   mill: {
-    name: '水車小屋',
+    name: t('水車小屋'),
     cost: 3000,
-    hint: '水ぎわに建てます。水車の回る景色で魅力が大きく上がります。来園者 200人ごとに 1軒まで効きます',
+    hint: t('水ぎわに建てます。水車の回る景色で魅力が大きく上がります。来園者 200人ごとに 1軒まで効きます'),
     waterside: true,
   },
   center: {
-    name: '自然館',
+    name: t('自然館'),
     cost: 8000,
-    hint: '図鑑の評判が 2倍になります（生き物 1種につき来園者 +2%）。園に 1軒だけ建てられます',
+    hint: t('図鑑の評判が 2倍になります（生き物 1種につき来園者 +2%）。園に 1軒だけ建てられます'),
     limit: 1,
   },
   bigtree: {
-    name: '大ケヤキ',
+    name: t('大ケヤキ'),
     cost: 20000,
-    hint: '園のシンボルになる大木です。魅力がとても大きく上がります。園に 1本だけ植えられます',
+    hint: t('園のシンボルになる大木です。魅力がとても大きく上がります。園に 1本だけ植えられます'),
     limit: 1,
   },
 };
@@ -117,15 +118,15 @@ export class Facilities {
   whyNot(x: number, z: number, paths: PathGrid, kind?: FacilityKind): string | null {
     const info = kind ? FACILITIES[kind] : undefined;
     if (info?.limit !== undefined && this.count(kind!) >= info.limit) {
-      return `${info.name}は園に ${info.limit}つだけです（「撤去」で取り壊すと建て直せます）`;
+      return t('{0}は園に {1}つだけです（「撤去」で取り壊すと建て直せます）', info.name, info.limit);
     }
     const half = this.map.worldSize / 2 - 1.5;
-    if (Math.abs(x) > half || Math.abs(z) > half) return '地図の端には建てられません';
-    if (this.map.heightAt(x, z) < this.waterLevel + 0.05) return '水の中には建てられません';
-    if (paths.isPathAt(x, z)) return '遊歩道の上には建てられません（道のすぐ横に建てます）';
-    if (this.facilities.some((f) => Math.hypot(f.x - x, f.z - z) < FACILITY.spacing)) return 'ほかの施設に近すぎます';
-    if (!this.nearConnectedPath(x, z, paths)) return '出入口につながった遊歩道のすぐ横に建ててください';
-    if (info?.waterside && this.towardWater(x, z) === null) return `${info.name}は水ぎわに建ててください`;
+    if (Math.abs(x) > half || Math.abs(z) > half) return t('地図の端には建てられません');
+    if (this.map.heightAt(x, z) < this.waterLevel + 0.05) return t('水の中には建てられません');
+    if (paths.isPathAt(x, z)) return t('遊歩道の上には建てられません（道のすぐ横に建てます）');
+    if (this.facilities.some((f) => Math.hypot(f.x - x, f.z - z) < FACILITY.spacing)) return t('ほかの施設に近すぎます');
+    if (!this.nearConnectedPath(x, z, paths)) return t('出入口につながった遊歩道のすぐ横に建ててください');
+    if (info?.waterside && this.towardWater(x, z) === null) return t('{0}は水ぎわに建ててください', info.name);
     return null;
   }
 

@@ -1,5 +1,6 @@
 import './ranking.css';
 import { icons } from './icons';
+import { t } from './i18n';
 import type { YearSummary } from './yearbook';
 import {
   BOARDS,
@@ -30,7 +31,7 @@ const ENDPOINT =
 
 export const rankingEnabled = (): boolean => Boolean(ENDPOINT);
 
-const fmt = (unit: 'people' | 'gold', n: number) => (unit === 'gold' ? `${n.toLocaleString()}G` : `${n.toLocaleString()}人`);
+const fmt = (unit: 'people' | 'gold', n: number) => (unit === 'gold' ? `${n.toLocaleString()}G` : t('{0}人', n.toLocaleString()));
 
 function loadMemo(): RankingMemo {
   let text: string | null = null;
@@ -67,13 +68,13 @@ export class RankingPanel {
     this.el.className = 'ranking card';
     this.el.hidden = true;
     this.el.setAttribute('role', 'dialog');
-    this.el.setAttribute('aria-label', 'みんなのランキング');
+    this.el.setAttribute('aria-label', t('みんなのランキング'));
     this.el.innerHTML = `
-      <div class="ranking-head"><b>みんなのランキング</b><button type="button" class="ranking-close" aria-label="閉じる">${icons.close}</button></div>
+      <div class="ranking-head"><b>${t('みんなのランキング')}</b><button type="button" class="ranking-close" aria-label="${t('閉じる')}">${icons.close}</button></div>
       <div class="ranking-tabs" role="tablist"></div>
       <p class="ranking-about"></p>
       <div class="ranking-list" aria-live="polite"></div>
-      <p class="ranking-note">冬の終わりの「1年のまとめ」から、ニックネームを付けて載せられます。いちばん良かった年が載ります。</p>`;
+      <p class="ranking-note">${t('冬の終わりの「1年のまとめ」から、ニックネームを付けて載せられます。いちばん良かった年が載ります。')}</p>`;
     this.list = this.el.querySelector('.ranking-list')!;
     this.tabs = this.el.querySelector('.ranking-tabs')!;
     for (const b of BOARDS) {
@@ -94,7 +95,7 @@ export class RankingPanel {
       const open = document.createElement('button');
       open.type = 'button';
       open.className = 'help-ranking';
-      open.textContent = 'みんなのランキング';
+      open.textContent = t('みんなのランキング');
       open.addEventListener('click', () => {
         const help = hud.querySelector<HTMLElement>('.help');
         if (help) help.hidden = true;
@@ -135,7 +136,7 @@ export class RankingPanel {
   }
 
   private async refresh(): Promise<void> {
-    if (!this.boards) this.list.innerHTML = '<p class="ranking-empty">読み込み中…</p>';
+    if (!this.boards) this.list.innerHTML = `<p class="ranking-empty">${t('読み込み中…')}</p>`;
     try {
       const res = await fetch(`${ENDPOINT}?player=${encodeURIComponent(this.memo.player)}`, { cache: 'no-store' });
       if (!res.ok) throw new Error(String(res.status));
@@ -143,7 +144,7 @@ export class RankingPanel {
       this.boards = data.boards;
       this.render();
     } catch {
-      if (!this.boards) this.list.innerHTML = '<p class="ranking-empty">読み込めませんでした。時間をおいて試してください</p>';
+      if (!this.boards) this.list.innerHTML = `<p class="ranking-empty">${t('読み込めませんでした。時間をおいて試してください')}</p>`;
     }
   }
 
@@ -159,7 +160,7 @@ export class RankingPanel {
     if (!b) return;
     this.list.replaceChildren();
     if (!b.top.length) {
-      this.list.innerHTML = '<p class="ranking-empty">まだ誰も載っていません。最初の 1人になりましょう</p>';
+      this.list.innerHTML = `<p class="ranking-empty">${t('まだ誰も載っていません。最初の 1人になりましょう')}</p>`;
       return;
     }
     const ol = document.createElement('ol');
@@ -175,12 +176,12 @@ export class RankingPanel {
     if (b.me && !b.top.some((e) => e.me)) {
       const mine = document.createElement('ol');
       mine.className = 'ranking-rows ranking-mine';
-      mine.append(this.row(b.me.rank, this.memo.name || 'あなた', b.me.year, fmt(meta.unit, b.me.score), true));
+      mine.append(this.row(b.me.rank, this.memo.name || t('あなた'), b.me.year, fmt(meta.unit, b.me.score), true));
       this.list.append(mine);
     }
     const foot = document.createElement('p');
     foot.className = 'ranking-count';
-    foot.textContent = b.me ? `あなたは ${rankText(b)}` : `${b.players}人が参加しています`;
+    foot.textContent = b.me ? t('あなたは {0}', rankText(b)) : t('{0}人が参加しています', b.players);
     this.list.append(foot);
   }
 
@@ -192,7 +193,7 @@ export class RankingPanel {
     li.querySelector('.ranking-rank')!.textContent = String(rank);
     // 名前はほかのプレイヤーが付けたものなので、必ず文字として入れる
     li.querySelector('.ranking-name')!.textContent = name;
-    li.querySelector('small')!.textContent = `${year}年目`;
+    li.querySelector('small')!.textContent = t('{0}年目', year);
     li.querySelector('b')!.textContent = score;
     return li;
   }
@@ -208,7 +209,7 @@ export class RankingPanel {
     slot.append(box);
     const why = eligibility(y);
     if (why) {
-      box.innerHTML = `<p class="year-rank-note"></p><button type="button" class="year-rank-view">みんなのランキングを見る</button>`;
+      box.innerHTML = `<p class="year-rank-note"></p><button type="button" class="year-rank-view">${t('みんなのランキングを見る')}</button>`;
       box.querySelector('.year-rank-note')!.textContent = why;
       box.querySelector('.year-rank-view')!.addEventListener('click', () => this.open());
       return;
@@ -216,14 +217,14 @@ export class RankingPanel {
     const sent = this.memo.sent.includes(sentKey(run, y.year));
     box.innerHTML = `
       <form class="year-rank-form">
-        <label><span>ランキングに載せる</span>
-          <input type="text" name="name" maxlength="${NAME_MAX * 2}" placeholder="ニックネーム（${NAME_MAX}文字まで）" autocomplete="nickname" enterkeyhint="send" />
+        <label><span>${t('ランキングに載せる')}</span>
+          <input type="text" name="name" maxlength="${NAME_MAX * 2}" placeholder="${t('ニックネーム（{0}文字まで）', NAME_MAX)}" autocomplete="nickname" enterkeyhint="send" />
         </label>
-        <button type="submit" class="year-rank-send">${sent ? '載せ直す' : '載せる'}</button>
+        <button type="submit" class="year-rank-send">${sent ? t('載せ直す') : t('載せる')}</button>
       </form>
       <p class="year-rank-status" aria-live="polite"></p>
       <ul class="year-rank-result" hidden></ul>
-      <button type="button" class="year-rank-view">みんなのランキングを見る</button>`;
+      <button type="button" class="year-rank-view">${t('みんなのランキングを見る')}</button>`;
     const form = box.querySelector<HTMLFormElement>('form')!;
     const input = form.querySelector<HTMLInputElement>('input')!;
     const status = box.querySelector<HTMLElement>('.year-rank-status')!;
@@ -236,14 +237,14 @@ export class RankingPanel {
       status.textContent = text;
       status.dataset.tone = tone;
     };
-    if (sent) say('この年はもう載っています。名前を変えて載せ直すこともできます');
+    if (sent) say(t('この年はもう載っています。名前を変えて載せ直すこともできます'));
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const err = validateName(input.value);
       if (err) return say(err, 'bad');
       const btn = form.querySelector<HTMLButtonElement>('button')!;
       btn.disabled = true;
-      say('送信中…');
+      say(t('送信中…'));
       const payload = toPayload(this.memo, run, input.value, y);
       try {
         const res = await fetch(ENDPOINT!, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -254,8 +255,8 @@ export class RankingPanel {
         if (!this.memo.sent.includes(key)) this.memo.sent.push(key);
         saveMemo(this.memo);
         this.setBoards(data.boards);
-        say('載りました！', 'good');
-        btn.textContent = '載せ直す';
+        say(t('載りました！'), 'good');
+        btn.textContent = t('載せ直す');
         result.hidden = false;
         result.replaceChildren(
           ...BOARDS.map((b) => {
