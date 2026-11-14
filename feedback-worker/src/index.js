@@ -9,6 +9,7 @@
  *   ALLOWED_ORIGINS … 投稿を受け付ける送信元（カンマ区切り）
  */
 import { ADMIN_HTML } from './admin.js';
+import { boards, scoresAdminApi, submitScore } from './scores.js';
 
 export const KINDS = { bug: '不具合', idea: '要望・アイデア', comment: '感想' };
 const MESSAGE_MAX = 2000;
@@ -37,6 +38,8 @@ export default {
         return json(500, { error: 'server', detail, hasDB: Boolean(env.DB) });
       }
     }
+    // 1年のランキング（ログイン不要。成績を載せる・上位を見る）
+    if (url.pathname === '/scores') return scores(request, env, url);
     // 投稿の受け口はゲームと同じ URL の /feedback（前の版のゲームはどのパスにも送っていたので、そちらも受ける）
     return submit(request, env);
   },
@@ -49,17 +52,44 @@ export default {
 
 // ---------- 投稿 ----------
 
-async function submit(request, env) {
+/** 送り元の確認と CORS。ゲームと同じ URL からはいつでも受ける。ほかは ALLOWED_ORIGINS に書いたところだけ */
+function corsFor(request, env, methods) {
   const origin = request.headers.get('Origin') ?? '';
-  // ゲームと同じ URL からの投稿はいつでも受ける。ほかは ALLOWED_ORIGINS に書いたところだけ
   const self = new URL(request.url).origin;
   const allowed = [self, ...(env.ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean)];
   const cors = {
     'Access-Control-Allow-Origin': allowed.includes(origin) ? origin : (allowed[0] ?? ''),
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': methods,
     'Access-Control-Allow-Headers': 'Content-Type',
     Vary: 'Origin',
   };
+  return { origin, allowed, cors };
+}
+
+async function scores(request, env, url) {
+  const { origin, allowed, cors } = corsFor(request, env, 'GET, POST, OPTIONS');
+  const reply = (status, body) => json(status, body, cors);
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  try {
+    if (request.method === 'GET') return reply(200, await boards(env, url.searchParams.get('player') ?? ''));
+    if (request.method !== 'POST') return reply(405, { error: 'method' });
+    if (!allowed.includes(origin)) return reply(403, { error: 'origin' });
+    let p;
+    try {
+      p = await request.json();
+    } catch {
+      return reply(400, { error: 'json' });
+    }
+    const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+    const r = await submitScore(p, env, ip, Date.now());
+    return reply(r.status, r.body);
+  } catch {
+    return reply(500, { error: 'server' });
+  }
+}
+
+async function submit(request, env) {
+  const { origin, allowed, cors } = corsFor(request, env, 'POST, OPTIONS');
   const reply = (status, body) => json(status, body, cors);
 
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
@@ -202,6 +232,7 @@ async function api(request, env, url) {
     const s = await digestDay(env, day, start);
     return json(200, { day, total: s.total });
   }
+  if (url.pathname === '/api/scores' || url.pathname.startsWith('/api/scores/')) return scoresAdminApi(request, env, url, json);
   if (url.pathname === '/api/backlog' || url.pathname.startsWith('/api/backlog/')) return backlogApi(request, env, url);
   return json(404, { error: 'path' });
 }

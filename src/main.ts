@@ -88,6 +88,7 @@ import { GUIDE_REWARD, Guide, type GuideNow } from './guide';
 import { GuideView } from './guideview';
 import { Yearbook } from './yearbook';
 import { YearPanel } from './yearview';
+import { RankingPanel, rankingEnabled } from './rankingview';
 import { Requests, clientOf, describe, progressOf, type ParkNow, type RequestEvent } from './requests';
 import { RequestPanel } from './requestview';
 
@@ -384,6 +385,9 @@ const guideView = new GuideView(document.getElementById('hud')!, () => {
   hud.flash('案内をやめました。「？」の遊び方から、もう一度始められます');
 });
 const yearPanel = new YearPanel(document.getElementById('hud')!);
+// 1年のランキング：まとめの下に「ランキングに載せる」を出し、遊び方から上位を見られる（送り先が無いビルドでは出さない）
+const rankingPanel = rankingEnabled() ? new RankingPanel(document.getElementById('hud')!) : null;
+if (rankingPanel) yearPanel.onShow = (y, slot) => rankingPanel.renderSubmit(slot, y, yearbook.state.run ?? '');
 rankBadge.onOpen = () => guide.note('goals');
 const requestPanel = new RequestPanel(document.getElementById('hud')!, {
   onDeliver: () => {
@@ -1385,7 +1389,7 @@ function frame(): void {
   // realDt は実際に過ぎた時間、dt はゲーム内の時間（時間の速さを掛けたもの）
   // ご意見を書いているあいだは園の時間を止める（カメラなどは動く）
   const realDt = Math.min(clock.getDelta(), 0.1);
-  const dt = feedbackDialog?.isOpen ? 0 : realDt * SPEEDS[state.speed].scale;
+  const dt = feedbackDialog?.isOpen || rankingPanel?.isOpen ? 0 : realDt * SPEEDS[state.speed].scale;
   const t = clock.elapsedTime;
 
   lastHit = pointerOnCanvas && state.tool !== 'pan' ? pick() : null;

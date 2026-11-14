@@ -43,6 +43,15 @@ export interface YearbookState {
   last: YearSummary | null;
   /** これまでの最高（1年を終えるまでは null） */
   best: { visitors: number; income: number; bestDay: number } | null;
+  /** この遊び（新しく始めるたびに変わる）の見えない番号。ランキングで同じ年を区別する */
+  run?: string;
+}
+
+/** 新しい遊びの番号 */
+export function newRunId(): string {
+  const c = globalThis.crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
 function emptyYear(year: number, rank: number): YearStats {
@@ -69,7 +78,7 @@ export class Yearbook {
 
   /** 新しく始めたとき・記録の無いセーブを読んだときに、その年から数え始める */
   begin(year: number, rank: number): void {
-    this.state = { current: emptyYear(year, rank), last: null, best: null };
+    this.state = { current: emptyYear(year, rank), last: null, best: null, run: newRunId() };
   }
 
   /** 1日の来園者（昼と夜の合計）を足す */
@@ -120,6 +129,7 @@ export class Yearbook {
       current: { ...s.current },
       last: s.last ? { ...s.last, records: { ...s.last.records } } : null,
       best: s.best ? { ...s.best } : null,
+      run: s.run,
     };
   }
 
@@ -133,6 +143,7 @@ export class Yearbook {
       current: { ...emptyYear(year, rank), ...s.current },
       last: s.last ? { ...s.last, records: { ...s.last.records } } : null,
       best: s.best ? { ...s.best } : null,
+      run: typeof s.run === 'string' && s.run ? s.run : newRunId(),
     };
   }
 }

@@ -34,3 +34,26 @@ CREATE TABLE IF NOT EXISTS backlog (
   updated_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS backlog_status ON backlog (status, count);
+
+-- 1年のランキング（Worker が初めて使うときに自分でも作る。scores.js の SCHEMA と同じ）
+CREATE TABLE IF NOT EXISTS scores (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  player TEXT NOT NULL,
+  run TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  visitors INTEGER NOT NULL,
+  income INTEGER NOT NULL,
+  best_day INTEGER NOT NULL,
+  incidents INTEGER NOT NULL,
+  found INTEGER NOT NULL,
+  rank_end INTEGER NOT NULL,
+  data TEXT NOT NULL,
+  env TEXT NOT NULL,
+  ip TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  hidden INTEGER NOT NULL DEFAULT 0,
+  UNIQUE (player, run, year)
+);
+CREATE INDEX IF NOT EXISTS scores_env ON scores (env, hidden, player);
+CREATE INDEX IF NOT EXISTS scores_ip_time ON scores (ip, created_at);
