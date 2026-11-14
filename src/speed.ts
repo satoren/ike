@@ -1,13 +1,14 @@
 import './speed.css';
+import { t } from './i18n';
 
 /**
  * 時間の速さ（ゆっくり・ふつう・はやい）。
  * ゲーム内の時間（1 日の進み、木や生き物、事件など）だけを速め・遅め、カメラや道具の手応えは変えない。
  */
 export const SPEEDS = [
-  { label: 'ゆっくり', scale: 0.5 },
-  { label: 'ふつう', scale: 1 },
-  { label: 'はやい', scale: 3 },
+  { label: t('ゆっくり'), scale: 0.5 },
+  { label: t('ふつう'), scale: 1 },
+  { label: t('はやい'), scale: 3 },
 ] as const;
 
 export const DEFAULT_SPEED = 1;
@@ -48,7 +49,7 @@ export class SpeedButton {
     this.el.dataset.speed = String(index);
     this.el.innerHTML = `${icon(index + 1)}<span class="speed-label">${s.label}</span>`;
     const sec = Math.round(secondsPerDay(index, this.baseSecondsPerDay));
-    this.el.title = `時間の速さ：${s.label}（1 日 ${sec} 秒）。クリックか T キーで切り替え`;
+    this.el.title = t('時間の速さ：{0}（1 日 {1} 秒）。クリックか T キーで切り替え', s.label, sec);
     this.el.setAttribute('aria-label', this.el.title);
   }
 }

@@ -1,4 +1,5 @@
 import type { Heightmap } from './heightmap';
+import { t } from './i18n';
 
 /**
  * 生態系のつながり（描画から独立）。
@@ -10,8 +11,8 @@ import type { Heightmap } from './heightmap';
 export type BirdKind = 'kingfisher' | 'heron';
 
 export const BIRDS: Record<BirdKind, { name: string; appeal: number }> = {
-  kingfisher: { name: 'カワセミ', appeal: 12 },
-  heron: { name: 'サギ', appeal: 8 },
+  kingfisher: { name: t('カワセミ'), appeal: 12 },
+  heron: { name: t('サギ'), appeal: 8 },
 };
 
 export const WEED = {

@@ -5,6 +5,7 @@
  */
 
 import type { FacilityKind } from './facilities';
+import { t } from './i18n';
 
 /** 目標の判定に使う、いまの園の数字 */
 export interface ParkStats {
@@ -58,64 +59,64 @@ function atLeast(id: string, label: string, target: number, value: (s: ParkStats
 }
 
 function flag(id: string, label: string, value: (s: ParkStats) => boolean): Goal {
-  return { id, label, check: (s) => (value(s) ? { ratio: 1, text: '達成' } : { ratio: 0, text: 'まだ' }) };
+  return { id, label, check: (s) => (value(s) ? { ratio: 1, text: t('達成') } : { ratio: 0, text: t('まだ') }) };
 }
 
 export const RANKS: Rank[] = [
   {
     stars: 1,
-    name: '小さな池',
+    name: t('小さな池'),
     ticket: 1,
     reward: 0,
     unlocks: [],
     goals: [
-      atLeast('v220', '来園者 220人/日', 220, (s) => s.visitors, '人'),
-      atLeast('w600', '池を 600マス に広げる', 600, (s) => s.waterCells, 'マス'),
-      atLeast('p40', '遊歩道を 40マス つなぐ', 40, (s) => s.pathCells, 'マス'),
+      atLeast('v220', t('来園者 220人/日'), 220, (s) => s.visitors, t('人')),
+      atLeast('w600', t('池を 600マス に広げる'), 600, (s) => s.waterCells, t('マス')),
+      atLeast('p40', t('遊歩道を 40マス つなぐ'), 40, (s) => s.pathCells, t('マス')),
     ],
   },
   {
     stars: 2,
-    name: '村の水辺',
+    name: t('村の水辺'),
     ticket: 1.25,
     reward: 500,
     unlocks: ['rest'],
     goals: [
-      atLeast('v320', '来園者 320人/日', 320, (s) => s.visitors, '人'),
-      atLeast('t30', '水辺の木 30本', 30, (s) => s.treesNearWater, '本'),
-      flag('trio', 'ウサギ・カモ・魚がそろう', (s) => s.wild.rabbit > 0 && s.wild.duck > 0 && s.wild.fish > 0),
-      atLeast('e5k', '収入の合計 5,000G', 5000, (s) => s.earned, 'G'),
+      atLeast('v320', t('来園者 320人/日'), 320, (s) => s.visitors, t('人')),
+      atLeast('t30', t('水辺の木 30本'), 30, (s) => s.treesNearWater, t('本')),
+      flag('trio', t('ウサギ・カモ・魚がそろう'), (s) => s.wild.rabbit > 0 && s.wild.duck > 0 && s.wild.fish > 0),
+      atLeast('e5k', t('収入の合計 5,000G'), 5000, (s) => s.earned, 'G'),
     ],
   },
   {
     stars: 3,
-    name: '町の自然園',
+    name: t('町の自然園'),
     ticket: 1.5,
     reward: 1500,
     unlocks: ['shop', 'mill'],
     goals: [
-      atLeast('v450', '来園者 450人/日', 450, (s) => s.visitors, '人'),
-      atLeast('w1500', '池を 1,500マス に広げる', 1500, (s) => s.waterCells, 'マス'),
-      flag('bird', 'カワセミかサギが来る', (s) => s.birds > 0),
-      atLeast('f3', '休憩所・売店を 3軒 建てる', 3, (s) => s.facilities.rest + s.facilities.shop, '軒'),
+      atLeast('v450', t('来園者 450人/日'), 450, (s) => s.visitors, t('人')),
+      atLeast('w1500', t('池を 1,500マス に広げる'), 1500, (s) => s.waterCells, t('マス')),
+      flag('bird', t('カワセミかサギが来る'), (s) => s.birds > 0),
+      atLeast('f3', t('休憩所・売店を 3軒 建てる'), 3, (s) => s.facilities.rest + s.facilities.shop, t('軒')),
     ],
   },
   {
     stars: 4,
-    name: '県の名所',
+    name: t('県の名所'),
     ticket: 1.8,
     reward: 3000,
     unlocks: ['tower', 'center'],
     goals: [
-      atLeast('v600', '来園者 600人/日', 600, (s) => s.visitors, '人'),
-      atLeast('r35', '口コミの平均 ★3.5', 3.5, (s) => s.reviewAvg ?? 0),
-      flag('rare', '珍しい生き物が現れる', (s) => s.rareSeen),
-      atLeast('e30k', '収入の合計 30,000G', 30000, (s) => s.earned, 'G'),
+      atLeast('v600', t('来園者 600人/日'), 600, (s) => s.visitors, t('人')),
+      atLeast('r35', t('口コミの平均 ★3.5'), 3.5, (s) => s.reviewAvg ?? 0),
+      flag('rare', t('珍しい生き物が現れる'), (s) => s.rareSeen),
+      atLeast('e30k', t('収入の合計 30,000G'), 30000, (s) => s.earned, 'G'),
     ],
   },
   {
     stars: 5,
-    name: '全国の名所',
+    name: t('全国の名所'),
     ticket: 2.2,
     reward: 6000,
     unlocks: ['bigtree'],
@@ -173,7 +174,7 @@ export class Progress {
     return this.rank.goals.map((goal) => {
       const done = this.state.done.includes(goal.id);
       const c = goal.check(s);
-      return { goal, done, ratio: done ? 1 : c.ratio, text: done ? '達成' : c.text };
+      return { goal, done, ratio: done ? 1 : c.ratio, text: done ? t('達成') : c.text };
     });
   }
 

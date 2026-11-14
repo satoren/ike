@@ -98,6 +98,8 @@ export function toEntry(p, now) {
   const message = String(p.message ?? '').trim();
   if (message.length < 3 || message.length > MESSAGE_MAX) return null;
   const env = { 画面: p.screen, ブラウザ: p.userAgent };
+  // 言語は状況を添えないときも残す（どの言語で書かれたかの手がかり）
+  if (p.locale) env['言語'] = p.locale;
   if (p.context && typeof p.context === 'object') for (const [k, v] of Object.entries(p.context).slice(0, 20)) env[k] = v;
   for (const k of Object.keys(env)) env[k] = String(env[k] ?? '').slice(0, 300);
   return { created_at: now, kind: p.kind, message, version: String(p.version ?? '').slice(0, 40), env };

@@ -1,5 +1,6 @@
 import type { ItemKind } from './ecology';
 import type { GuestKind } from './guests';
+import { t } from './i18n';
 
 /**
  * 客の口コミ。来園者がひとこと感想を残し、それを読めば魅力が上がった／下がった理由がわかる。
@@ -32,12 +33,12 @@ export type ReviewEvent = 'bearAttack' | 'foxAttack' | 'bearHunted' | 'guestTrap
 export type ReviewFactor = 'incident' | 'danger' | 'safety' | 'wildlife' | 'harvest' | 'scenery';
 
 export const FACTOR_LABEL: Record<ReviewFactor, string> = {
-  incident: '事件',
-  danger: '危険',
-  safety: '遊歩道',
-  wildlife: '生き物',
-  harvest: '採りすぎ',
-  scenery: '景色',
+  incident: t('事件'),
+  danger: t('危険'),
+  safety: t('遊歩道'),
+  wildlife: t('生き物'),
+  harvest: t('採りすぎ'),
+  scenery: t('景色'),
 };
 
 /** その話題を口にしそうな来園者のタイプ（口コミに書いた人として出す） */
@@ -76,145 +77,145 @@ export const TOPICS: readonly Topic[] = [
     factor: 'wildlife',
     good: true,
     weight: (c) => (c.recent.has('firefly') ? 10 : 0),
-    lines: ['ホタルが綺麗！水辺が光っていて夢みたい', 'ホタルが出たと聞いて飛んできました', 'こんなところでホタルが見られるなんて'],
+    lines: [t('ホタルが綺麗！水辺が光っていて夢みたい'), t('ホタルが出たと聞いて飛んできました'), t('こんなところでホタルが見られるなんて')],
   },
   {
     factor: 'wildlife',
     good: true,
     weight: (c) => (c.recent.has('salamander') ? 12 : 0),
-    lines: ['オオサンショウウオを見た！本物は迫力がすごい', 'ニュースで見てオオサンショウウオに会いに来ました', '池にオオサンショウウオがいるなんて、よほど水がきれいなんだね'],
+    lines: [t('オオサンショウウオを見た！本物は迫力がすごい'), t('ニュースで見てオオサンショウウオに会いに来ました'), t('池にオオサンショウウオがいるなんて、よほど水がきれいなんだね')],
   },
   // ---- 事件・危険 ----
   {
     factor: 'incident',
     good: false,
     weight: (c) => (c.recent.has('bearAttack') ? 12 : 0),
-    lines: ['クマに襲われた人がいたらしい。怖くてすぐ帰りました', '目の前でクマが柵を壊した…二度と来ません', 'クマが出るなんて聞いてない！'],
+    lines: [t('クマに襲われた人がいたらしい。怖くてすぐ帰りました'), t('目の前でクマが柵を壊した…二度と来ません'), t('クマが出るなんて聞いてない！')],
   },
   {
     factor: 'incident',
     good: false,
     weight: (c) => (c.recent.has('foxAttack') ? 10 : 0),
-    lines: ['キツネにかまれた人がいたって。子どもは連れて来られない', '道のない草むらでキツネに追いかけられた', 'キツネが怖かった'],
+    lines: [t('キツネにかまれた人がいたって。子どもは連れて来られない'), t('道のない草むらでキツネに追いかけられた'), t('キツネが怖かった')],
   },
   {
     factor: 'incident',
     good: false,
     weight: (c) => (c.recent.has('guestTrapped') ? 10 : 0),
-    lines: ['遊歩道のすぐ脇に罠があって、足をはさまれた人がいた', '罠でけがをした人がいたらしい。道のそばに置かないでほしい', '子どもが罠に近づきそうでヒヤッとした'],
+    lines: [t('遊歩道のすぐ脇に罠があって、足をはさまれた人がいた'), t('罠でけがをした人がいたらしい。道のそばに置かないでほしい'), t('子どもが罠に近づきそうでヒヤッとした')],
   },
   {
     factor: 'danger',
     good: false,
     weight: (c) => (c.wild.bear > 0 ? 6 : 0),
-    lines: ['遠くにクマが見えた。柵は大丈夫なの？', 'クマ出没中の貼り紙がこわい', 'クマがうろついていて落ち着かない'],
+    lines: [t('遠くにクマが見えた。柵は大丈夫なの？'), t('クマ出没中の貼り紙がこわい'), t('クマがうろついていて落ち着かない')],
   },
   {
     factor: 'danger',
     good: false,
     weight: (c) => (c.wild.fox > 0 ? 1.5 + 3 * (1 - c.safety) : 0),
-    lines: ['キツネがこっちを見ていてドキッとした', 'キツネがうろうろしていて、道の外は歩けない'],
+    lines: [t('キツネがこっちを見ていてドキッとした'), t('キツネがうろうろしていて、道の外は歩けない')],
   },
   {
     factor: 'safety',
     good: true,
     weight: (c) => (c.recent.has('bearHunted') ? 4 : 0),
-    lines: ['クマが退治されたと聞いて安心して来ました', 'クマ騒ぎも落ち着いたみたい'],
+    lines: [t('クマが退治されたと聞いて安心して来ました'), t('クマ騒ぎも落ち着いたみたい')],
   },
   // ---- 遊歩道 ----
   {
     factor: 'safety',
     good: false,
     weight: (c) => (c.pathCells === 0 ? 4 : c.safety < 0.5 ? 3 * (1 - c.safety) : 0),
-    lines: ['歩ける道がなくて、ぬかるみで靴が泥だらけ', '道が足りなくて人であふれていた', '柵がなくて池に落ちそうになった'],
+    lines: [t('歩ける道がなくて、ぬかるみで靴が泥だらけ'), t('道が足りなくて人であふれていた'), t('柵がなくて池に落ちそうになった')],
   },
   {
     factor: 'safety',
     good: true,
     weight: (c) => (c.pathCells > 0 && c.safety >= 0.8 ? 2 + c.safety : 0),
-    lines: ['柵付きの遊歩道で子ども連れでも安心', '遊歩道が歩きやすくて、ぐるっと一周できた', '道がきれいに整っていて気持ちいい'],
+    lines: [t('柵付きの遊歩道で子ども連れでも安心'), t('遊歩道が歩きやすくて、ぐるっと一周できた'), t('道がきれいに整っていて気持ちいい')],
   },
   // ---- 採りすぎ ----
   {
     factor: 'harvest',
     good: false,
     weight: (c) => (c.penalty >= 0.05 ? 3 + 10 * c.penalty : 0),
-    lines: ['生き物がほとんどいない。採りすぎでは？', '前に来たときより寂しくなった', '網を持った人ばかり目につく'],
+    lines: [t('生き物がほとんどいない。採りすぎでは？'), t('前に来たときより寂しくなった'), t('網を持った人ばかり目につく')],
   },
   {
     factor: 'harvest',
     good: false,
     weight: (c) => (c.trees >= 5 && c.wild.fruit === 0 ? 2 : 0),
-    lines: ['木はあるのに実がひとつもない', '実が全部もがれていて残念'],
+    lines: [t('木はあるのに実がひとつもない'), t('実が全部もがれていて残念')],
   },
   // ---- 生き物 ----
   {
     factor: 'wildlife',
     good: true,
     weight: (c) => Math.min(3, c.wild.duck * 0.6),
-    lines: ['カモがのんびり泳いでいてかわいい', 'カモの親子に癒やされた', '水辺でカモにえさをあげたくなった'],
+    lines: [t('カモがのんびり泳いでいてかわいい'), t('カモの親子に癒やされた'), t('水辺でカモにえさをあげたくなった')],
   },
   {
     factor: 'wildlife',
     good: true,
     weight: (c) => Math.min(3, c.wild.fish * 0.3),
-    lines: ['池をのぞくと魚がたくさん泳いでいた', '魚がはねるのが見えた！', '水が澄んでいて魚がよく見える'],
+    lines: [t('池をのぞくと魚がたくさん泳いでいた'), t('魚がはねるのが見えた！'), t('水が澄んでいて魚がよく見える')],
   },
   {
     factor: 'wildlife',
     good: true,
     weight: (c) => Math.min(3, c.wild.rabbit * 0.5),
-    lines: ['ウサギがぴょんぴょん跳ねていた', '木の根元でウサギが休んでいた'],
+    lines: [t('ウサギがぴょんぴょん跳ねていた'), t('木の根元でウサギが休んでいた')],
   },
   {
     factor: 'wildlife',
     good: false,
     weight: (c) => (c.wild.duck + c.wild.fish + c.wild.rabbit === 0 ? 2 : 0),
-    lines: ['生き物が一匹も見当たらない', '静かすぎて何もいない'],
+    lines: [t('生き物が一匹も見当たらない'), t('静かすぎて何もいない')],
   },
   // ---- 景色 ----
   {
     factor: 'scenery',
     good: true,
     weight: (c) => Math.min(3, c.wild.fruit * 0.1),
-    lines: ['木いっぱいに実がなっていて見事', '甘い香りがして実がおいしそう'],
+    lines: [t('木いっぱいに実がなっていて見事'), t('甘い香りがして実がおいしそう')],
   },
   {
     factor: 'scenery',
     good: true,
     weight: (c) => (c.waterCells >= 60 ? 2 : c.waterCells >= 20 ? 1 : 0),
-    lines: ['広い池が気持ちいい', '水面がきらきらしていて写真映えする', '池のほとりでぼんやりするのが最高'],
+    lines: [t('広い池が気持ちいい'), t('水面がきらきらしていて写真映えする'), t('池のほとりでぼんやりするのが最高')],
   },
   {
     factor: 'scenery',
     good: true,
     weight: (c) => Math.min(2.5, c.treesNearWater * 0.3),
-    lines: ['水辺の木陰でひと休みできた', '木と池の組み合わせがきれい'],
+    lines: [t('水辺の木陰でひと休みできた'), t('木と池の組み合わせがきれい')],
   },
   // 道からの眺め：見えるものの種類が多い道は楽しく、どこも同じ景色だと飽きる
   {
     factor: 'scenery',
     good: true,
     weight: (c) => (c.views && c.views.cells >= 20 ? Math.min(3, (c.views.rich / c.views.cells) * 4) : 0),
-    lines: ['歩くたびに景色が変わって飽きない', '池、木立、花畑と、道ごとに見どころがあった', '曲がり角ごとに写真を撮りたくなる'],
+    lines: [t('歩くたびに景色が変わって飽きない'), t('池、木立、花畑と、道ごとに見どころがあった'), t('曲がり角ごとに写真を撮りたくなる')],
   },
   {
     factor: 'scenery',
     good: false,
     weight: (c) => (c.views && c.views.cells >= 40 && c.views.average < 1.5 ? 2.5 - c.views.average : 0),
-    lines: ['どこを歩いても同じ景色で、少し飽きた', '道沿いに見るものが少ない。花や岩があるといいのに', '長い道のわりに見どころが少なかった'],
+    lines: [t('どこを歩いても同じ景色で、少し飽きた'), t('道沿いに見るものが少ない。花や岩があるといいのに'), t('長い道のわりに見どころが少なかった')],
   },
   {
     factor: 'scenery',
     good: false,
     weight: (c) => (c.waterCells === 0 ? 3 : c.waterCells < 15 ? 1 : 0),
-    lines: ['池づくりと聞いたのに池が小さい', '水たまりしかなかった'],
+    lines: [t('池づくりと聞いたのに池が小さい'), t('水たまりしかなかった')],
   },
   {
     factor: 'scenery',
     good: false,
     weight: (c) => (c.trees < 3 ? 2 : 0),
-    lines: ['木陰がなくて暑かった', '殺風景で、もっと木がほしい'],
+    lines: [t('木陰がなくて暑かった'), t('殺風景で、もっと木がほしい')],
   },
 ];
 

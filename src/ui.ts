@@ -8,6 +8,7 @@ import { WEED } from './foodweb';
 import { FACILITIES, FACILITY_ORDER, type FacilityKind } from './facilities';
 import { DECOR } from './decor';
 import type { DailyCosts } from './upkeep';
+import { changeLocale, locale, LOCALE_NAMES, LOCALES, t, type Locale } from './i18n';
 
 export type Tool =
   | 'pan'
@@ -28,71 +29,71 @@ export type Tool =
 export const COMPACT_QUERY = '(max-width: 640px), (max-height: 500px)';
 
 const TOOLS: { id: Tool; label: string; key: string; hint: string; cost: string }[] = [
-  { id: 'pan', label: '移動', key: '1', hint: '左ドラッグでカメラを動かします', cost: '' },
-  { id: 'dig', label: '掘る', key: '2', hint: '水位より深く掘ると池になり、カモや魚が集まります', cost: `${COSTS.terraform}G/回` },
-  { id: 'raise', label: '盛る', key: '3', hint: '土を盛って丘や岸を作ります', cost: `${COSTS.terraform}G/回` },
-  { id: 'smooth', label: 'ならす', key: '4', hint: 'でこぼこを滑らかにします', cost: `${COSTS.terraform}G/回` },
-  { id: 'tree', label: '植える', key: '5', hint: '育つと実がなります。水辺の木にはウサギやカモが集まります', cost: `${COSTS.tree}G/本` },
+  { id: 'pan', label: t('移動'), key: '1', hint: t('左ドラッグでカメラを動かします'), cost: '' },
+  { id: 'dig', label: t('掘る'), key: '2', hint: t('水位より深く掘ると池になり、カモや魚が集まります'), cost: t('{0}G/回', COSTS.terraform) },
+  { id: 'raise', label: t('盛る'), key: '3', hint: t('土を盛って丘や岸を作ります'), cost: t('{0}G/回', COSTS.terraform) },
+  { id: 'smooth', label: t('ならす'), key: '4', hint: t('でこぼこを滑らかにします'), cost: t('{0}G/回', COSTS.terraform) },
+  { id: 'tree', label: t('植える'), key: '5', hint: t('育つと実がなります。水辺の木にはウサギやカモが集まります'), cost: t('{0}G/本', COSTS.tree) },
   {
     id: 'path',
-    label: '遊歩道',
+    label: t('遊歩道'),
     key: '6',
-    hint: '手前の出入口からつなげて敷く柵付きの道。客が安全に回れ、キツネは入れません（Shift か「撤去」でなぞると撤去）。道の色は眺めのよさです。見えるものの種類が多い道ほど魅力が上がります',
-    cost: `${SAFETY.cost}G/マス`,
+    hint: t('手前の出入口からつなげて敷く柵付きの道。客が安全に回れ、キツネは入れません（Shift か「撤去」でなぞると撤去）。道の色は眺めのよさです。見えるものの種類が多い道ほど魅力が上がります'),
+    cost: t('{0}G/マス', SAFETY.cost),
   },
-  { id: 'collect', label: '集める', key: '7', hint: 'なぞった範囲の木の実・動物・魚をかごに入れます', cost: '無料' },
+  { id: 'collect', label: t('集める'), key: '7', hint: t('なぞった範囲の木の実・動物・魚をかごに入れます'), cost: t('無料') },
   {
     id: 'trap',
-    label: '罠',
+    label: t('罠'),
     key: '8',
-    hint: 'クリックで罠を置きます。クマは林や水辺を通るので、足跡の続く獣道に先回りして仕掛けます。クマの近くや遊歩道の上には置けず、道のすぐ脇だと来園者がかかります（1回で壊れます）',
-    cost: `${TRAP_COST}G/個`,
+    hint: t('クリックで罠を置きます。クマは林や水辺を通るので、足跡の続く獣道に先回りして仕掛けます。クマの近くや遊歩道の上には置けず、道のすぐ脇だと来園者がかかります（1回で壊れます）'),
+    cost: t('{0}G/個', TRAP_COST),
   },
   {
     id: 'gun',
-    label: '銃',
+    label: t('銃'),
     key: '9',
-    hint: 'クリックした場所を撃ちます。クマは2発、キツネは1発で狩れます',
-    cost: `${SHOT_COST}G/発`,
+    hint: t('クリックした場所を撃ちます。クマは2発、キツネは1発で狩れます'),
+    cost: t('{0}G/発', SHOT_COST),
   },
   {
     id: 'weed',
-    label: '水草',
+    label: t('水草'),
     key: '0',
-    hint: '池の中に植えます。育つと魚のすみかになって魚が増え、魚を食べにカワセミやサギが来ます。魚を採りすぎると鳥は去ります',
-    cost: `${WEED.cost}G/株`,
+    hint: t('池の中に植えます。育つと魚のすみかになって魚が増え、魚を食べにカワセミやサギが来ます。魚を採りすぎると鳥は去ります'),
+    cost: t('{0}G/株', WEED.cost),
   },
   {
     id: 'flower',
-    label: '花畑',
+    label: t('花畑'),
     key: 'F',
-    hint: '遊歩道の近くに植えると、道からの眺めに「花畑」が加わります。同じものを並べても増えないので、足りない道のそばに（「撤去」で片づけ）',
-    cost: `${DECOR.flower.cost}G/か所`,
+    hint: t('遊歩道の近くに植えると、道からの眺めに「花畑」が加わります。同じものを並べても増えないので、足りない道のそばに（「撤去」で片づけ）'),
+    cost: t('{0}G/か所', DECOR.flower.cost),
   },
   {
     id: 'rock',
-    label: '岩',
+    label: t('岩'),
     key: 'R',
-    hint: '遊歩道の近くに置くと、道からの眺めに「岩」が加わります。陸にも、池の浅いところにも置けます（「撤去」で片づけ）',
-    cost: `${DECOR.rock.cost}G/個`,
+    hint: t('遊歩道の近くに置くと、道からの眺めに「岩」が加わります。陸にも、池の浅いところにも置けます（「撤去」で片づけ）'),
+    cost: t('{0}G/個', DECOR.rock.cost),
   },
   {
     id: 'build',
-    label: '施設',
+    label: t('施設'),
     key: '-',
-    hint: '遊歩道のすぐ横に施設を建てます。園のランクが上がると建てられる施設が増えます（「撤去」で取り壊すと半額戻ります）',
-    cost: '300G〜',
+    hint: t('遊歩道のすぐ横に施設を建てます。園のランクが上がると建てられる施設が増えます（「撤去」で取り壊すと半額戻ります）'),
+    cost: t('{0}G〜', 300),
   },
 ];
 
 /** 道具を種類ごとにまとめたもの。ドックにはまとまりごとに 1 つのボタンを置く */
 const GROUPS: { id: string; label: string; tools: Tool[] }[] = [
-  { id: 'move', label: '移動', tools: ['pan'] },
-  { id: 'land', label: '地形', tools: ['dig', 'raise', 'smooth'] },
-  { id: 'nature', label: '自然', tools: ['tree', 'weed', 'flower', 'rock'] },
-  { id: 'build', label: '建てる', tools: ['path', 'build'] },
-  { id: 'collect', label: '集める', tools: ['collect'] },
-  { id: 'hunt', label: '狩り', tools: ['trap', 'gun'] },
+  { id: 'move', label: t('移動'), tools: ['pan'] },
+  { id: 'land', label: t('地形'), tools: ['dig', 'raise', 'smooth'] },
+  { id: 'nature', label: t('自然'), tools: ['tree', 'weed', 'flower', 'rock'] },
+  { id: 'build', label: t('建てる'), tools: ['path', 'build'] },
+  { id: 'collect', label: t('集める'), tools: ['collect'] },
+  { id: 'hunt', label: t('狩り'), tools: ['trap', 'gun'] },
 ];
 
 const groupOf = (tool: Tool) => GROUPS.find((g) => g.tools.includes(tool))!;
@@ -137,10 +138,10 @@ interface HudHandlers {
 
 const TREND_MARK: Record<Trend, string> = { hot: ' ▲', cheap: ' ▼', glut: ' ▼', flat: '' };
 const TREND_TITLE: Record<Trend, string> = {
-  hot: 'きょうは高く売れます',
-  cheap: 'きょうは安値です。急がなければ待ちましょう',
-  glut: '売りすぎて値下がりしています。日がたつと戻ります',
-  flat: 'きょうの売値',
+  hot: t('きょうは高く売れます'),
+  cheap: t('きょうは安値です。急がなければ待ちましょう'),
+  glut: t('売りすぎて値下がりしています。日がたつと戻ります'),
+  flat: t('きょうの売値'),
 };
 
 export interface HudData {
@@ -224,8 +225,8 @@ export class Hud {
       <header class="topbar">
         <div class="brand card">
           <span class="brand-icon">${icons.leaf}</span>
-          <span class="brand-name">池づくり</span>
-          <span class="day" title="ゲーム内の日数">
+          <span class="brand-name">${t('池づくり')}</span>
+          <span class="day" title="${t('ゲーム内の日数')}">
             <svg class="ring" viewBox="0 0 36 36" aria-hidden="true">
               <circle cx="18" cy="18" r="15" class="ring-bg"/>
               <circle cx="18" cy="18" r="15" class="ring-fg"/>
@@ -234,128 +235,134 @@ export class Hud {
           </span>
           <button type="button" class="night-toggle" aria-pressed="false">
             <span class="night-icon">${icons.moon}</span>
-            <span class="night-label">夜間営業</span>
+            <span class="night-label">${t('夜間営業')}</span>
           </button>
         </div>
         <div class="chips">
-          ${chip('money', 'coin', '資金')}
-          ${chip('visitors', 'people', '来園者 / 日')}
-          ${chip('appeal', 'sparkle', '景観の魅力')}
-          ${chip('safety', 'shield', '客の安全（遊歩道）')}
-          ${chip('water', 'drop', '池の広さ')}
-          ${chip('trees', 'tree', '木（うち水辺）')}
+          ${chip('money', 'coin', t('資金'))}
+          ${chip('visitors', 'people', t('来園者 / 日'))}
+          ${chip('appeal', 'sparkle', t('景観の魅力'))}
+          ${chip('safety', 'shield', t('客の安全（遊歩道）'))}
+          ${chip('water', 'drop', t('池の広さ'))}
+          ${chip('trees', 'tree', t('木（うち水辺）'))}
         </div>
       </header>
 
-      <aside class="basket card" aria-label="かご">
+      <aside class="basket card" aria-label="${t('かご')}">
         <button type="button" class="basket-head" aria-expanded="true">
           <span class="basket-icon">${icons.collect}</span>
-          <b>かご</b>
-          <span class="basket-hint">いま居る数 / かご</span>
+          <b>${t('かご')}</b>
+          <span class="basket-hint">${t('いま居る数 / かご')}</span>
           <span class="basket-sum"></span>
           <span class="basket-toggle" aria-hidden="true"></span>
         </button>
         <ul class="basket-list"></ul>
-        <p class="market-note" title="売値は毎朝変わります。同じ品をたくさん売ると値下がりし、日がたつと戻ります"></p>
+        <p class="market-note" title="${t('売値は毎朝変わります。同じ品をたくさん売ると値下がりし、日がたつと戻ります')}"></p>
         <button type="button" class="sell-all"></button>
       </aside>
 
       <div class="bear-alert" hidden role="alert">
         <span class="bear-alert-icon">${icons.alert}</span>
-        <span class="bear-alert-text"><b>クマ出没中</b> <span data-v="bears"></span> 罠か銃で狩ってください</span>
-        <span class="bear-sign-text" hidden><b>クマの足跡</b> 明日現れそうです。獣道に罠を</span>
-        <button type="button" class="bear-focus">見に行く</button>
+        <span class="bear-alert-text"><b>${t('クマ出没中')}</b> <span data-v="bears"></span> ${t('罠か銃で狩ってください')}</span>
+        <span class="bear-sign-text" hidden><b>${t('クマの足跡')}</b> ${t('明日現れそうです。獣道に罠を')}</span>
+        <button type="button" class="bear-focus">${t('見に行く')}</button>
       </div>
 
       <div class="toasts" aria-live="polite"></div>
 
       <footer class="dock-wrap">
         <p class="hint"></p>
-        <p class="view-legend" hidden title="遊歩道の色は、そこから見えるものの種類の数です">
-          <span>道からの眺め</span>
-          <span class="view-scale">少<i></i><i></i><i></i><i></i><i></i>多</span>
+        <p class="view-legend" hidden title="${t('遊歩道の色は、そこから見えるものの種類の数です')}">
+          <span>${t('道からの眺め')}</span>
+          <span class="view-scale">${t('少')}<i></i><i></i><i></i><i></i><i></i>${t('多')}</span>
         </p>
         <div class="subtools card" role="group" hidden></div>
-        <nav class="dock card" aria-label="道具">
+        <nav class="dock card" aria-label="${t('道具')}">
           <div class="tools"></div>
           <div class="divider"></div>
-          <div class="sizes" role="group" aria-label="ブラシの大きさ">
-            <span class="sizes-label">ブラシ</span>
+          <div class="sizes" role="group" aria-label="${t('ブラシの大きさ')}">
+            <span class="sizes-label">${t('ブラシ')}</span>
             <div class="sizes-row"></div>
             <div class="facility-row" hidden></div>
-            <button type="button" class="path-erase" aria-pressed="false" hidden>撤去</button>
+            <button type="button" class="path-erase" aria-pressed="false" hidden>${t('撤去')}</button>
           </div>
         </nav>
       </footer>
 
-      <button class="help-btn card" type="button" aria-label="操作方法">${icons.help}</button>
-      <button class="map-btn card" type="button" aria-pressed="false" aria-label="パネルを隠して地図を広く見る" title="パネルを隠す">${icons.expand}</button>
+      <button class="help-btn card" type="button" aria-label="${t('操作方法')}">${icons.help}</button>
+      <button class="map-btn card" type="button" aria-pressed="false" aria-label="${t('パネルを隠して地図を広く見る')}" title="${t('パネルを隠す')}">${icons.expand}</button>
       <div class="help card" hidden>
-        <div class="help-head"><b>遊び方</b><button type="button" class="help-close" aria-label="閉じる">${icons.close}</button></div>
+        <div class="help-head"><b>${t('遊び方')}</b><button type="button" class="help-close" aria-label="${t('閉じる')}">${icons.close}</button></div>
+        <label class="help-lang">
+          <span>${locale === 'en' ? 'Language' : `${t('言語')} · Language`}</span>
+          <select class="lang-select">
+            ${LOCALES.map((l) => `<option value="${l}"${l === locale ? ' selected' : ''}>${LOCALE_NAMES[l]}</option>`).join('')}
+          </select>
+        </label>
         <div class="help-text">
-          <h3>基本</h3>
-          <p>池を掘り、木を植えて自然を育てましょう。</p>
-          <p>実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。</p>
-          <h3>遊歩道と出入口</h3>
-          <p>来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります。</p>
-          <p>つながっていない道は灰色になり、使われません。</p>
-          <h3>道からの眺め</h3>
-          <p>遊歩道は、そこから見えるものの種類が多いほど魅力が上がります。道から 5マス以内にあるものが見えます。</p>
-          <p>見えるものは、水面・木立（木 3本以上）・花畑・岩・池の中の小島・名所（展望台や水車小屋など）の 6種類です。同じものをたくさん並べても増えないので、道ごとに違う見どころを作りましょう。</p>
-          <p>「遊歩道」「花畑」「岩」を選ぶと、道が眺めのよさで色分けされます。花畑と岩は「自然」から置けます。</p>
-          <h3>来園者のタイプ</h3>
-          <p>家族連れ・散策の人・釣り人・写真家の 4つのタイプがいて、求めるものが違います。</p>
-          <p>上の「来園者」の数字を押すと、タイプごとの人数と満足度、足りないものが見られます。満足している客層ほど多く来て、釣り人と写真家は入園料を多く払います。呼びこむ客層を 1つ選べます。</p>
-          <h3>危ない生き物と密猟者</h3>
-          <p>ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。</p>
-          <p>ときどきクマが現れ、柵と道を壊して来園者を襲います。現れる前の日には地図の端に足跡が見つかり、そこから続く点線が予想される獣道です。クマは身を隠せる林や水辺を通り、開けた草地を避けるので、木の植え方で通り道が変わります。</p>
-          <p>獣道に先回りして罠を仕掛けるか、銃で狩りましょう。クマの近くには罠を置けません。遊歩道のすぐ脇の罠には来園者がかかってしまいます。</p>
-          <p>夜には密猟者が忍び込んで魚や動物を盗んでいきます。紫の目印の人を「集める」でなぞると捕まえられ、報奨金がもらえます。来園者に見つかると逃げ出すので、遊歩道を広く巡らせておくと被害を減らせます。</p>
-          <p>かごの下の「駆除係」で係を雇うと、日給と引き換えに園内を巡回し、クマを撃ち、キツネや密猟者を捕まえてくれます（給料が払えないと辞めてしまいます）。</p>
-          <h3>毎日の出費と赤字</h3>
-          <p>来園者 40人ごとに案内係の人件費がかかり、池・遊歩道・木・施設には維持費がかかります。★が上がると入園料も係の日給も上がります。入園料の 4分の3ほどは人件費に消えるので、ほどほどに採って売る稼ぎが大切です。★が上がると、採れたものは「名所の産物」として高く売れます。</p>
-          <p>上の「資金」にさわると、毎日の出費の見込みが見られます。お金が足りない日は維持費を後回しにします（園が少し荒れて、客が 1割減ります）。赤字でも、集める・売る・撤去・クマを撃つ・夜間営業をやめることはできるので、売って立て直しましょう。</p>
-          <h3>夜間営業</h3>
-          <p>左上の「夜間営業」で遊歩道をライトアップすると、夜も客が来て入園料が増えます。ただし電気代がかかり、夜行性のキツネが寄ってきて遊歩道の外が危険になります。</p>
-          <h3>図鑑と珍しい生き物</h3>
-          <p>本のボタンの「生き物図鑑」には、園に現れた生き物が載ります。浅瀬、池の中の小島、木を寄せて植えた林、遊歩道から離れた静かな林など、場所を作り分けると、そこを好む新しい生き物が現れます。</p>
-          <p>まだ見つけていない生き物はヒントだけが載っています。見つけるたびにボーナスがもらえ、評判が広まって来園者が増えます。</p>
-          <p>水辺の木を増やし、池を深くして荒らさずにいると、ホタルやオオサンショウウオがまれに現れて話題になり、来園者が一気に増えます（捕まえることはできません）。</p>
-          <h3>ランクと施設</h3>
-          <p>左上の★は園のランクです。押すと次のランクへの目標が見られます。</p>
-          <p>目標を全部達成するとランクが上がり、賞金がもらえて入園料が上がります。休憩所・売店・展望台などの施設を「施設」で遊歩道のそばに建てられるようになり、さらに水車小屋・自然館・大ケヤキといった大きな買い物もできるようになります。</p>
-          <h3>お願いと売値</h3>
-          <p>毎朝、町の人から「お願い」が 1件届きます（手紙のボタン）。魚を届ける、生き物を増やす、水辺に木を植える、今日は何も採らない、などです。期限までに応えると報酬がもらえます。応えられなくても罰はなく、見送ることもできます。</p>
-          <p>売値は毎朝変わります。きょうの高値とあすの高値は、かごの下に出ます。同じ品をたくさん売ると値下がりし、日がたつと戻るので、高い日に少しずつ売るのが得です。</p>
-          <h3>1年のまとめ</h3>
-          <p>1年（春から冬までの 20日）が終わると、その年の来園者や収入のまとめが出ます。</p>
-          <h3>操作</h3>
+          <h3>${t('基本')}</h3>
+          <p>${t('池を掘り、木を植えて自然を育てましょう。')}</p>
+          <p>${t('実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。')}</p>
+          <h3>${t('遊歩道と出入口')}</h3>
+          <p>${t('来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります。')}</p>
+          <p>${t('つながっていない道は灰色になり、使われません。')}</p>
+          <h3>${t('道からの眺め')}</h3>
+          <p>${t('遊歩道は、そこから見えるものの種類が多いほど魅力が上がります。道から 5マス以内にあるものが見えます。')}</p>
+          <p>${t('見えるものは、水面・木立（木 3本以上）・花畑・岩・池の中の小島・名所（展望台や水車小屋など）の 6種類です。同じものをたくさん並べても増えないので、道ごとに違う見どころを作りましょう。')}</p>
+          <p>${t('「遊歩道」「花畑」「岩」を選ぶと、道が眺めのよさで色分けされます。花畑と岩は「自然」から置けます。')}</p>
+          <h3>${t('来園者のタイプ')}</h3>
+          <p>${t('家族連れ・散策の人・釣り人・写真家の 4つのタイプがいて、求めるものが違います。')}</p>
+          <p>${t('上の「来園者」の数字を押すと、タイプごとの人数と満足度、足りないものが見られます。満足している客層ほど多く来て、釣り人と写真家は入園料を多く払います。呼びこむ客層を 1つ選べます。')}</p>
+          <h3>${t('危ない生き物と密猟者')}</h3>
+          <p>${t('ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。')}</p>
+          <p>${t('ときどきクマが現れ、柵と道を壊して来園者を襲います。現れる前の日には地図の端に足跡が見つかり、そこから続く点線が予想される獣道です。クマは身を隠せる林や水辺を通り、開けた草地を避けるので、木の植え方で通り道が変わります。')}</p>
+          <p>${t('獣道に先回りして罠を仕掛けるか、銃で狩りましょう。クマの近くには罠を置けません。遊歩道のすぐ脇の罠には来園者がかかってしまいます。')}</p>
+          <p>${t('夜には密猟者が忍び込んで魚や動物を盗んでいきます。紫の目印の人を「集める」でなぞると捕まえられ、報奨金がもらえます。来園者に見つかると逃げ出すので、遊歩道を広く巡らせておくと被害を減らせます。')}</p>
+          <p>${t('かごの下の「駆除係」で係を雇うと、日給と引き換えに園内を巡回し、クマを撃ち、キツネや密猟者を捕まえてくれます（給料が払えないと辞めてしまいます）。')}</p>
+          <h3>${t('毎日の出費と赤字')}</h3>
+          <p>${t('来園者 40人ごとに案内係の人件費がかかり、池・遊歩道・木・施設には維持費がかかります。★が上がると入園料も係の日給も上がります。入園料の 4分の3ほどは人件費に消えるので、ほどほどに採って売る稼ぎが大切です。★が上がると、採れたものは「名所の産物」として高く売れます。')}</p>
+          <p>${t('上の「資金」にさわると、毎日の出費の見込みが見られます。お金が足りない日は維持費を後回しにします（園が少し荒れて、客が 1割減ります）。赤字でも、集める・売る・撤去・クマを撃つ・夜間営業をやめることはできるので、売って立て直しましょう。')}</p>
+          <h3>${t('夜間営業')}</h3>
+          <p>${t('左上の「夜間営業」で遊歩道をライトアップすると、夜も客が来て入園料が増えます。ただし電気代がかかり、夜行性のキツネが寄ってきて遊歩道の外が危険になります。')}</p>
+          <h3>${t('図鑑と珍しい生き物')}</h3>
+          <p>${t('本のボタンの「生き物図鑑」には、園に現れた生き物が載ります。浅瀬、池の中の小島、木を寄せて植えた林、遊歩道から離れた静かな林など、場所を作り分けると、そこを好む新しい生き物が現れます。')}</p>
+          <p>${t('まだ見つけていない生き物はヒントだけが載っています。見つけるたびにボーナスがもらえ、評判が広まって来園者が増えます。')}</p>
+          <p>${t('水辺の木を増やし、池を深くして荒らさずにいると、ホタルやオオサンショウウオがまれに現れて話題になり、来園者が一気に増えます（捕まえることはできません）。')}</p>
+          <h3>${t('ランクと施設')}</h3>
+          <p>${t('左上の★は園のランクです。押すと次のランクへの目標が見られます。')}</p>
+          <p>${t('目標を全部達成するとランクが上がり、賞金がもらえて入園料が上がります。休憩所・売店・展望台などの施設を「施設」で遊歩道のそばに建てられるようになり、さらに水車小屋・自然館・大ケヤキといった大きな買い物もできるようになります。')}</p>
+          <h3>${t('お願いと売値')}</h3>
+          <p>${t('毎朝、町の人から「お願い」が 1件届きます（手紙のボタン）。魚を届ける、生き物を増やす、水辺に木を植える、今日は何も採らない、などです。期限までに応えると報酬がもらえます。応えられなくても罰はなく、見送ることもできます。')}</p>
+          <p>${t('売値は毎朝変わります。きょうの高値とあすの高値は、かごの下に出ます。同じ品をたくさん売ると値下がりし、日がたつと戻るので、高い日に少しずつ売るのが得です。')}</p>
+          <h3>${t('1年のまとめ')}</h3>
+          <p>${t('1年（春から冬までの 20日）が終わると、その年の来園者や収入のまとめが出ます。')}</p>
+          <h3>${t('操作')}</h3>
         </div>
         <dl class="help-mouse">
-          <dt>左ドラッグ</dt><dd>道具を使う（移動ではカメラ移動）</dd>
-          <dt>右ドラッグ</dt><dd>カメラ移動</dd>
-          <dt>中ドラッグ</dt><dd>カメラ回転</dd>
-          <dt>ホイール</dt><dd>ズーム</dd>
-          <dt>Shift+ドラッグ</dt><dd>遊歩道を撤去（Shift+クリックで花畑・岩を片づけ）</dd>
+          <dt>${t('左ドラッグ')}</dt><dd>${t('道具を使う（移動ではカメラ移動）')}</dd>
+          <dt>${t('右ドラッグ')}</dt><dd>${t('カメラ移動')}</dd>
+          <dt>${t('中ドラッグ')}</dt><dd>${t('カメラ回転')}</dd>
+          <dt>${t('ホイール')}</dt><dd>${t('ズーム')}</dd>
+          <dt>${t('Shift+ドラッグ')}</dt><dd>${t('遊歩道を撤去（Shift+クリックで花畑・岩を片づけ）')}</dd>
         </dl>
         <dl class="help-touch">
-          <dt>1本指</dt><dd>道具を使う（移動ではカメラ移動）</dd>
-          <dt>2本指ドラッグ</dt><dd>カメラ移動（移動では回転）</dd>
-          <dt>ピンチ</dt><dd>ズーム</dd>
-          <dt>撤去ボタン</dt><dd>遊歩道・施設・花畑・岩を撤去</dd>
+          <dt>${t('1本指')}</dt><dd>${t('道具を使う（移動ではカメラ移動）')}</dd>
+          <dt>${t('2本指ドラッグ')}</dt><dd>${t('カメラ移動（移動では回転）')}</dd>
+          <dt>${t('ピンチ')}</dt><dd>${t('ズーム')}</dd>
+          <dt>${t('撤去ボタン')}</dt><dd>${t('遊歩道・施設・花畑・岩を撤去')}</dd>
         </dl>
         <dl class="help-keys">
-          <dt><kbd>1</kbd>〜<kbd>0</kbd> <kbd>-</kbd> <kbd>F</kbd> <kbd>R</kbd></dt><dd>道具の切り替え</dd>
-          <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>ブラシの大きさ</dd>
-          <dt><kbd>T</kbd></dt><dd>時間の速さ（ゆっくり・ふつう・はやい）</dd>
+          <dt><kbd>1</kbd>〜<kbd>0</kbd> <kbd>-</kbd> <kbd>F</kbd> <kbd>R</kbd></dt><dd>${t('道具の切り替え')}</dd>
+          <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>${t('ブラシの大きさ')}</dd>
+          <dt><kbd>T</kbd></dt><dd>${t('時間の速さ（ゆっくり・ふつう・はやい）')}</dd>
         </dl>
         <div class="help-more">
-          <button type="button" class="help-guide">はじめの案内をもう一度</button>
-          <button type="button" class="help-year" disabled>去年のまとめ</button>
+          <button type="button" class="help-guide">${t('はじめの案内をもう一度')}</button>
+          <button type="button" class="help-year" disabled>${t('去年のまとめ')}</button>
         </div>
         <div class="help-save">
-          <span>進捗はこのブラウザに自動で保存されます</span>
-          <button type="button" class="reset">最初からやり直す</button>
+          <span>${t('進捗はこのブラウザに自動で保存されます')}</span>
+          <button type="button" class="reset">${t('最初からやり直す')}</button>
         </div>
       </div>
     `;
@@ -396,7 +403,7 @@ export class Hud {
       b.type = 'button';
       b.className = 'size';
       b.dataset.radius = String(s.radius);
-      b.title = `半径 ${s.radius}`;
+      b.title = t('半径 {0}', s.radius);
       b.innerHTML = `<i style="--d:${6 + s.radius * 1.6}px"></i><span>${s.label}</span>`;
       b.addEventListener('click', () => this.setBrush(s.radius, true));
       sizes.appendChild(b);
@@ -423,9 +430,9 @@ export class Hud {
       li.innerHTML = `
         <span class="item-icon">${icons[ITEM_ICON[kind]]}</span>
         <span class="item-name">${info.name}<small data-price>${info.price}G</small></span>
-        <span class="item-wild" data-wild title="野外にいま居る数">0</span>
+        <span class="item-wild" data-wild title="${t('野外にいま居る数')}">0</span>
         <span class="item-count" data-count>0</span>
-        <button type="button" class="sell" title="${info.name}を売る">売る<small data-sell-price></small></button>`;
+        <button type="button" class="sell" title="${t('{0}を売る', info.name)}">${t('売る')}<small data-sell-price></small></button>`;
       li.querySelector('.sell')!.addEventListener('click', () => handlers.onSell(kind));
       list.appendChild(li);
       this.basketRows.set(kind, li);
@@ -452,13 +459,15 @@ export class Hud {
     this.nightToggle.addEventListener('click', () => handlers.onToggleNight());
     this.root.querySelector('.bear-focus')!.addEventListener('click', () => handlers.onFocusBear());
     this.root.querySelector('.reset')!.addEventListener('click', () => handlers.onReset());
+    const langSelect = this.root.querySelector<HTMLSelectElement>('.lang-select')!;
+    langSelect.addEventListener('change', () => changeLocale(langSelect.value as Locale));
 
     // 地図を広く見たいときは、数字やかごなどのパネルを隠す（道具とこのボタンは残す）
     const mapBtn = this.root.querySelector<HTMLButtonElement>('.map-btn')!;
     mapBtn.addEventListener('click', () => {
       const on = this.root.classList.toggle('map-mode');
       mapBtn.setAttribute('aria-pressed', String(on));
-      mapBtn.title = on ? 'パネルを表示' : 'パネルを隠す';
+      mapBtn.title = on ? t('パネルを表示') : t('パネルを隠す');
       mapBtn.innerHTML = on ? icons.shrink : icons.expand;
     });
 
@@ -480,40 +489,40 @@ export class Hud {
     this.lastInGroup.set(group.id, tool);
     for (const g of GROUPS) {
       const b = this.buttons.get(g.id)!;
-      const t = toolInfo(this.lastInGroup.get(g.id) ?? g.tools[0]);
+      const ti = toolInfo(this.lastInGroup.get(g.id) ?? g.tools[0]);
       const active = g === group;
       b.classList.toggle('active', active);
       b.setAttribute('aria-pressed', String(active));
-      b.title = g.tools.length > 1 ? `${g.label}：${g.tools.map((id) => toolInfo(id).label).join('・')}` : `${t.label}（${t.key}）`;
+      b.title = g.tools.length > 1 ? t('{0}：{1}', g.label, g.tools.map((id) => toolInfo(id).label).join(t('・'))) : t('{0}（{1}）', ti.label, ti.key);
       // まとまりのボタンには、いま選ばれている（押すと使う）道具を出す
       b.innerHTML = `
-        <kbd>${t.key}</kbd>
-        <span class="tool-icon">${icons[t.id]}</span>
-        <span class="tool-label">${g.tools.length > 1 ? g.label : t.label}</span>
-        <span class="tool-cost">${g.tools.length > 1 ? t.label : t.cost || '&nbsp;'}</span>`;
+        <kbd>${ti.key}</kbd>
+        <span class="tool-icon">${icons[ti.id]}</span>
+        <span class="tool-label">${g.tools.length > 1 ? g.label : ti.label}</span>
+        <span class="tool-cost">${g.tools.length > 1 ? ti.label : ti.cost || '&nbsp;'}</span>`;
     }
     // 複数の道具があるまとまりを選んだら、その中の道具をドックの上に並べる
     this.subtools.hidden = group.tools.length < 2;
     this.subtools.setAttribute('aria-label', group.label);
     this.subtools.innerHTML = '';
     for (const id of group.tools) {
-      const t = toolInfo(id);
+      const ti = toolInfo(id);
       const b = document.createElement('button');
       b.type = 'button';
       b.className = `subtool${id === tool ? ' active' : ''}`;
       b.setAttribute('aria-pressed', String(id === tool));
-      b.title = `${t.label}（${t.key}）`;
-      b.innerHTML = `${icons[id]}<span>${t.label}</span><small>${t.cost}</small>`;
+      b.title = t('{0}（{1}）', ti.label, ti.key);
+      b.innerHTML = `${icons[id]}<span>${ti.label}</span><small>${ti.cost}</small>`;
       b.addEventListener('click', () => this.handlers.onToolChange(id));
       this.subtools.appendChild(b);
     }
-    this.setHint(TOOLS.find((t) => t.id === tool)?.hint ?? '');
+    this.setHint(TOOLS.find((ti) => ti.id === tool)?.hint ?? '');
     this.root.querySelector('.sizes')!.classList.toggle('disabled', tool === 'pan');
     // 施設のときはブラシの代わりに建てる施設を選ぶ
     const building = tool === 'build';
     this.root.querySelector<HTMLElement>('.sizes-row')!.hidden = building;
     this.root.querySelector<HTMLElement>('.facility-row')!.hidden = !building;
-    this.root.querySelector<HTMLElement>('.sizes-label')!.textContent = building ? '建てる施設' : 'ブラシ';
+    this.root.querySelector<HTMLElement>('.sizes-label')!.textContent = building ? t('建てる施設') : t('ブラシ');
     const erasable = tool === 'path' || building || tool === 'flower' || tool === 'rock';
     this.pathErase.hidden = !erasable;
     if (tool !== this.tool) this.setPathErase(false);
@@ -533,15 +542,15 @@ export class Hud {
       b.classList.toggle('active', kind === selected && lock === undefined);
       b.classList.toggle('locked', lock !== undefined);
       b.setAttribute('aria-pressed', String(kind === selected));
-      b.title = lock !== undefined ? `${info.name}：★${lock}で解放` : `${info.name}（${info.cost.toLocaleString()}G）：${info.hint}`;
-      b.innerHTML = `${lock !== undefined ? icons.lock : icons[kind]}<span>${info.name}</span><small>${lock !== undefined ? `★${lock}で解放` : `${info.cost.toLocaleString()}G`}</small>`;
+      b.title = lock !== undefined ? t('{0}：★{1}で解放', info.name, lock) : t('{0}（{1}G）：{2}', info.name, info.cost.toLocaleString(), info.hint);
+      b.innerHTML = `${lock !== undefined ? icons.lock : icons[kind]}<span>${info.name}</span><small>${lock !== undefined ? t('★{0}で解放', lock) : `${info.cost.toLocaleString()}G`}</small>`;
     }
     if (this.tool === 'build') {
       const lock = lockedBy[selected];
       this.setHint(
         lock !== undefined
-          ? `${FACILITIES[selected].name}は園のランクが★${lock}になると建てられます`
-          : `${FACILITIES[selected].name}：${FACILITIES[selected].hint}`,
+          ? t('{0}は園のランクが★{1}になると建てられます', FACILITIES[selected].name, lock)
+          : t('{0}：{1}', FACILITIES[selected].name, FACILITIES[selected].hint),
       );
     }
   }
@@ -624,30 +633,30 @@ export class Hud {
     if (key === this.lastKey) return;
     this.lastKey = key;
 
-    this.values.day.textContent = `${d.day}日目`;
+    this.values.day.textContent = t('{0}日目', d.day);
     const alert = this.root.querySelector<HTMLElement>('.bear-alert')!;
     alert.hidden = d.bears === 0 && !d.bearSign;
     alert.classList.toggle('sign', d.bears === 0 && d.bearSign);
     alert.querySelector<HTMLElement>('.bear-alert-text')!.hidden = d.bears === 0;
     alert.querySelector<HTMLElement>('.bear-sign-text')!.hidden = d.bears > 0;
-    this.values.bears.textContent = `${d.bears}頭`;
+    this.values.bears.textContent = t('{0}頭', d.bears);
     this.set('money', d.money, d.money.toLocaleString(), 'G');
     const moneyChip = this.values.money.closest<HTMLElement>('.chip')!;
     moneyChip.classList.toggle('stressed', d.money < 0);
     moneyChip.title =
-      `毎日の出費の見込み 約${d.costs.total.toLocaleString()}G（案内係 ${d.costs.staff}人の人件費 ${d.costs.wages.toLocaleString()}G・池や道や施設の維持費 ${d.costs.upkeep.toLocaleString()}G）` +
-      (d.money < 0 ? '。赤字のあいだは維持費を後回しにします（園が少し荒れて客が 1割減ります）。集めて売って立て直しましょう' : '');
-    this.set('visitors', d.visitors, String(d.visitors), `人${d.nightOpen ? ` <small>+夜${d.nightVisitors}</small>` : ''}`);
+      t('毎日の出費の見込み 約{0}G（案内係 {1}人の人件費 {2}G・池や道や施設の維持費 {3}G）', d.costs.total.toLocaleString(), d.costs.staff, d.costs.wages.toLocaleString(), d.costs.upkeep.toLocaleString()) +
+      (d.money < 0 ? t('。赤字のあいだは維持費を後回しにします（園が少し荒れて客が 1割減ります）。集めて売って立て直しましょう') : '');
+    this.set('visitors', d.visitors, String(d.visitors), t('人') + (d.nightOpen ? ` <small>${t('+夜{0}', d.nightVisitors)}</small>` : ''));
     this.nightToggle.classList.toggle('active', d.nightOpen);
     this.nightToggle.setAttribute('aria-pressed', String(d.nightOpen));
     this.nightToggle.title = d.nightOpen
-      ? `夜間営業中：夜の部 ${d.nightVisitors}人、電気代 ${d.lightingCost}G/晩。夜はキツネが寄ってきて危険が増します（クリックでやめる）`
-      : `ライトアップして夜も営業する（電気代 ${d.lightingCost}G/晩）。客は増えますが、夜行性のキツネも寄ってきます`;
+      ? t('夜間営業中：夜の部 {0}人、電気代 {1}G/晩。夜はキツネが寄ってきて危険が増します（クリックでやめる）', d.nightVisitors, d.lightingCost)
+      : t('ライトアップして夜も営業する（電気代 {0}G/晩）。客は増えますが、夜行性のキツネも寄ってきます', d.lightingCost);
     const pct = Math.round(d.penalty * 100);
     const inc = Math.round(d.incidentPenalty * 100);
     const notes = [
-      inc >= 3 ? `<em class="penalty">事件 -${inc}%</em>` : '',
-      pct >= 3 ? `<em class="penalty">採りすぎ -${pct}%</em>` : '',
+      inc >= 3 ? `<em class="penalty">${t('事件 -{0}%', inc)}</em>` : '',
+      pct >= 3 ? `<em class="penalty">${t('採りすぎ -{0}%', pct)}</em>` : '',
     ].join('');
     this.set('appeal', d.appeal, String(d.appeal), notes);
     this.values.appeal.closest('.chip')!.classList.toggle('stressed', pct >= 3 || inc >= 3);
@@ -657,11 +666,11 @@ export class Hud {
       'safety',
       safe,
       String(safe),
-      `% <small>(${d.pathCells}マス)</small>${loose > 0 ? `<em class="penalty">未接続 ${loose}マス</em>` : ''}`,
+      `% <small>${t('({0}マス)', d.pathCells)}</small>${loose > 0 ? `<em class="penalty">${t('未接続 {0}マス', loose)}</em>` : ''}`,
     );
     this.values.safety.closest('.chip')!.classList.toggle('stressed', safe < 50);
-    this.set('water', d.waterCells, String(d.waterCells), 'マス');
-    this.set('trees', d.trees, String(d.trees), `本 <small>(${d.treesNearWater})</small>`);
+    this.set('water', d.waterCells, String(d.waterCells), t('マス'));
+    this.set('trees', d.trees, String(d.trees), `${t('本')} <small>(${d.treesNearWater})</small>`);
 
     for (const kind of ITEM_ORDER) {
       const row = this.basketRows.get(kind)!;
@@ -692,7 +701,7 @@ export class Hud {
     const total = d.market.valueOf(inv);
     this.sellAll.disabled = total === 0;
     this.basketSum.textContent = total > 0 ? `+${total.toLocaleString()}G` : '';
-    this.sellAll.innerHTML = total > 0 ? `まとめて売る <b>+${total.toLocaleString()}G</b>` : 'かごは空です';
+    this.sellAll.innerHTML = total > 0 ? `${t('まとめて売る')} <b>+${total.toLocaleString()}G</b>` : t('かごは空です');
   }
 
   /** 数値を書き換え、増減に応じてチップを一瞬光らせる */

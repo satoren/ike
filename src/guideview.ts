@@ -1,6 +1,7 @@
 import './guide.css';
 import { icons } from './icons';
 import type { GuideProgress, GuideTarget } from './guide';
+import { t } from './i18n';
 
 /** 案内が指す場所（道具のまとまり・かご・ランクの★） */
 const TARGETS: Record<GuideTarget, string> = {
@@ -37,7 +38,7 @@ export class GuideView {
     this.el = document.createElement('section');
     this.el.className = 'guide card';
     this.el.hidden = true;
-    this.el.setAttribute('aria-label', 'はじめの案内');
+    this.el.setAttribute('aria-label', t('はじめの案内'));
     this.el.innerHTML = `
       <span class="guide-step"></span>
       <div class="guide-body">
@@ -45,7 +46,7 @@ export class GuideView {
         <p class="guide-how"></p>
         <span class="guide-bar"><i></i></span>
       </div>
-      <button type="button" class="guide-skip" aria-label="案内をやめる" title="案内をやめる">${icons.close}</button>`;
+      <button type="button" class="guide-skip" aria-label="${t('案内をやめる')}" title="${t('案内をやめる')}">${icons.close}</button>`;
     this.step = this.el.querySelector('.guide-step')!;
     this.title = this.el.querySelector('.guide-title')!;
     this.count = this.el.querySelector('.guide-count')!;
@@ -80,7 +81,7 @@ export class GuideView {
       window.clearTimeout(this.foldTimer);
       this.foldTimer = window.setTimeout(() => this.el.classList.remove('open'), FOLD_AFTER_MS);
     }
-    this.step.innerHTML = `<span class="guide-step-word">案内 </span>${p.index}/${p.total}`;
+    this.step.innerHTML = `<span class="guide-step-word">${t('案内')} </span>${p.index}/${p.total}`;
     this.title.textContent = p.step.title;
     this.count.textContent = p.text;
     this.how.textContent = p.step.how;

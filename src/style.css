@@ -903,6 +903,30 @@ kbd {
   margin-bottom: 8px;
 }
 
+/* 言語の切り替え（遊び方の先頭に置く） */
+.help-lang {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--leaf-tint);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--leaf-deep);
+}
+
+.help-lang select {
+  font: inherit;
+  padding: 3px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fffdf7;
+  color: var(--ink);
+}
+
 /* 遊び方の本文：話題ごとに見出しと短い段落に分ける */
 .help-text {
   font-size: 13px;

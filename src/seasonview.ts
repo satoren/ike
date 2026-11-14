@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import './seasons.css';
 import type { Heightmap } from './heightmap';
 import { DAYS_PER_SEASON, SEASONS, WEATHER, bonusLabel, type Calendar, type Season, type Weather } from './seasons';
+import { t } from './i18n';
 
 /** 季節ごとの見た目 */
 const LOOK: Record<Season, { foliage: string; foliageAmount: number; ground: string; groundAmount: number }> = {
@@ -363,10 +364,10 @@ const SEASON_ICON: Record<Season, string> = {
 };
 
 const SEASON_HINT: Record<Season, string> = {
-  spring: '桜の季節。木、とくに水辺の木が多いほど花見客が来ます',
-  summer: '晴れが続くと池の水位が下がり、浅瀬のカモや魚が居られなくなります',
-  autumn: '木の実がよく実り、渡り鳥のカモが増えます。紅葉目当ての客も来ます',
-  winter: '池が凍ってスケート場に。池が広いほど客が来ます。カモは去り、ウサギは減り、クマは冬眠します',
+  spring: t('桜の季節。木、とくに水辺の木が多いほど花見客が来ます'),
+  summer: t('晴れが続くと池の水位が下がり、浅瀬のカモや魚が居られなくなります'),
+  autumn: t('木の実がよく実り、渡り鳥のカモが増えます。紅葉目当ての客も来ます'),
+  winter: t('池が凍ってスケート場に。池が広いほど客が来ます。カモは去り、ウサギは減り、クマは冬眠します'),
 };
 
 /** 上部の「池づくり」の横に季節と天気を出す */
@@ -387,10 +388,10 @@ export class SeasonBadge {
     const label = bonusLabel(cal.season);
     this.el.dataset.season = cal.season;
     this.el.title =
-      `${cal.year}年目の${SEASONS[cal.season].name}（${cal.dayInSeason}/${DAYS_PER_SEASON}日）\n` +
+      t('{0}年目の{1}（{2}/{3}日）\n', cal.year, SEASONS[cal.season].name, cal.dayInSeason, DAYS_PER_SEASON) +
       SEASON_HINT[cal.season] +
-      (label ? `\n${label}の魅力 +${bonus}` : '') +
-      `\n${WEATHER[weather].name}：来園者 ×${WEATHER[weather].visitorMul}`;
+      (label ? t('\n{0}の魅力 +{1}', label, bonus) : '') +
+      t('\n{0}：来園者 ×{1}', WEATHER[weather].name, WEATHER[weather].visitorMul);
     this.el.innerHTML = `
       <span class="season-name">${SEASON_ICON[cal.season]}${SEASONS[cal.season].name}</span>
       <span class="season-weather" data-weather="${weather}" aria-label="${WEATHER[weather].name}">${WEATHER_ICON[weather]}</span>

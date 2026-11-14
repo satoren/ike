@@ -1,4 +1,5 @@
 import { ITEMS, type Inventory, type ItemKind } from './ecology';
+import { t } from './i18n';
 
 /**
  * 日替わりのお願い（描画から独立）。
@@ -69,18 +70,18 @@ export interface Request {
 }
 
 const CLIENT: Record<RequestKind, string> = {
-  deliver: '料理店',
-  watch: '写真家',
-  plant: '町内会',
-  dig: '釣り好きの会',
-  safety: '小学校',
-  noHarvest: '自然保護の会',
-  noIncident: '旅行会社',
+  deliver: t('料理店'),
+  watch: t('写真家'),
+  plant: t('町内会'),
+  dig: t('釣り好きの会'),
+  safety: t('小学校'),
+  noHarvest: t('自然保護の会'),
+  noIncident: t('旅行会社'),
 };
 
 const DELIVER_CLIENT: Partial<Record<ItemKind, string>> = {
-  fruit: 'ジャム工房',
-  rabbit: 'ふれあい牧場',
+  fruit: t('ジャム工房'),
+  rabbit: t('ふれあい牧場'),
 };
 
 /** 期限まで「起こさない」ことを守るお願い（期限が来たら達成） */
@@ -97,45 +98,45 @@ export function describe(r: Request): { title: string; detail: string; short: st
   switch (r.kind) {
     case 'deliver':
       return {
-        title: `${r.name}を ${r.target}${r.counter} 届けてほしい`,
-        detail: '「集める」でかごに入れてから「届ける」を押します。採りすぎると魅力が下がるので、ほどほどに',
-        short: `${r.name}を届ける`,
+        title: t('{0}を {1}{2} 届けてほしい', r.name, r.target, r.counter),
+        detail: t('「集める」でかごに入れてから「届ける」を押します。採りすぎると魅力が下がるので、ほどほどに'),
+        short: t('{0}を届ける', r.name),
       };
     case 'watch':
       return {
-        title: `${r.name}が ${r.target}${r.counter} いるところを撮りたい`,
-        detail: '図鑑に、その生き物が増える条件が載っています',
-        short: `${r.name}を増やす`,
+        title: t('{0}が {1}{2} いるところを撮りたい', r.name, r.target, r.counter),
+        detail: t('図鑑に、その生き物が増える条件が載っています'),
+        short: t('{0}を増やす', r.name),
       };
     case 'plant':
       return {
-        title: `水辺の木を ${r.target}本 増やしてほしい`,
-        detail: '池のすぐそばに木を植えます。育つ前の若木も数えます',
-        short: '水辺に木を植える',
+        title: t('水辺の木を {0}本 増やしてほしい', r.target),
+        detail: t('池のすぐそばに木を植えます。育つ前の若木も数えます'),
+        short: t('水辺に木を植える'),
       };
     case 'dig':
       return {
-        title: `池を ${r.target}マス 広げてほしい`,
-        detail: '「掘る」で水位より深く掘ると池になります',
-        short: '池を広げる',
+        title: t('池を {0}マス 広げてほしい', r.target),
+        detail: t('「掘る」で水位より深く掘ると池になります'),
+        short: t('池を広げる'),
       };
     case 'safety':
       return {
-        title: '遠足で行くので、客の安全を 100% にしてほしい',
-        detail: '出入口につながった遊歩道を、来園者の数に見合うだけ敷きます',
-        short: '客の安全',
+        title: t('遠足で行くので、客の安全を 100% にしてほしい'),
+        detail: t('出入口につながった遊歩道を、来園者の数に見合うだけ敷きます'),
+        short: t('客の安全'),
       };
     case 'noHarvest':
       return {
-        title: '調査をするので、期限まで何も採らないでほしい',
-        detail: '木の実も生き物も「集める」で採らずにいれば達成です',
-        short: '何も採らない',
+        title: t('調査をするので、期限まで何も採らないでほしい'),
+        detail: t('木の実も生き物も「集める」で採らずにいれば達成です'),
+        short: t('何も採らない'),
       };
     case 'noIncident':
       return {
-        title: '団体客を連れて行くので、期限まで襲撃事件を起こさないでほしい',
-        detail: 'キツネやクマを罠や銃で減らすか、遊歩道を広げて客を守ります',
-        short: '事件を起こさない',
+        title: t('団体客を連れて行くので、期限まで襲撃事件を起こさないでほしい'),
+        detail: t('キツネやクマを罠や銃で減らすか、遊歩道を広げて客を守ります'),
+        short: t('事件を起こさない'),
       };
   }
 }
@@ -163,9 +164,9 @@ export function progressOf(r: Request, now: ParkNow): RequestProgress {
     case 'watch':
       return of(now.watchable.find((w) => w.id === r.subject)?.count ?? 0, r.target, r.counter);
     case 'plant':
-      return of(now.treesNearWater - r.base, r.target, '本');
+      return of(now.treesNearWater - r.base, r.target, t('本'));
     case 'dig':
-      return of(now.waterCells - r.base, r.target, 'マス');
+      return of(now.waterCells - r.base, r.target, t('マス'));
     case 'safety': {
       const pct = Math.floor(now.safety * 100 + 1e-6);
       return { ratio: now.safety, text: `${pct}% / 100%`, brief: `${pct}%`, ready: pct >= 100 };
@@ -175,7 +176,7 @@ export function progressOf(r: Request, now: ParkNow): RequestProgress {
       const span = r.dueDay + 1 - r.issuedAt;
       return {
         ratio: Math.max(0, Math.min(1, (now.time - r.issuedAt) / span)),
-        text: 'ここまで守れています',
+        text: t('ここまで守れています'),
         brief: dueText(r, Math.floor(now.time)),
         ready: false,
       };
@@ -186,7 +187,7 @@ export function progressOf(r: Request, now: ParkNow): RequestProgress {
 /** 期限の言い方 */
 export function dueText(r: Request, day: number): string {
   const left = r.dueDay - day;
-  return left <= 0 ? '今日中' : left === 1 ? '明日まで' : `あと ${left + 1}日`;
+  return left <= 0 ? t('今日中') : left === 1 ? t('明日まで') : t('あと {0}日', left + 1);
 }
 
 const round10 = (v: number) => Math.round(v / 10) * 10;
@@ -198,10 +199,10 @@ function rewardFor(now: ParkNow, share: number, min: number): number {
 
 /** 届けてもらう品物ごとの、数の幅と、野外に残しておきたい数 */
 const DELIVERY: { item: ItemKind; counter: string; n: [number, number]; spare: number }[] = [
-  { item: 'fish', counter: '匹', n: [3, 5], spare: 3 },
-  { item: 'duck', counter: '羽', n: [2, 3], spare: 2 },
-  { item: 'rabbit', counter: '匹', n: [3, 4], spare: 3 },
-  { item: 'fruit', counter: '個', n: [20, 40], spare: 20 },
+  { item: 'fish', counter: t('匹'), n: [3, 5], spare: 3 },
+  { item: 'duck', counter: t('羽'), n: [2, 3], spare: 2 },
+  { item: 'rabbit', counter: t('匹'), n: [3, 4], spare: 3 },
+  { item: 'fruit', counter: t('個'), n: [20, 40], spare: 20 },
 ];
 
 /** いまの園で頼めるお願いの候補をすべて作る */
@@ -359,12 +360,12 @@ export class Requests {
 
   /** 何かを採ったとき */
   noteHarvest(): RequestEvent | null {
-    return this.state.active?.kind === 'noHarvest' ? this.finish('failed', '採ってしまいました') : null;
+    return this.state.active?.kind === 'noHarvest' ? this.finish('failed', t('採ってしまいました')) : null;
   }
 
   /** 来園者が襲われたとき */
   noteIncident(): RequestEvent | null {
-    return this.state.active?.kind === 'noIncident' ? this.finish('failed', '襲撃事件が起きました') : null;
+    return this.state.active?.kind === 'noIncident' ? this.finish('failed', t('襲撃事件が起きました')) : null;
   }
 
   /** お願いを見送る */
