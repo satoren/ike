@@ -586,15 +586,17 @@ export class Hud {
     const lastToast = this.toasts.lastElementChild as HTMLElement | null;
     if (lastToast && lastToast.textContent === message && !lastToast.classList.contains('out')) {
       window.clearTimeout(Number(lastToast.dataset.timer));
-      lastToast.dataset.timer = String(window.setTimeout(() => this.dismiss(lastToast), 2200));
+      lastToast.dataset.timer = String(window.setTimeout(() => this.dismiss(lastToast), toastMs(message)));
       return;
     }
     const el = document.createElement('div');
     el.className = `toast ${kind}`;
     el.textContent = message;
     this.toasts.appendChild(el);
-    while (this.toasts.children.length > 3) this.toasts.firstElementChild!.remove();
-    el.dataset.timer = String(window.setTimeout(() => this.dismiss(el), 2200));
+    // 狭い画面では重なって読めなくならないよう、並べるのは 2つまで
+    const max = window.matchMedia(COMPACT_QUERY).matches ? 2 : 3;
+    while (this.toasts.children.length > max) this.toasts.firstElementChild!.remove();
+    el.dataset.timer = String(window.setTimeout(() => this.dismiss(el), toastMs(message)));
   }
 
   private dismiss(el: HTMLElement): void {
@@ -694,6 +696,11 @@ export class Hud {
     void chipEl.offsetWidth; // アニメーションをやり直すためのリフロー
     chipEl.classList.add(value > prev ? 'up' : 'down');
   }
+}
+
+/** 通知を出しておく時間。長い文は読み切れるよう長めに */
+function toastMs(message: string): number {
+  return Math.min(6000, 2200 + message.length * 60);
 }
 
 function chip(name: ChipName, icon: keyof typeof icons, label: string): string {
