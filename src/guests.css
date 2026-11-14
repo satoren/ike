@@ -1,0 +1,222 @@
+/* ---------- 来園者のタイプ ---------- */
+.chip-button {
+  cursor: pointer;
+  pointer-events: auto;
+}
+.chip-button:hover,
+.chip-button[aria-expanded='true'] {
+  box-shadow: 0 0 0 2px var(--leaf), var(--shadow);
+}
+
+.guest-panel {
+  position: absolute;
+  top: 92px;
+  right: calc(16px + var(--sa-r, 0px));
+  z-index: 5;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding: 12px 14px;
+  pointer-events: auto;
+}
+.guest-panel[hidden] {
+  display: none;
+}
+.guest-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.guest-head b {
+  flex: 1;
+  font-size: 15px;
+}
+.guest-head-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f6e1dc;
+  color: #b4532a;
+}
+.guest-head-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.guest-close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-soft);
+}
+.guest-close:hover {
+  background: var(--line);
+}
+.guest-close svg {
+  width: 15px;
+  height: 15px;
+}
+.guest-sub {
+  margin: 6px 0 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+.guest-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.guest {
+  display: grid;
+  grid-template-columns: 12px 1fr auto auto;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 3px;
+  padding: 8px 2px;
+  border-top: 1px solid var(--line);
+}
+.guest-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--guest);
+}
+.guest-family {
+  --guest: #e0825f;
+}
+.guest-walker {
+  --guest: #5fa56a;
+}
+.guest-angler {
+  --guest: #4a8fb8;
+}
+.guest-photographer {
+  --guest: #9474c4;
+}
+.guest-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13.5px;
+}
+.guest-name small {
+  font-size: 10.5px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.guest-count {
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.guest-focus {
+  min-width: 74px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: var(--line);
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.guest-focus:hover {
+  background: var(--leaf-tint);
+}
+.guest-focus[aria-pressed='true'] {
+  background: var(--leaf);
+  color: #fff;
+}
+.guest-meter {
+  grid-column: 2 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.guest-bar {
+  flex: 1;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.guest-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--guest);
+  transition: width 0.3s ease-out;
+}
+.guest-pct {
+  flex-shrink: 0;
+  min-width: 62px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.guest-lack {
+  grid-column: 2 / -1;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+.guest-lack.ok {
+  color: var(--leaf-deep);
+  font-weight: 700;
+}
+.guest-foot {
+  margin: 6px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+/* 口コミに、書いた人のタイプを出す */
+.review-by {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+/* 狭い画面では、図鑑と同じく上の数字に重ねて、道具の上までいっぱいに出す */
+@media (max-width: 640px) {
+  #hud .guest-panel {
+    top: calc(64px + var(--sa-t, 0px)) !important;
+    bottom: calc(var(--dock-top, 196px) + 8px);
+    right: calc(10px + var(--sa-r, 0px));
+    left: calc(10px + var(--sa-l, 0px));
+    width: auto;
+    max-width: none;
+    max-height: none;
+    padding: 10px 12px;
+  }
+  .guest-sub {
+    margin: 4px 0 6px;
+    font-size: 11.5px;
+  }
+  .guest {
+    padding: 4px 2px;
+    row-gap: 1px;
+  }
+}
+
+/* 横持ちのスマホ：高さが足りないので、画面の上下いっぱいに出す */
+@media (max-height: 500px) and (min-width: 641px) {
+  #hud .guest-panel {
+    top: calc(8px + var(--sa-t, 0px)) !important;
+    bottom: calc(8px + var(--sa-b, 0px));
+    max-height: none;
+  }
+}
+
+#hud.map-mode .guest-panel {
+  display: none;
+}

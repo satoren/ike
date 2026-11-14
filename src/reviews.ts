@@ -1,4 +1,5 @@
 import type { ItemKind } from './ecology';
+import type { GuestKind } from './guests';
 
 /**
  * 客の口コミ。来園者がひとこと感想を残し、それを読めば魅力が上がった／下がった理由がわかる。
@@ -37,8 +38,20 @@ export const FACTOR_LABEL: Record<ReviewFactor, string> = {
   scenery: '景色',
 };
 
+/** その話題を口にしそうな来園者のタイプ（口コミに書いた人として出す） */
+export const FACTOR_GUESTS: Record<ReviewFactor, readonly GuestKind[]> = {
+  incident: ['family'],
+  danger: ['family', 'walker'],
+  safety: ['family', 'walker'],
+  wildlife: ['photographer', 'family'],
+  harvest: ['angler', 'photographer'],
+  scenery: ['walker', 'photographer'],
+};
+
 export interface Review {
   text: string;
+  /** 書いた人のタイプ */
+  by: GuestKind;
   /** 1〜5 */
   stars: number;
   factor: ReviewFactor;
@@ -207,7 +220,9 @@ export function writeReview(c: ReviewContext, day: number, rand: () => number = 
   const text = topic.lines[Math.floor(rand() * topic.lines.length)];
   const severe = topic.factor === 'incident';
   const stars = topic.good ? 4 + (rand() < 0.5 ? 1 : 0) : severe ? 1 : 1 + (rand() < 0.6 ? 1 : 0);
-  return { text, stars, factor: topic.factor, good: topic.good, day };
+  const writers = FACTOR_GUESTS[topic.factor];
+  const by = writers[Math.min(writers.length - 1, Math.floor(rand() * writers.length))];
+  return { text, by, stars, factor: topic.factor, good: topic.good, day };
 }
 
 /** 口コミの頻度など */

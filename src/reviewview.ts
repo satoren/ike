@@ -1,6 +1,7 @@
 import './reviews.css';
 import { icons } from './icons';
 import { FACTOR_LABEL, type Review, type ReviewFeed } from './reviews';
+import { GUESTS } from './guests';
 import { COMPACT_QUERY } from './ui';
 
 const SHOWN = 4;
@@ -52,6 +53,7 @@ export class ReviewPanel {
         <span class="review-meta">
           <span class="stars" aria-label="5段階で${r.stars}">${'★'.repeat(r.stars)}<i>${'★'.repeat(5 - r.stars)}</i></span>
           <span class="review-factor">${FACTOR_LABEL[r.factor]}${r.good ? '＋' : '−'}</span>
+          <span class="review-by">${GUESTS[r.by].name}</span>
           <span class="review-day">${r.day}日目</span>
         </span>
         <span class="review-text"></span>`;
