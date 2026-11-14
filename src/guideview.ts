@@ -55,7 +55,10 @@ export class GuideView {
     // 狭い画面ではやり方の説明を畳んでおき、案内を押すと開く（地図を広く使うため）
     this.el.querySelector('.guide-body')!.addEventListener('click', () => {
       window.clearTimeout(this.foldTimer);
-      this.el.classList.toggle('open');
+      // 見えている説明を畳むか、見えていなければ開いたままにする
+      const show = getComputedStyle(this.how).display === 'none';
+      this.el.classList.remove('open');
+      this.el.classList.toggle('pinned', show);
     });
     // 通知（.toasts）より前に置き、案内が出ているあいだは通知を下へずらす
     root.insertBefore(this.el, root.querySelector('.toasts'));

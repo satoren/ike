@@ -115,7 +115,7 @@ scene.background = new THREE.Color('#a9cfe3');
 scene.fog = new THREE.Fog('#a9cfe3', 120, 260);
 
 // 見下ろし型のカメラ。斜め上から見て、右ドラッグで移動・中ドラッグで回転・ホイールで拡大縮小
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 500);
+const camera = new THREE.PerspectiveCamera(fitFov(window.innerWidth / window.innerHeight), window.innerWidth / window.innerHeight, 0.1, 500);
 camera.position.set(0, 42, 88);
 
 const controls = new MapControls(camera, renderer.domElement);
@@ -1875,6 +1875,7 @@ requestAnimationFrame(frame);
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
+  camera.fov = fitFov(camera.aspect);
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight, false);
 });
@@ -1889,3 +1890,13 @@ function resetPageScroll(): void {
 }
 window.addEventListener('scroll', resetPageScroll);
 document.addEventListener('focusout', () => setTimeout(resetPageScroll, 100));
+
+/**
+ * 縦の視野角。縦長の画面（iPhone の縦持ち）では横がとても狭くなるので、
+ * 横の視野が一定より狭くならないよう縦の視野を広げる（広げすぎると歪むので上限あり）
+ */
+function fitFov(aspect: number): number {
+  const minHorizontal = THREE.MathUtils.degToRad(42);
+  const fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(minHorizontal / 2) / aspect));
+  return THREE.MathUtils.clamp(fov, 45, 72);
+}
