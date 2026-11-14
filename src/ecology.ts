@@ -360,7 +360,7 @@ export const PRESSURE = {
   /** 魅力が最大で何割まで下がるか */
   maxPenalty: 0.7,
   /** この値で魅力が半分の下がり幅（maxPenalty / 2）になる */
-  half: 60,
+  half: 150,
 } as const;
 
 export function addPressure(current: number, kind: ItemKind, n: number): number {

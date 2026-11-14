@@ -56,6 +56,8 @@ export type Trend = 'hot' | 'cheap' | 'glut' | 'flat';
 
 export class Market {
   state: MarketState;
+  /** 園の評判による上乗せ（★が上がると「名所の産物」として高く売れる）。保存せず、毎フレーム決め直す */
+  premium = 1;
 
   constructor(rand: () => number = Math.random) {
     this.state = Market.fresh(rand);
@@ -74,13 +76,13 @@ export class Market {
 
   /** いま 1個売ったときの値段 */
   price(kind: ItemKind): number {
-    return Math.max(1, Math.round(ITEMS[kind].price * this.state.rate[kind] * Market.glut(kind, this.state.sold[kind])));
+    return Math.max(1, Math.round(ITEMS[kind].price * this.premium * this.state.rate[kind] * Market.glut(kind, this.state.sold[kind])));
   }
 
   /** n 個まとめて売ったときの合計（売るほど 1個ごとに値が下がる） */
   quote(kind: ItemKind, n: number): number {
     let total = 0;
-    const base = ITEMS[kind].price * this.state.rate[kind];
+    const base = ITEMS[kind].price * this.premium * this.state.rate[kind];
     for (let i = 0; i < n; i++) total += base * Market.glut(kind, this.state.sold[kind] + i);
     return Math.round(total);
   }

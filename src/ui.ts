@@ -7,6 +7,7 @@ import { SHOT_COST, TRAP_COST } from './bears';
 import { WEED } from './foodweb';
 import { FACILITIES, FACILITY_ORDER, type FacilityKind } from './facilities';
 import { DECOR } from './decor';
+import type { DailyCosts } from './upkeep';
 
 export type Tool =
   | 'pan'
@@ -179,6 +180,8 @@ export interface HudData {
   nightVisitors: number;
   /** 一晩の電気代 */
   lightingCost: number;
+  /** いまの来園者で見積もった、きょうの人件費と維持費 */
+  costs: DailyCosts;
 }
 
 type ToastKind = 'info' | 'good' | 'bad';
@@ -309,6 +312,9 @@ export class Hud {
           <p>獣道に先回りして罠を仕掛けるか、銃で狩りましょう。クマの近くには罠を置けません。遊歩道のすぐ脇の罠には来園者がかかってしまいます。</p>
           <p>夜には密猟者が忍び込んで魚や動物を盗んでいきます。紫の目印の人を「集める」でなぞると捕まえられ、報奨金がもらえます。来園者に見つかると逃げ出すので、遊歩道を広く巡らせておくと被害を減らせます。</p>
           <p>かごの下の「駆除係」で係を雇うと、日給と引き換えに園内を巡回し、クマを撃ち、キツネや密猟者を捕まえてくれます（給料が払えないと辞めてしまいます）。</p>
+          <h3>毎日の出費と赤字</h3>
+          <p>来園者 40人ごとに案内係の人件費がかかり、池・遊歩道・木・施設には維持費がかかります。★が上がると入園料も係の日給も上がります。入園料の 4分の3ほどは人件費に消えるので、ほどほどに採って売る稼ぎが大切です。★が上がると、採れたものは「名所の産物」として高く売れます。</p>
+          <p>上の「資金」にさわると、毎日の出費の見込みが見られます。お金が足りない日は維持費を後回しにします（園が少し荒れて、客が 1割減ります）。赤字でも、集める・売る・撤去・クマを撃つ・夜間営業をやめることはできるので、売って立て直しましょう。</p>
           <h3>夜間営業</h3>
           <p>左上の「夜間営業」で遊歩道をライトアップすると、夜も客が来て入園料が増えます。ただし電気代がかかり、夜行性のキツネが寄ってきて遊歩道の外が危険になります。</p>
           <h3>図鑑と珍しい生き物</h3>
@@ -611,7 +617,7 @@ export class Hud {
     const inv = d.inventory;
     const key = [
       d.money, d.day, d.visitors, d.appeal, Math.round(d.penalty * 100), Math.round(d.incidentPenalty * 100), Math.round(d.safety * 100), d.pathCells, d.pathCellsTotal, d.waterCells, d.trees, d.treesNearWater,
-      ...ITEM_ORDER.map((k) => `${inv[k]}/${d.wild[k]}`), d.bears, d.bearSign, d.traps, d.nightOpen, d.nightVisitors, d.lightingCost,
+      ...ITEM_ORDER.map((k) => `${inv[k]}/${d.wild[k]}`), d.bears, d.bearSign, d.traps, d.nightOpen, d.nightVisitors, d.lightingCost, d.costs.total,
     ].join('|');
     if (key === this.lastKey) return;
     this.lastKey = key;
@@ -624,6 +630,11 @@ export class Hud {
     alert.querySelector<HTMLElement>('.bear-sign-text')!.hidden = d.bears > 0;
     this.values.bears.textContent = `${d.bears}頭`;
     this.set('money', d.money, d.money.toLocaleString(), 'G');
+    const moneyChip = this.values.money.closest<HTMLElement>('.chip')!;
+    moneyChip.classList.toggle('stressed', d.money < 0);
+    moneyChip.title =
+      `毎日の出費の見込み 約${d.costs.total.toLocaleString()}G（案内係 ${d.costs.staff}人の人件費 ${d.costs.wages.toLocaleString()}G・池や道や施設の維持費 ${d.costs.upkeep.toLocaleString()}G）` +
+      (d.money < 0 ? '。赤字のあいだは維持費を後回しにします（園が少し荒れて客が 1割減ります）。集めて売って立て直しましょう' : '');
     this.set('visitors', d.visitors, String(d.visitors), `人${d.nightOpen ? ` <small>+夜${d.nightVisitors}</small>` : ''}`);
     this.nightToggle.classList.toggle('active', d.nightOpen);
     this.nightToggle.setAttribute('aria-pressed', String(d.nightOpen));
