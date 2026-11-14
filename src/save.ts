@@ -6,6 +6,8 @@ import type { RareState } from './rare';
 import type { Bird, Weed } from './foodweb';
 import type { Poacher } from './poachers';
 import type { MarketState } from './market';
+import type { GuideState } from './guide';
+import type { YearbookState } from './yearbook';
 import type { Facility } from './facilities';
 import type { ProgressState } from './progress';
 import type { Ranger } from './rangers';
@@ -56,6 +58,10 @@ export interface SaveData {
   requests?: RequestsState;
   /** 相場（古い保存データには無い） */
   market?: MarketState;
+  /** はじめの案内（古い保存データには無い。無ければ案内は出さない） */
+  guide?: GuideState;
+  /** 1年のまとめ（古い保存データには無い） */
+  yearbook?: YearbookState;
   state: {
     money: number;
     day: number;
