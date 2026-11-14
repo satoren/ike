@@ -377,6 +377,11 @@ export class Hud {
       this.root.style.setProperty('--dock-top', `${Math.round(window.innerHeight - dockWrap.getBoundingClientRect().top)}px`);
     new ResizeObserver(syncDockTop).observe(dockWrap);
     window.addEventListener('resize', syncDockTop);
+    // 上の数字のバーの下端も渡す（案内や警報をそのすぐ下に出す）
+    const topbar = this.root.querySelector<HTMLElement>('.topbar')!;
+    const syncTopBottom = () => this.root.style.setProperty('--top-bottom', `${Math.round(topbar.getBoundingClientRect().bottom)}px`);
+    new ResizeObserver(syncTopBottom).observe(topbar);
+    window.addEventListener('resize', syncTopBottom);
 
     // ブラシの大きさ
     const sizes = this.root.querySelector('.sizes-row')!;
