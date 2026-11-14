@@ -11,6 +11,9 @@ const G = (n: number) => `${n.toLocaleString()}G`;
 export class YearPanel {
   private readonly panel: HTMLElement;
   private readonly body: HTMLElement;
+  private readonly extra: HTMLElement;
+  /** まとめを出すたびに、下の欄（ランキングに載せるなど）を作る */
+  onShow: ((y: YearSummary, slot: HTMLElement) => void) | null = null;
 
   constructor(root: HTMLElement) {
     this.panel = document.createElement('section');
@@ -21,8 +24,10 @@ export class YearPanel {
     this.panel.innerHTML = `
       <button type="button" class="year-close" aria-label="${t('閉じる')}">${icons.close}</button>
       <div class="year-body"></div>
+      <div class="year-extra"></div>
       <button type="button" class="year-ok">${t('つぎの年へ')}</button>`;
     this.body = this.panel.querySelector('.year-body')!;
+    this.extra = this.panel.querySelector('.year-extra')!;
     for (const b of this.panel.querySelectorAll('.year-close, .year-ok')) b.addEventListener('click', () => this.close());
     root.appendChild(this.panel);
   }
@@ -56,6 +61,8 @@ export class YearPanel {
         ${y.bears > 0 ? row(t('仕留めたクマ'), t('{0}頭', y.bears)) : ''}
       </ul>`;
     this.body.querySelector('.year-comment')!.textContent = y.comment;
+    this.extra.replaceChildren();
+    this.onShow?.(y, this.extra);
     this.panel.hidden = false;
   }
 }

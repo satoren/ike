@@ -52,6 +52,24 @@ Cloudflare の **Workers Builds**（GitHub 連携）で、main に push する�
 - `POST /api/backlog` … 新しい項目 `{ title, kind, day, count, samples[], note }`
 - `PATCH /api/backlog/:id` … 足す・変える `{ add_count, day, samples[], status, pr, note, title }`
 
+## 1年のランキング（ログイン不要）
+
+ゲームの「1年のまとめ」から、ニックネームを付けて成績を載せられます。部門は **来園者**・**収入**・**安心な園**（事件ゼロの年の来園者）。
+プレイヤーはブラウザごとの見えない番号で区別し、いちばん良かった年が載ります。表 `scores` は Worker が初めて使うときに自分で作ります（`schema.sql` にも同じものがあります）。
+
+- `GET /scores?player=…` … 3 部門の上位 20 人と、その人の順位（だれでも見られる。他人の番号は返さない）
+- `POST /scores` … 成績を載せる `{ player, run, name, year: { year, days, visitors, bestDay, tickets, shop, sales, rewards, found, requests, incidents, bears, rankStart, rankEnd } }`
+- `GET /api/scores` … 届いた成績の一覧（合言葉が要る）。管理ページの「ランキング」タブ
+- `PATCH /api/scores/:id` … `{ hidden: true }` でランキングから外す
+
+守り（ゲームはブラウザで動くので改ざんは防ぎきれない。現実的な線で絞る）:
+
+- 1年（20日）を通して数えた年だけ。収入の合計はサーバーで足し直す
+- ありえない数字をはじく：いちばん多い日 ≤ 合計 ≤ いちばん多い日 × 20、入園料 ≤ 来園者 × 40G、売店 ≤ 来園者 × 2G、図鑑 ≤ 15 など（`scores.js` の `LIMITS`）
+- 同じ IP から 10 分に 10 件まで
+- 名前は 12 文字まで。NG ワード・URL っぽいもの・`<>` ははじく。管理ページから 1 件ずつ隠せる
+- プレビュー版（`[previews.vars]` の `RANKING_ENV = "preview"`）から届いた成績は本番のランキングに混ぜない
+
 ## 守り
 
 - `ALLOWED_ORIGINS` 以外のページからの投稿は断る

@@ -49,7 +49,7 @@ export const ADMIN_HTML = `<!doctype html>
     <button class="on" data-t>見る</button> <span class="err" id="loginErr"></span>
   </form>
   <div id="app" hidden>
-    <div class="tabs"><button id="tabDays" class="on" data-t>日ごとのまとめ</button><button id="tabBacklog" data-t>改善リスト</button></div>
+    <div class="tabs"><button id="tabDays" class="on" data-t>日ごとのまとめ</button><button id="tabBacklog" data-t>改善リスト</button><button id="tabScores" data-t>ランキング</button></div>
     <div id="daysPane">
       <div class="card"><div class="days" id="days"></div></div>
       <div id="view"></div>
@@ -57,6 +57,10 @@ export const ADMIN_HTML = `<!doctype html>
     <div id="backlogPane" hidden>
       <div class="card"><div class="days" id="statuses"></div></div>
       <div id="backlog"></div>
+    </div>
+    <div id="scoresPane" hidden>
+      <p class="muted" data-t>届いた成績（新しい順）。荒らしの名前やおかしな成績は「隠す」でランキングから外せます。</p>
+      <div id="scores"></div>
     </div>
   </div>
 </main>
@@ -72,6 +76,9 @@ const EN = navigator.language && !navigator.language.startsWith('ja') ? {
   '今日': 'Today', '合言葉が違います': 'Wrong passphrase',
   'まだ項目はありません。毎日のルーチンがまとめを読んで足していきます': 'No items yet. The daily routine adds them from the digests',
   '投稿の例 ': 'Sample posts ', '変えられませんでした': "Couldn't update",
+  'ランキング': 'Ranking', 'まだ成績は届いていません': 'No scores yet', '{0}年目': 'Year {0}', '隠し中': 'Hidden', '隠す': 'Hide', '戻す': 'Show',
+  '来園者': 'Visitors', '収入': 'Income', '事件': 'Incidents', '図鑑': 'Dex',
+  '届いた成績（新しい順）。荒らしの名前やおかしな成績は「隠す」でランキングから外せます。': 'Submitted scores (newest first). Use “Hide” to take abusive names or odd scores off the ranking.',
 } : null;
 const tr = (s) => (EN && EN[s] != null ? EN[s] : s);
 if (EN) {
@@ -199,15 +206,47 @@ async function showBacklog() {
   catch (e) { $('#backlog').replaceChildren(el('p', 'err', tr('読み込めませんでした') + '（' + e.message + '）')); }
 }
 
+async function showScores() {
+  const v = $('#scores');
+  v.replaceChildren(el('p', 'muted', tr('読み込み中…')));
+  let list;
+  try { list = await get('/api/scores'); }
+  catch (e) { v.replaceChildren(el('p', 'err', tr('読み込めませんでした') + '（' + e.message + '）')); return; }
+  v.replaceChildren();
+  if (!list.length) { v.append(el('p', 'muted', tr('まだ成績は届いていません'))); return; }
+  const box = el('div', 'card');
+  for (const it of list) {
+    const row = el('div', 'item');
+    const body = el('div'); body.style.flex = '1';
+    const head = el('div', 'bl-head');
+    head.append(el('span', 'bl-title', it.name), el('span', 'muted', tr('{0}年目').replace('{0}', it.year) + ' · ★' + it.rank_end));
+    if (it.env !== 'production') head.append(el('span', 'pill s-wontfix', it.env));
+    if (it.hidden) head.append(el('span', 'pill s-open', tr('隠し中')));
+    body.append(head);
+    body.append(el('div', 'meta', tr('来園者') + ' ' + it.visitors.toLocaleString() + ' · ' + tr('収入') + ' ' + it.income.toLocaleString() + 'G · ' + tr('事件') + ' ' + it.incidents + ' · ' + tr('図鑑') + ' ' + it.found + ' · ' + fmt(it.created_at) + ' · ' + it.player));
+    const btn = el('button', '', it.hidden ? tr('戻す') : tr('隠す'));
+    btn.onclick = async () => {
+      try { await get('/api/scores/' + it.id, { method: 'PATCH', body: JSON.stringify({ hidden: !it.hidden }) }); showScores(); }
+      catch { alert(tr('変えられませんでした')); }
+    };
+    row.append(body, btn); box.append(row);
+  }
+  v.append(box);
+}
+
 function tab(which) {
   $('#tabDays').classList.toggle('on', which === 'days');
   $('#tabBacklog').classList.toggle('on', which === 'backlog');
+  $('#tabScores').classList.toggle('on', which === 'scores');
   $('#daysPane').hidden = which !== 'days';
   $('#backlogPane').hidden = which !== 'backlog';
+  $('#scoresPane').hidden = which !== 'scores';
   if (which === 'backlog') showBacklog();
+  if (which === 'scores') showScores();
 }
 $('#tabDays').onclick = () => tab('days');
 $('#tabBacklog').onclick = () => tab('backlog');
+$('#tabScores').onclick = () => tab('scores');
 
 $('#login').onsubmit = (e) => {
   e.preventDefault();
