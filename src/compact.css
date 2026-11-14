@@ -1,0 +1,204 @@
+/*
+ * スマホ（狭い・低い画面）で地図を広く使うための調整。
+ * 上の数字は 1 行、案内は 1 行（押すと説明が開く）、口コミは畳むと見出しだけ、ドックは薄く。
+ * 他の CSS より後に読み込み、#hud を付けて優先させる。
+ */
+
+/* 地図を触っている間は、案内も薄くして邪魔しない */
+#hud .guide {
+  transition: opacity 0.2s;
+}
+#hud.gesturing .guide {
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+@media (max-width: 640px), (max-height: 500px) {
+  /* ---- 案内：1 行。押すとやり方の説明が開く ---- */
+  #hud .guide {
+    top: calc(var(--top-bottom, 100px) + 6px);
+    padding: 4px 4px 4px 8px;
+    gap: 6px;
+  }
+  #hud .bear-alert:not([hidden]) ~ .guide {
+    top: calc(var(--top-bottom, 100px) + 50px);
+  }
+  #hud .guide-step-word {
+    display: none;
+  }
+  #hud .guide-step {
+    padding: 2px 7px;
+  }
+  #hud .guide-body {
+    flex: 1 1 auto;
+    cursor: pointer;
+  }
+  #hud .guide-line {
+    font-size: 13px;
+  }
+  #hud .guide-how {
+    display: none;
+  }
+  #hud .guide.open .guide-how {
+    display: block;
+    margin: 0 0 3px;
+    font-size: 11.5px;
+  }
+  #hud .guide-skip {
+    width: 26px;
+    height: 26px;
+  }
+
+  /* クマの警報も上の数字のすぐ下に */
+  #hud .bear-alert {
+    top: calc(var(--top-bottom, 100px) + 6px);
+    padding: 5px 12px 5px 8px;
+    font-size: 13px;
+  }
+
+  /* ---- 上の数字：小さな丸に（見出しは省き、title で分かる） ---- */
+  #hud .chip-label {
+    display: none;
+  }
+  #hud .chip {
+    padding: 3px 9px 3px 3px;
+    gap: 5px;
+  }
+  #hud .chip-icon {
+    width: 24px;
+    height: 24px;
+  }
+  #hud .chip-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+  #hud .chip-value {
+    font-size: 14px;
+  }
+
+  /* ---- 口コミ：畳んでいるときは見出しだけ ---- */
+  #hud .reviews:not(.open) {
+    width: auto;
+    padding: 6px 10px 6px 6px;
+  }
+  #hud .reviews:not(.open) .reviews-list {
+    display: none;
+  }
+  #hud .reviews:not(.open) .reviews-head {
+    width: auto;
+  }
+}
+
+/* ---------- 縦持ち ---------- */
+@media (max-width: 640px) {
+  #hud .topbar {
+    gap: 6px;
+  }
+  #hud .brand {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+  /* 6つの数字は 1 行の横スクロールに（2 行だと地図が狭くなる） */
+  #hud .chips {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 5px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+  }
+  #hud .chips::-webkit-scrollbar {
+    display: none;
+  }
+  #hud .chip {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  /* 括弧の中の細かい数（遊歩道のマス数・水辺の木）は省く */
+  #hud .chip-value small {
+    display: none;
+  }
+
+  #hud .guide,
+  #hud .bear-alert:not([hidden]) ~ .guide {
+    width: auto;
+    left: calc(10px + var(--sa-l, 0px));
+    right: calc(10px + var(--sa-r, 0px));
+    transform: none;
+  }
+
+  /* ---- ドック：道具とブラシを薄く ---- */
+  #hud .dock {
+    padding: 4px;
+  }
+  #hud .tool {
+    min-height: 50px;
+    padding: 3px 2px 2px;
+  }
+  #hud .tool-icon {
+    width: 30px;
+    height: 30px;
+  }
+  #hud .tool-label {
+    font-size: 10.5px;
+  }
+  #hud .sizes {
+    padding-top: 4px;
+    gap: 6px;
+  }
+  #hud .sizes-row .size {
+    height: 32px;
+  }
+  #hud .sizes:has(.sizes-row:not([hidden])) .sizes-label {
+    display: none;
+  }
+  #hud .subtool {
+    min-height: 32px;
+  }
+}
+
+/* ---------- 横持ち ---------- */
+@media (max-height: 500px) and (min-width: 641px) {
+  /* 案内は真ん中に。左右の口コミ・かごと重ならない幅にする */
+  #hud .guide {
+    max-width: calc(100vw - 380px);
+  }
+  #hud .guide-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #hud .guide-line {
+    min-width: 0;
+  }
+  #hud .chips {
+    gap: 5px;
+  }
+
+  /* 口コミとかごは、下のドックの横ではなく上の数字のすぐ下に（畳むと見出しだけ） */
+  #hud .reviews,
+  #hud .basket {
+    top: calc(var(--top-bottom, 100px) + 6px);
+    bottom: auto;
+    max-height: calc(100dvh - var(--top-bottom, 100px) - 100px - var(--sa-b, 0px));
+  }
+  #hud .basket {
+    right: calc(64px + var(--sa-r, 0px));
+  }
+  #hud .reviews.open {
+    width: 240px;
+  }
+}
+
+/* 珍しい生き物の話題は、畳んだ案内（縦）や口コミの見出し（横）の下に */
+@media (max-width: 640px) {
+  #hud .rare-badge {
+    top: calc(var(--top-bottom, 100px) + 50px);
+  }
+}
+@media (max-height: 500px) and (min-width: 641px) {
+  #hud .rare-badge {
+    top: calc(var(--top-bottom, 100px) + 54px);
+  }
+}

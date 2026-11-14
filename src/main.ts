@@ -90,6 +90,7 @@ import { Yearbook } from './yearbook';
 import { YearPanel } from './yearview';
 import { Requests, clientOf, describe, progressOf, type ParkNow, type RequestEvent } from './requests';
 import { RequestPanel } from './requestview';
+import './compact.css';
 
 // ---- ワールドの設定 ----
 const MAP_SIZE = 128; // マス数（一辺）

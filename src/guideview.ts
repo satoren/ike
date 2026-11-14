@@ -12,6 +12,9 @@ const TARGETS: Record<GuideTarget, string> = {
   rank: '.rank-badge',
 };
 
+/** 狭い画面で、新しい手順の説明を開いておく時間 */
+const FOLD_AFTER_MS = 7000;
+
 /**
  * はじめの案内の表示。
  * 画面の上に、いまやることを 1つだけ出し、使う道具を光らせる。×でいつでもやめられる。
@@ -26,6 +29,8 @@ export class GuideView {
   private readonly bar: HTMLElement;
   private target: Element | null = null;
   private key = '';
+  private index = -1;
+  private foldTimer = 0;
 
   constructor(root: HTMLElement, onSkip: () => void) {
     this.root = root;
@@ -47,6 +52,11 @@ export class GuideView {
     this.how = this.el.querySelector('.guide-how')!;
     this.bar = this.el.querySelector('.guide-bar i')!;
     this.el.querySelector('.guide-skip')!.addEventListener('click', onSkip);
+    // 狭い画面ではやり方の説明を畳んでおき、案内を押すと開く（地図を広く使うため）
+    this.el.querySelector('.guide-body')!.addEventListener('click', () => {
+      window.clearTimeout(this.foldTimer);
+      this.el.classList.toggle('open');
+    });
     // 通知（.toasts）より前に置き、案内が出ているあいだは通知を下へずらす
     root.insertBefore(this.el, root.querySelector('.toasts'));
   }
@@ -60,7 +70,14 @@ export class GuideView {
       this.point(null);
       return;
     }
-    this.step.textContent = `案内 ${p.index}/${p.total}`;
+    // 新しい手順になったら、しばらく説明を開いて見せてから畳む
+    if (p.index !== this.index) {
+      this.index = p.index;
+      this.el.classList.add('open');
+      window.clearTimeout(this.foldTimer);
+      this.foldTimer = window.setTimeout(() => this.el.classList.remove('open'), FOLD_AFTER_MS);
+    }
+    this.step.innerHTML = `<span class="guide-step-word">案内 </span>${p.index}/${p.total}`;
     this.title.textContent = p.step.title;
     this.count.textContent = p.text;
     this.how.textContent = p.step.how;
