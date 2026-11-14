@@ -19,6 +19,8 @@ export interface ReviewContext {
   treesNearWater: number;
   /** 野外にいま居る数（果物は木に実っている数） */
   wild: Record<ItemKind, number>;
+  /** 遊歩道からの眺め：つながった道のマス数、3種類以上が見えるマス数、見える種類の平均 */
+  views?: { cells: number; rich: number; average: number };
   /** 最近あった出来事（ReviewFeed が覚えておく） */
   recent: ReadonlySet<ReviewEvent>;
 }
@@ -188,6 +190,19 @@ export const TOPICS: readonly Topic[] = [
     good: true,
     weight: (c) => Math.min(2.5, c.treesNearWater * 0.3),
     lines: ['水辺の木陰でひと休みできた', '木と池の組み合わせがきれい'],
+  },
+  // 道からの眺め：見えるものの種類が多い道は楽しく、どこも同じ景色だと飽きる
+  {
+    factor: 'scenery',
+    good: true,
+    weight: (c) => (c.views && c.views.cells >= 20 ? Math.min(3, (c.views.rich / c.views.cells) * 4) : 0),
+    lines: ['歩くたびに景色が変わって飽きない', '池、木立、花畑と、道ごとに見どころがあった', '曲がり角ごとに写真を撮りたくなる'],
+  },
+  {
+    factor: 'scenery',
+    good: false,
+    weight: (c) => (c.views && c.views.cells >= 40 && c.views.average < 1.5 ? 2.5 - c.views.average : 0),
+    lines: ['どこを歩いても同じ景色で、少し飽きた', '道沿いに見るものが少ない。花や岩があるといいのに', '長い道のわりに見どころが少なかった'],
   },
   {
     factor: 'scenery',

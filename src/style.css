@@ -686,6 +686,42 @@ kbd {
   backdrop-filter: blur(6px);
 }
 
+.hint.hint-note {
+  background: rgba(63, 111, 79, 0.92);
+}
+
+/* 遊歩道の色分けの見方（道・花畑・岩を選んでいるあいだ） */
+.view-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(255, 252, 243, 0.92);
+  color: #3a4a40;
+  font-size: 11px;
+  box-shadow: 0 2px 8px rgba(36, 57, 45, 0.15);
+}
+.view-legend[hidden] {
+  display: none;
+}
+.view-scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.view-scale i {
+  width: 14px;
+  height: 10px;
+  border-radius: 3px;
+}
+.view-scale i:nth-of-type(1) { background: #7d93b5; margin-left: 4px; }
+.view-scale i:nth-of-type(2) { background: #7fbf9f; }
+.view-scale i:nth-of-type(3) { background: #e6d552; }
+.view-scale i:nth-of-type(4) { background: #f59b2f; }
+.view-scale i:nth-of-type(5) { background: #ea5b6e; margin-right: 4px; }
+
 .dock {
   display: flex;
   align-items: stretch;

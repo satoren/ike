@@ -6,8 +6,22 @@ import { SAFETY } from './paths';
 import { SHOT_COST, TRAP_COST } from './bears';
 import { WEED } from './foodweb';
 import { FACILITIES, FACILITY_ORDER, type FacilityKind } from './facilities';
+import { DECOR } from './decor';
 
-export type Tool = 'pan' | 'dig' | 'raise' | 'smooth' | 'tree' | 'path' | 'collect' | 'trap' | 'gun' | 'weed' | 'build';
+export type Tool =
+  | 'pan'
+  | 'dig'
+  | 'raise'
+  | 'smooth'
+  | 'tree'
+  | 'path'
+  | 'collect'
+  | 'trap'
+  | 'gun'
+  | 'weed'
+  | 'build'
+  | 'flower'
+  | 'rock';
 
 /** 狭い（縦持ちのスマホ）または低い（横持ち）画面。パネルを畳んで地図を広く見せる */
 export const COMPACT_QUERY = '(max-width: 640px), (max-height: 500px)';
@@ -22,7 +36,7 @@ const TOOLS: { id: Tool; label: string; key: string; hint: string; cost: string 
     id: 'path',
     label: '遊歩道',
     key: '6',
-    hint: '手前の出入口からつなげて敷く柵付きの道。客が安全に回れ、キツネは入れません（Shift か「撤去」でなぞると撤去）',
+    hint: '手前の出入口からつなげて敷く柵付きの道。客が安全に回れ、キツネは入れません（Shift か「撤去」でなぞると撤去）。道の色は眺めのよさです。見えるものの種類が多い道ほど魅力が上がります',
     cost: `${SAFETY.cost}G/マス`,
   },
   { id: 'collect', label: '集める', key: '7', hint: 'なぞった範囲の木の実・動物・魚をかごに入れます', cost: '無料' },
@@ -48,6 +62,20 @@ const TOOLS: { id: Tool; label: string; key: string; hint: string; cost: string 
     cost: `${WEED.cost}G/株`,
   },
   {
+    id: 'flower',
+    label: '花畑',
+    key: 'F',
+    hint: '遊歩道の近くに植えると、道からの眺めに「花畑」が加わります。同じものを並べても増えないので、足りない道のそばに（「撤去」で片づけ）',
+    cost: `${DECOR.flower.cost}G/か所`,
+  },
+  {
+    id: 'rock',
+    label: '岩',
+    key: 'R',
+    hint: '遊歩道の近くに置くと、道からの眺めに「岩」が加わります。陸にも、池の浅いところにも置けます（「撤去」で片づけ）',
+    cost: `${DECOR.rock.cost}G/個`,
+  },
+  {
     id: 'build',
     label: '施設',
     key: '-',
@@ -60,7 +88,7 @@ const TOOLS: { id: Tool; label: string; key: string; hint: string; cost: string 
 const GROUPS: { id: string; label: string; tools: Tool[] }[] = [
   { id: 'move', label: '移動', tools: ['pan'] },
   { id: 'land', label: '地形', tools: ['dig', 'raise', 'smooth'] },
-  { id: 'nature', label: '自然', tools: ['tree', 'weed'] },
+  { id: 'nature', label: '自然', tools: ['tree', 'weed', 'flower', 'rock'] },
   { id: 'build', label: '建てる', tools: ['path', 'build'] },
   { id: 'collect', label: '集める', tools: ['collect'] },
   { id: 'hunt', label: '狩り', tools: ['trap', 'gun'] },
@@ -180,6 +208,8 @@ export class Hud {
   private readonly nightToggle: HTMLButtonElement;
   private readonly facilityButtons = new Map<FacilityKind, HTMLButtonElement>();
   private tool: Tool = 'pan';
+  private hintText = '';
+  private hintNote: string | null = null;
   private readonly handlers: HudHandlers;
   private lastNums: Partial<Record<ChipName, number>> = {};
   private lastKey = '';
@@ -238,6 +268,10 @@ export class Hud {
 
       <footer class="dock-wrap">
         <p class="hint"></p>
+        <p class="view-legend" hidden title="遊歩道の色は、そこから見えるものの種類の数です">
+          <span>道からの眺め</span>
+          <span class="view-scale">少<i></i><i></i><i></i><i></i><i></i>多</span>
+        </p>
         <div class="subtools card" role="group" hidden></div>
         <nav class="dock card" aria-label="道具">
           <div class="tools"></div>
@@ -255,22 +289,22 @@ export class Hud {
       <button class="map-btn card" type="button" aria-pressed="false" aria-label="パネルを隠して地図を広く見る" title="パネルを隠す">${icons.expand}</button>
       <div class="help card" hidden>
         <div class="help-head"><b>遊び方</b><button type="button" class="help-close" aria-label="閉じる">${icons.close}</button></div>
-        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります（つながっていない道は灰色になり、使われません）。ときどきクマが現れ、柵と道を壊して来園者を襲います。現れる前の日には地図の端に足跡が見つかり、そこから続く点線が予想される獣道です。クマは身を隠せる林や水辺を通り、開けた草地を避けるので、木の植え方で通り道が変わります。獣道に先回りして罠を仕掛けるか、銃で狩りましょう（クマの近くには罠を置けません。遊歩道のすぐ脇の罠には来園者がかかってしまいます）。夜には密猟者が忍び込んで魚や動物を盗んでいきます。紫の目印の人を「集める」でなぞると捕まえられ、報奨金がもらえます。来園者に見つかると逃げ出すので、遊歩道を広く巡らせておくと被害を減らせます。かごの下の「駆除係」で係を雇うと、日給と引き換えに園内を巡回し、クマを撃ち、キツネや密猟者を捕まえてくれます（給料が払えないと辞めてしまいます）。左上の「夜間営業」で遊歩道をライトアップすると夜も客が来て入園料が増えますが、電気代がかかり、夜行性のキツネが寄ってきて遊歩道の外が危険になります。水辺の木を増やし、池を深くして荒らさずにいると、ホタルやオオサンショウウオがまれに現れて話題になり、来園者が一気に増えます（捕まえることはできません）。左上の★は園のランクです。押すと次のランクへの目標が見られます。目標を全部達成するとランクが上がり、賞金がもらえて入園料が上がり、休憩所・売店・展望台などの施設を「施設」で遊歩道のそばに建てられるようになります。本のボタンの「生き物図鑑」には、園に現れた生き物が載ります。浅瀬、池の中の小島、木を寄せて植えた林、遊歩道から離れた静かな林など、場所を作り分けると、そこを好む新しい生き物が現れます。まだ見つけていない生き物はヒントだけが載っています。見つけるたびにボーナスがもらえ、評判が広まって来園者が増えます。毎朝、町の人から「お願い」が 1件届きます（手紙のボタン）。魚を届ける、生き物を増やす、水辺に木を植える、今日は何も採らない、などです。期限までに応えると報酬がもらえます。応えられなくても罰はなく、見送ることもできます。売値は毎朝変わります。きょうの高値とあすの高値は、かごの下に出ます。同じ品をたくさん売ると値下がりし、日がたつと戻るので、高い日に少しずつ売るのが得です。ランクが上がると、水車小屋・自然館・大ケヤキといった大きな買い物もできるようになります。来園者には、家族連れ・散策の人・釣り人・写真家の 4つのタイプがいて、求めるものが違います。上の「来園者」の数字を押すと、タイプごとの人数と満足度、足りないものが見られます。満足している客層ほど多く来て、釣り人と写真家は入園料を多く払います。呼びこむ客層を 1つ選べます。1年（春から冬までの 20日）が終わると、その年の来園者や収入のまとめが出ます。</p>
+        <p class="help-text">池を掘り、木を植えて自然を育てましょう。実った果物や集まってきた生き物を「集める」でかごに入れて売るとお金になります。ただし採りすぎると景観の魅力が下がり、入園料が減ります。ウサギが増えるとキツネもやってきます。来園者が襲われると魅力が大きく下がります。来園者は手前の出入口から入って帰ります。出入口から柵付きの遊歩道をつなげて、来園者の数に見合うだけ敷けば、客は安全に回れて魅力も上がります（つながっていない道は灰色になり、使われません）。ときどきクマが現れ、柵と道を壊して来園者を襲います。現れる前の日には地図の端に足跡が見つかり、そこから続く点線が予想される獣道です。クマは身を隠せる林や水辺を通り、開けた草地を避けるので、木の植え方で通り道が変わります。獣道に先回りして罠を仕掛けるか、銃で狩りましょう（クマの近くには罠を置けません。遊歩道のすぐ脇の罠には来園者がかかってしまいます）。夜には密猟者が忍び込んで魚や動物を盗んでいきます。紫の目印の人を「集める」でなぞると捕まえられ、報奨金がもらえます。来園者に見つかると逃げ出すので、遊歩道を広く巡らせておくと被害を減らせます。かごの下の「駆除係」で係を雇うと、日給と引き換えに園内を巡回し、クマを撃ち、キツネや密猟者を捕まえてくれます（給料が払えないと辞めてしまいます）。左上の「夜間営業」で遊歩道をライトアップすると夜も客が来て入園料が増えますが、電気代がかかり、夜行性のキツネが寄ってきて遊歩道の外が危険になります。水辺の木を増やし、池を深くして荒らさずにいると、ホタルやオオサンショウウオがまれに現れて話題になり、来園者が一気に増えます（捕まえることはできません）。左上の★は園のランクです。押すと次のランクへの目標が見られます。目標を全部達成するとランクが上がり、賞金がもらえて入園料が上がり、休憩所・売店・展望台などの施設を「施設」で遊歩道のそばに建てられるようになります。本のボタンの「生き物図鑑」には、園に現れた生き物が載ります。浅瀬、池の中の小島、木を寄せて植えた林、遊歩道から離れた静かな林など、場所を作り分けると、そこを好む新しい生き物が現れます。まだ見つけていない生き物はヒントだけが載っています。見つけるたびにボーナスがもらえ、評判が広まって来園者が増えます。毎朝、町の人から「お願い」が 1件届きます（手紙のボタン）。魚を届ける、生き物を増やす、水辺に木を植える、今日は何も採らない、などです。期限までに応えると報酬がもらえます。応えられなくても罰はなく、見送ることもできます。売値は毎朝変わります。きょうの高値とあすの高値は、かごの下に出ます。同じ品をたくさん売ると値下がりし、日がたつと戻るので、高い日に少しずつ売るのが得です。ランクが上がると、水車小屋・自然館・大ケヤキといった大きな買い物もできるようになります。来園者には、家族連れ・散策の人・釣り人・写真家の 4つのタイプがいて、求めるものが違います。上の「来園者」の数字を押すと、タイプごとの人数と満足度、足りないものが見られます。満足している客層ほど多く来て、釣り人と写真家は入園料を多く払います。呼びこむ客層を 1つ選べます。遊歩道は、そこから見えるものの種類が多いほど魅力が上がります。見えるものは、水面・木立（木 3本以上）・花畑・岩・池の中の小島・名所（展望台や水車小屋など）の 6種類で、道から 5マス以内にあるものが見えます。同じものをたくさん並べても増えないので、道ごとに違う見どころを作りましょう。「遊歩道」「花畑」「岩」を選ぶと、道が眺めのよさで色分けされます。花畑と岩は「自然」から置けます。1年（春から冬までの 20日）が終わると、その年の来園者や収入のまとめが出ます。</p>
         <dl class="help-mouse">
           <dt>左ドラッグ</dt><dd>道具を使う（移動ではカメラ移動）</dd>
           <dt>右ドラッグ</dt><dd>カメラ移動</dd>
           <dt>中ドラッグ</dt><dd>カメラ回転</dd>
           <dt>ホイール</dt><dd>ズーム</dd>
-          <dt>Shift+ドラッグ</dt><dd>遊歩道を撤去</dd>
+          <dt>Shift+ドラッグ</dt><dd>遊歩道を撤去（Shift+クリックで花畑・岩を片づけ）</dd>
         </dl>
         <dl class="help-touch">
           <dt>1本指</dt><dd>道具を使う（移動ではカメラ移動）</dd>
           <dt>2本指ドラッグ</dt><dd>カメラ移動（移動では回転）</dd>
           <dt>ピンチ</dt><dd>ズーム</dd>
-          <dt>撤去ボタン</dt><dd>遊歩道を撤去</dd>
+          <dt>撤去ボタン</dt><dd>遊歩道・施設・花畑・岩を撤去</dd>
         </dl>
         <dl class="help-keys">
-          <dt><kbd>1</kbd>〜<kbd>0</kbd> <kbd>-</kbd></dt><dd>道具の切り替え</dd>
+          <dt><kbd>1</kbd>〜<kbd>0</kbd> <kbd>-</kbd> <kbd>F</kbd> <kbd>R</kbd></dt><dd>道具の切り替え</dd>
           <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>ブラシの大きさ</dd>
           <dt><kbd>T</kbd></dt><dd>時間の速さ（ゆっくり・ふつう・はやい）</dd>
         </dl>
@@ -427,14 +461,14 @@ export class Hud {
       b.addEventListener('click', () => this.handlers.onToolChange(id));
       this.subtools.appendChild(b);
     }
-    this.hint.textContent = TOOLS.find((t) => t.id === tool)?.hint ?? '';
+    this.setHint(TOOLS.find((t) => t.id === tool)?.hint ?? '');
     this.root.querySelector('.sizes')!.classList.toggle('disabled', tool === 'pan');
     // 施設のときはブラシの代わりに建てる施設を選ぶ
     const building = tool === 'build';
     this.root.querySelector<HTMLElement>('.sizes-row')!.hidden = building;
     this.root.querySelector<HTMLElement>('.facility-row')!.hidden = !building;
     this.root.querySelector<HTMLElement>('.sizes-label')!.textContent = building ? '建てる施設' : 'ブラシ';
-    const erasable = tool === 'path' || building;
+    const erasable = tool === 'path' || building || tool === 'flower' || tool === 'rock';
     this.pathErase.hidden = !erasable;
     if (tool !== this.tool) this.setPathErase(false);
     this.tool = tool;
@@ -458,10 +492,30 @@ export class Hud {
     }
     if (this.tool === 'build') {
       const lock = lockedBy[selected];
-      this.hint.textContent = lock !== undefined
-        ? `${FACILITIES[selected].name}は園のランクが★${lock}になると建てられます`
-        : `${FACILITIES[selected].name}：${FACILITIES[selected].hint}`;
+      this.setHint(
+        lock !== undefined
+          ? `${FACILITIES[selected].name}は園のランクが★${lock}になると建てられます`
+          : `${FACILITIES[selected].name}：${FACILITIES[selected].hint}`,
+      );
     }
+  }
+
+  /** 道具の説明。指している場所の知らせ（hintNote）があるあいだは、そちらを出す */
+  private setHint(text: string): void {
+    this.hintText = text;
+    this.hint.textContent = this.hintNote ?? text;
+  }
+
+  /** 道具の説明の代わりに、指している場所についての知らせを出す（null で元に戻す） */
+  setHintNote(note: string | null): void {
+    this.hintNote = note;
+    this.hint.textContent = note ?? this.hintText;
+    this.hint.classList.toggle('hint-note', note !== null);
+  }
+
+  /** 遊歩道を眺めのよさで色分けしているあいだ、色の見方を出す */
+  setViewLegend(on: boolean): void {
+    this.root.querySelector<HTMLElement>('.view-legend')!.hidden = !on;
   }
 
   private setPathErase(on: boolean): void {
