@@ -892,7 +892,7 @@ kbd {
   position: absolute;
   right: 16px;
   bottom: 72px;
-  width: 320px;
+  width: 360px;
   padding: 14px 16px;
 }
 
@@ -900,6 +900,34 @@ kbd {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 8px;
+}
+
+/* 遊び方の本文：話題ごとに見出しと短い段落に分ける */
+.help-text {
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--ink-soft);
+}
+
+.help-text h3 {
+  margin: 14px 0 4px;
+  padding-left: 8px;
+  border-left: 3px solid var(--leaf);
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.help-text h3:first-child {
+  margin-top: 4px;
+}
+
+.help-text p {
+  margin: 0 0 6px;
+}
+
+.help-text h3:last-child {
   margin-bottom: 8px;
 }
 
@@ -1451,9 +1479,14 @@ kbd {
 }
 
 .help {
+  /* 口コミ・図鑑ボタン・お願いなど、あとから足された HUD の上に出す（ご意見の入力やまとめよりは下） */
+  z-index: 8;
   right: calc(16px + var(--sa-r));
   bottom: calc(72px + var(--sa-b));
-  max-height: calc(100dvh - 100px - var(--sa-t) - var(--sa-b));
+  /* 上の資金・来園者などのチップ（2段になることもある）に被らないよう、上端はその下で止める */
+  max-height: calc(100dvh - 72px - 140px - var(--sa-t) - var(--sa-b));
+  /* 長い文を読むので、後ろのパネルが透けないように不透明にする */
+  background: rgb(252, 249, 240);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
