@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Heightmap } from './heightmap';
 import { CreatureMeshes, type Part } from './creatures';
 import { BIRDS, WEED, type Bird, type BirdKind, type Weed } from './foodweb';
+import { t } from './i18n';
 
 const MAX_WEEDS = 3000;
 
@@ -162,7 +163,7 @@ export class FoodWebPanel {
   constructor(parent: Element | null) {
     this.el = document.createElement('div');
     this.el.className = 'foodweb';
-    this.el.title = '水草が魚のすみかになり、魚が増えると鳥が食べに来ます。魚を採りすぎると鳥は去ります';
+    this.el.title = t('水草が魚のすみかになり、魚が増えると鳥が食べに来ます。魚を採りすぎると鳥は去ります');
     parent?.appendChild(this.el);
   }
 
@@ -173,12 +174,12 @@ export class FoodWebPanel {
     const birds = d.kingfisher + d.heron;
     const growing = d.weedsGrowing > 0 ? `<small>+${d.weedsGrowing}</small>` : '';
     this.el.innerHTML = `
-      <span class="fw-title">つながり</span>
-      <span class="fw-step${d.weeds ? '' : ' off'}">水草 <b>${d.weeds}</b>${growing}</span>
+      <span class="fw-title">${t('つながり')}</span>
+      <span class="fw-step${d.weeds ? '' : ' off'}">${t('水草')} <b>${d.weeds}</b>${growing}</span>
       <span class="fw-arrow">›</span>
-      <span class="fw-step${d.fish ? '' : ' off'}">魚 <b>${d.fish}</b></span>
+      <span class="fw-step${d.fish ? '' : ' off'}">${t('魚')} <b>${d.fish}</b></span>
       <span class="fw-arrow">›</span>
       <span class="fw-step${birds ? '' : ' off'}">${BIRDS.kingfisher.name} <b>${d.kingfisher}</b> ${BIRDS.heron.name} <b>${d.heron}</b></span>
-      ${d.fish >= d.fishCap ? '<span class="fw-tip">池を深く掘り、水草を植えると魚が増えます</span>' : ''}`;
+      ${d.fish >= d.fishCap ? `<span class="fw-tip">${t('池を深く掘り、水草を植えると魚が増えます')}</span>` : ''}`;
   }
 }

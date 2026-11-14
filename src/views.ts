@@ -1,5 +1,6 @@
 import type { Heightmap } from './heightmap';
 import type { PathGrid } from './paths';
+import { t } from './i18n';
 
 /**
  * 道からの眺め（描画から独立）。
@@ -13,12 +14,12 @@ export type ViewKind = 'water' | 'grove' | 'flower' | 'rock' | 'island' | 'landm
 export const VIEW_ORDER: ViewKind[] = ['water', 'grove', 'flower', 'rock', 'island', 'landmark'];
 
 export const VIEWS: Record<ViewKind, { name: string; how: string }> = {
-  water: { name: '水面', how: '道の近くに池を掘る' },
-  grove: { name: '木立', how: '道の近くに木を 3本以上植える' },
-  flower: { name: '花畑', how: '「自然」の花畑を道の近くに植える' },
-  rock: { name: '岩', how: '「自然」の岩を道の近くに置く' },
-  island: { name: '小島', how: '池の中に、岸から離れた島を残す' },
-  landmark: { name: '名所', how: '展望台・水車小屋・自然館・大ケヤキを建てる' },
+  water: { name: t('水面'), how: t('道の近くに池を掘る') },
+  grove: { name: t('木立'), how: t('道の近くに木を 3本以上植える') },
+  flower: { name: t('花畑'), how: t('「自然」の花畑を道の近くに植える') },
+  rock: { name: t('岩'), how: t('「自然」の岩を道の近くに置く') },
+  island: { name: t('小島'), how: t('池の中に、岸から離れた島を残す') },
+  landmark: { name: t('名所'), how: t('展望台・水車小屋・自然館・大ケヤキを建てる') },
 };
 
 export const VIEW = {
@@ -181,7 +182,7 @@ export class ViewMap {
 
 /** そのマスの眺めをひとことで（道具のヒントに出す） */
 export function describeView(kinds: readonly ViewKind[]): string {
-  if (kinds.length === 0) return 'ここからの眺め：何も見えません。近くに池・木立・花畑・岩などを';
-  const more = kinds.length >= VIEW.maxKinds ? '' : `。あと ${VIEW.maxKinds - kinds.length}種類まで増やせます`;
-  return `ここからの眺め：${kinds.map((k) => VIEWS[k].name).join('・')}（${kinds.length}種類）${more}`;
+  if (kinds.length === 0) return t('ここからの眺め：何も見えません。近くに池・木立・花畑・岩などを');
+  const more = kinds.length >= VIEW.maxKinds ? '' : t('。あと {0}種類まで増やせます', VIEW.maxKinds - kinds.length);
+  return t('ここからの眺め：{0}（{1}種類）{2}', kinds.map((k) => VIEWS[k].name).join(t('・')), kinds.length, more);
 }

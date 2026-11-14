@@ -1,4 +1,5 @@
 import { ITEMS, ITEM_ORDER, type Inventory, type ItemKind } from './ecology';
+import { t } from './i18n';
 
 /**
  * 相場（描画から独立）。
@@ -127,9 +128,9 @@ export class Market {
   /** きょうとあすの相場をひとことで（かごの下と朝の知らせに出す） */
   note(): string {
     const s = this.state;
-    const tomorrow = `あすは${ITEMS[s.nextHot].name}が高値`;
+    const tomorrow = t('あすは{0}が高値', ITEMS[s.nextHot].name);
     if (!s.hot) return tomorrow;
-    return `きょうは${ITEMS[s.hot].name}が高値 ×${s.rate[s.hot].toFixed(1)}・${tomorrow}`;
+    return t('きょうは{0}が高値 ×{1}・{2}', ITEMS[s.hot].name, s.rate[s.hot].toFixed(1), tomorrow);
   }
 
   snapshot(): MarketState {

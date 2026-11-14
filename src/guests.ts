@@ -1,3 +1,4 @@
+import { t } from './i18n';
 /**
  * 来園者のタイプ（描画から独立）。
  * 来園者は 4つのタイプに分かれ、それぞれ求めるものが違う。満足しているタイプほど多く来る。
@@ -20,10 +21,10 @@ export interface GuestInfo {
 }
 
 export const GUESTS: Record<GuestKind, GuestInfo> = {
-  family: { name: '家族連れ', about: '子どもと安心して歩きたい', share: 0.4, spend: 1 },
-  walker: { name: '散策の人', about: '水辺をのんびり歩きたい', share: 0.3, spend: 0.85 },
-  angler: { name: '釣り人', about: '魚の多い静かな池がいい（釣り券を買います）', share: 0.15, spend: 1.3 },
-  photographer: { name: '写真家', about: '鳥や珍しい生き物を撮りたい（撮影料を払います）', share: 0.15, spend: 1.5 },
+  family: { name: t('家族連れ'), about: t('子どもと安心して歩きたい'), share: 0.4, spend: 1 },
+  walker: { name: t('散策の人'), about: t('水辺をのんびり歩きたい'), share: 0.3, spend: 0.85 },
+  angler: { name: t('釣り人'), about: t('魚の多い静かな池がいい（釣り券を買います）'), share: 0.15, spend: 1.3 },
+  photographer: { name: t('写真家'), about: t('鳥や珍しい生き物を撮りたい（撮影料を払います）'), share: 0.15, spend: 1.5 },
 };
 
 export const GUEST = {
@@ -74,27 +75,27 @@ export function wantsOf(kind: GuestKind, p: GuestPark): Want[] {
   switch (kind) {
     case 'family':
       return [
-        { label: '安全に歩ける遊歩道', ratio: clamp01(p.safety / 0.9) },
-        { label: 'ひと休みできる休憩所', ratio: clamp01(p.rests / Math.max(1, Math.ceil(p.visitors / 150))) },
-        { label: '事件が起きていない', ratio: clamp01(1 - p.incidentPenalty / 0.3) },
+        { label: t('安全に歩ける遊歩道'), ratio: clamp01(p.safety / 0.9) },
+        { label: t('ひと休みできる休憩所'), ratio: clamp01(p.rests / Math.max(1, Math.ceil(p.visitors / 150))) },
+        { label: t('事件が起きていない'), ratio: clamp01(1 - p.incidentPenalty / 0.3) },
       ];
     case 'walker':
       return [
-        { label: '長い遊歩道', ratio: clamp01(p.pathCells / 120) },
-        { label: '変化のある眺め', ratio: clamp01(p.richViews / 60) },
-        { label: '広い池', ratio: clamp01(p.waterCells / 1200) },
+        { label: t('長い遊歩道'), ratio: clamp01(p.pathCells / 120) },
+        { label: t('変化のある眺め'), ratio: clamp01(p.richViews / 60) },
+        { label: t('広い池'), ratio: clamp01(p.waterCells / 1200) },
       ];
     case 'angler':
       return [
-        { label: '魚の多さ', ratio: clamp01(p.fish / 12) },
-        { label: '深い池', ratio: clamp01(p.deepCells / 300) },
-        { label: '荒らされていない池', ratio: clamp01(1 - p.pressurePenalty / 0.2) },
+        { label: t('魚の多さ'), ratio: clamp01(p.fish / 12) },
+        { label: t('深い池'), ratio: clamp01(p.deepCells / 300) },
+        { label: t('荒らされていない池'), ratio: clamp01(1 - p.pressurePenalty / 0.2) },
       ];
     case 'photographer':
       return [
-        { label: 'カワセミやサギ', ratio: clamp01(p.birds / 3) },
-        { label: '図鑑に載る生き物の多さ', ratio: clamp01(p.species / 10) },
-        { label: '珍しい生き物か展望台', ratio: p.rare ? 1 : clamp01(p.towers * 0.5) },
+        { label: t('カワセミやサギ'), ratio: clamp01(p.birds / 3) },
+        { label: t('図鑑に載る生き物の多さ'), ratio: clamp01(p.species / 10) },
+        { label: t('珍しい生き物か展望台'), ratio: p.rare ? 1 : clamp01(p.towers * 0.5) },
       ];
   }
 }

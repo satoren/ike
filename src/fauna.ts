@@ -1,6 +1,7 @@
 import type { Heightmap } from './heightmap';
 import type { Season, Weather } from './seasons';
 import { FRUIT } from './ecology';
+import { t } from './i18n';
 
 /**
  * 場所の作り方で現れる生き物（描画から独立）。
@@ -19,12 +20,12 @@ export type FaunaKind = 'frog' | 'dragonfly' | 'turtle' | 'squirrel' | 'deer' | 
 export const FAUNA_ORDER: FaunaKind[] = ['frog', 'dragonfly', 'turtle', 'squirrel', 'deer', 'owl'];
 
 export const FAUNA: Record<FaunaKind, { name: string; appeal: number; max: number; counter: string }> = {
-  frog: { name: 'カエル', appeal: 2, max: 8, counter: '匹' },
-  dragonfly: { name: 'トンボ', appeal: 3, max: 8, counter: '匹' },
-  turtle: { name: 'カメ', appeal: 6, max: 4, counter: '匹' },
-  squirrel: { name: 'リス', appeal: 4, max: 6, counter: '匹' },
-  deer: { name: 'シカ', appeal: 10, max: 4, counter: '頭' },
-  owl: { name: 'フクロウ', appeal: 12, max: 2, counter: '羽' },
+  frog: { name: t('カエル'), appeal: 2, max: 8, counter: t('匹') },
+  dragonfly: { name: t('トンボ'), appeal: 3, max: 8, counter: t('匹') },
+  turtle: { name: t('カメ'), appeal: 6, max: 4, counter: t('匹') },
+  squirrel: { name: t('リス'), appeal: 4, max: 6, counter: t('匹') },
+  deer: { name: t('シカ'), appeal: 10, max: 4, counter: t('頭') },
+  owl: { name: t('フクロウ'), appeal: 12, max: 2, counter: t('羽') },
 };
 
 /** 場所の見分け方と、生き物 1 匹に必要な広さ */

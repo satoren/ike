@@ -1,3 +1,4 @@
+import { t } from './i18n';
 /**
  * 1年のまとめ（描画から独立）。
  * 春から冬までの 1年のあいだの来園者・収入・できごとを数え、冬の終わりに成績として見せる。
@@ -55,13 +56,13 @@ export function incomeOf(y: YearStats): number {
 
 /** その年をひとことで言う。良かったことを先に探す */
 export function commentOf(y: YearStats, rankEnd: number): string {
-  if (rankEnd > y.rankStart) return `園のランクが★${y.rankStart}から★${rankEnd}に上がった、飛躍の 1年でした`;
-  if (y.found >= 3) return `新しい生き物が ${y.found}種も見つかった、にぎやかな 1年でした`;
-  if (y.incidents === 0 && y.visitors > 0) return '事件が 1件も無い、安心して歩ける 1年でした';
-  if (y.requests >= 8) return `町の人のお願いに ${y.requests}回も応えた、頼りにされた 1年でした`;
-  if (y.incidents >= 5) return '事件の多い 1年でした。遊歩道と狩りで、来年は安全な園にしましょう';
-  if (y.sales > y.tickets) return '採って売ることで稼いだ 1年でした。採りすぎには気をつけましょう';
-  return '少しずつ園が育った 1年でした';
+  if (rankEnd > y.rankStart) return t('園のランクが★{0}から★{1}に上がった、飛躍の 1年でした', y.rankStart, rankEnd);
+  if (y.found >= 3) return t('新しい生き物が {0}種も見つかった、にぎやかな 1年でした', y.found);
+  if (y.incidents === 0 && y.visitors > 0) return t('事件が 1件も無い、安心して歩ける 1年でした');
+  if (y.requests >= 8) return t('町の人のお願いに {0}回も応えた、頼りにされた 1年でした', y.requests);
+  if (y.incidents >= 5) return t('事件の多い 1年でした。遊歩道と狩りで、来年は安全な園にしましょう');
+  if (y.sales > y.tickets) return t('採って売ることで稼いだ 1年でした。採りすぎには気をつけましょう');
+  return t('少しずつ園が育った 1年でした');
 }
 
 export class Yearbook {

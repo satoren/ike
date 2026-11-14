@@ -1,6 +1,7 @@
 import './guests.css';
 import { icons } from './icons';
 import { GUESTS, GUEST_ORDER, weakestWant, type GuestKind, type GuestMix } from './guests';
+import { t } from './i18n';
 
 /**
  * 来園者のタイプの表示。上の「来園者」の数字を押すと開く。
@@ -19,19 +20,19 @@ export class GuestPanel {
     this.chip.setAttribute('role', 'button');
     this.chip.setAttribute('tabindex', '0');
     this.chip.setAttribute('aria-expanded', 'false');
-    this.chip.title = '来園者の内わけを見る';
+    this.chip.title = t('来園者の内わけを見る');
 
     this.panel = document.createElement('section');
     this.panel.className = 'guest-panel card';
     this.panel.hidden = true;
-    this.panel.setAttribute('aria-label', '来園者の内わけ');
+    this.panel.setAttribute('aria-label', t('来園者の内わけ'));
     this.panel.innerHTML = `
       <div class="guest-head">
         <span class="guest-head-icon">${icons.people}</span>
-        <b>来園者の内わけ</b>
-        <button type="button" class="guest-close" aria-label="閉じる">${icons.close}</button>
+        <b>${t('来園者の内わけ')}</b>
+        <button type="button" class="guest-close" aria-label="${t('閉じる')}">${icons.close}</button>
       </div>
-      <p class="guest-sub">満足している客層ほど多く来ます。呼びこむ客層を 1つ選べます</p>
+      <p class="guest-sub">${t('満足している客層ほど多く来ます。呼びこむ客層を 1つ選べます')}</p>
       <ul class="guest-list"></ul>
       <p class="guest-foot"></p>`;
     this.foot = this.panel.querySelector('.guest-foot')!;
@@ -42,9 +43,9 @@ export class GuestPanel {
       li.className = `guest guest-${kind}`;
       li.innerHTML = `
         <span class="guest-dot" aria-hidden="true"></span>
-        <span class="guest-name"><b>${info.name}</b><small>入園料 ×${info.spend}</small></span>
+        <span class="guest-name"><b>${info.name}</b><small>${t('入園料 ×{0}', info.spend)}</small></span>
         <span class="guest-count"></span>
-        <button type="button" class="guest-focus" aria-pressed="false">呼びこむ</button>
+        <button type="button" class="guest-focus" aria-pressed="false">${t('呼びこむ')}</button>
         <span class="guest-meter"><span class="guest-bar"><i></i></span><span class="guest-pct"></span></span>
         <span class="guest-lack"></span>`;
       li.title = info.about;
@@ -92,16 +93,16 @@ export class GuestPanel {
     for (const g of mix.groups) {
       const row = this.rows.get(g.kind)!;
       const pct = Math.round(g.satisfaction * 100);
-      row.count.textContent = `${g.count.toLocaleString()}人`;
+      row.count.textContent = t('{0}人', g.count.toLocaleString());
       row.bar.style.width = `${pct}%`;
-      row.pct.textContent = `満足 ${pct}%`;
+      row.pct.textContent = t('満足 {0}%', pct);
       const lack = weakestWant(g);
-      row.lack.textContent = lack ? `足りないもの：${lack.label}` : '求めるものが全部そろっています';
+      row.lack.textContent = lack ? t('足りないもの：{0}', lack.label) : t('求めるものが全部そろっています');
       row.lack.classList.toggle('ok', !lack);
       row.focus.setAttribute('aria-pressed', String(g.focused));
-      row.focus.textContent = g.focused ? '呼びこみ中' : '呼びこむ';
+      row.focus.textContent = g.focused ? t('呼びこみ中') : t('呼びこむ');
     }
     const spend = Math.round(mix.spend * 100);
-    this.foot.textContent = `いまの客層だと、入園料は 1人あたり ${spend}% 入ります`;
+    this.foot.textContent = t('いまの客層だと、入園料は 1人あたり {0}% 入ります', spend);
   }
 }

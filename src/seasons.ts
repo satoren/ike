@@ -1,4 +1,5 @@
 import type { Appeal, CreatureKind, Habitat } from './ecology';
+import { t } from './i18n';
 
 /**
  * 季節と天気のロジック（描画から独立）。
@@ -35,8 +36,8 @@ export interface SeasonInfo {
 
 export const SEASONS: Record<Season, SeasonInfo> = {
   spring: {
-    name: '春',
-    arrival: '春になりました。桜が咲き、花見客が増えます',
+    name: t('春'),
+    arrival: t('春になりました。桜が咲き、花見客が増えます'),
     visitorMul: 1,
     waterTarget: 0,
     growth: 1.2,
@@ -46,8 +47,8 @@ export const SEASONS: Record<Season, SeasonInfo> = {
     bears: true,
   },
   summer: {
-    name: '夏',
-    arrival: '夏になりました。晴れが続くと池の水位が下がります',
+    name: t('夏'),
+    arrival: t('夏になりました。晴れが続くと池の水位が下がります'),
     visitorMul: 1.05,
     waterTarget: -0.2,
     growth: 1,
@@ -56,8 +57,8 @@ export const SEASONS: Record<Season, SeasonInfo> = {
     bears: true,
   },
   autumn: {
-    name: '秋',
-    arrival: '秋になりました。木の実がよく実り、渡り鳥のカモが増えます',
+    name: t('秋'),
+    arrival: t('秋になりました。木の実がよく実り、渡り鳥のカモが増えます'),
     visitorMul: 1,
     waterTarget: -0.1,
     growth: 1.6,
@@ -66,8 +67,8 @@ export const SEASONS: Record<Season, SeasonInfo> = {
     bears: true,
   },
   winter: {
-    name: '冬',
-    arrival: '冬になりました。池が凍ってスケート場になります。カモは去り、クマは冬眠します',
+    name: t('冬'),
+    arrival: t('冬になりました。池が凍ってスケート場になります。カモは去り、クマは冬眠します'),
     visitorMul: 0.75,
     waterTarget: 0,
     growth: 0.2,
@@ -86,10 +87,10 @@ export interface WeatherInfo {
 }
 
 export const WEATHER: Record<Weather, WeatherInfo> = {
-  sunny: { name: '晴れ', visitorMul: 1.1, water: 0 },
-  cloudy: { name: 'くもり', visitorMul: 1, water: 0.1 },
-  rain: { name: '雨', visitorMul: 0.6, water: 0.3 },
-  snow: { name: '雪', visitorMul: 0.85, water: 0 },
+  sunny: { name: t('晴れ'), visitorMul: 1.1, water: 0 },
+  cloudy: { name: t('くもり'), visitorMul: 1, water: 0.1 },
+  rain: { name: t('雨'), visitorMul: 0.6, water: 0.3 },
+  snow: { name: t('雪'), visitorMul: 0.85, water: 0 },
 };
 
 export interface Calendar {
@@ -172,7 +173,7 @@ export function seasonalBonus(season: Season, h: Habitat): number {
 
 /** 季節の名物の名前（UI 用） */
 export function bonusLabel(season: Season): string {
-  return { spring: '花見', summer: '', autumn: '紅葉', winter: 'スケート' }[season];
+  return { spring: t('花見'), summer: '', autumn: t('紅葉'), winter: t('スケート') }[season];
 }
 
 /**

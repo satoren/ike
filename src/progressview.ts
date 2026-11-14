@@ -2,6 +2,7 @@ import './progress.css';
 import { icons } from './icons';
 import { FACILITIES } from './facilities';
 import { RANKS, type GoalView, type Progress, type Rank } from './progress';
+import { t } from './i18n';
 
 function stars(n: number): string {
   return `${'★'.repeat(n)}<i>${'★'.repeat(RANKS.length - n)}</i>`;
@@ -24,13 +25,13 @@ export class RankBadge {
     this.button.type = 'button';
     this.button.className = 'rank-badge';
     this.button.setAttribute('aria-expanded', 'false');
-    this.button.title = '園のランクと、次のランクへの目標';
+    this.button.title = t('園のランクと、次のランクへの目標');
     brand.appendChild(this.button);
 
     this.panel = document.createElement('section');
     this.panel.className = 'rank-panel card';
     this.panel.hidden = true;
-    this.panel.setAttribute('aria-label', '園のランク');
+    this.panel.setAttribute('aria-label', t('園のランク'));
     this.panel.innerHTML = `
       <div class="rank-head"></div>
       <ul class="rank-goals"></ul>
@@ -80,15 +81,15 @@ export class RankBadge {
       ${goals.length > 0 ? `<small>${done}/${goals.length}</small>` : ''}`;
 
     this.head.innerHTML = `
-      <span class="rank-stars" aria-label="5段階で${rank.stars}">${stars(rank.stars)}</span>
+      <span class="rank-stars" aria-label="${t('5段階で{0}', rank.stars)}">${stars(rank.stars)}</span>
       <b class="rank-name">${rank.name}</b>
-      <button type="button" class="rank-close" aria-label="閉じる">${icons.close}</button>
-      <span class="rank-sub">入園料 ×${rank.ticket}</span>`;
+      <button type="button" class="rank-close" aria-label="${t('閉じる')}">${icons.close}</button>
+      <span class="rank-sub">${t('入園料 ×{0}', rank.ticket)}</span>`;
 
     const next = progress.next;
     this.list.innerHTML = '';
     if (!next) {
-      this.list.innerHTML = '<li class="rank-max">最高ランクです。全国から客が訪れる名所になりました</li>';
+      this.list.innerHTML = `<li class="rank-max">${t('最高ランクです。全国から客が訪れる名所になりました')}</li>`;
     }
     for (const g of goals) {
       const li = document.createElement('li');
@@ -101,12 +102,12 @@ export class RankBadge {
       li.querySelector('.rank-label')!.textContent = g.goal.label;
       this.list.appendChild(li);
     }
-    this.panel.querySelector('.rank-foot')!.innerHTML = next ? `<b>★${next.stars} ${next.name}</b> になると ${rewardText(next)}` : '';
+    this.panel.querySelector('.rank-foot')!.innerHTML = next ? t('{0} になると {1}', `<b>★${next.stars} ${next.name}</b>`, rewardText(next)) : '';
   }
 }
 
 export function rewardText(rank: Rank): string {
-  const parts = [`賞金 ${rank.reward.toLocaleString()}G`, `入園料 ×${rank.ticket}`];
-  for (const k of rank.unlocks) parts.push(`${FACILITIES[k].name}が建てられる`);
-  return parts.join('・');
+  const parts = [t('賞金 {0}G', rank.reward.toLocaleString()), t('入園料 ×{0}', rank.ticket)];
+  for (const k of rank.unlocks) parts.push(t('{0}が建てられる', FACILITIES[k].name));
+  return parts.join(t('・'));
 }

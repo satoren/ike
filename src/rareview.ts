@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Heightmap } from './heightmap';
 import { RARE, RARE_ORDER, type RareKind, type RareState } from './rare';
+import { t } from './i18n';
 
 const FIREFLIES_PER_SPOT = 14;
 const MAX_SPOTS = 10;
@@ -234,15 +235,15 @@ export class RareBadge {
     if (key !== this.lastKey || !this.boost) {
       this.lastKey = key;
       const buttons = kinds
-        .map((k) => `<button type="button" class="rare-chip" data-kind="${k}" title="見に行く">${RARE[k].name}</button>`)
+        .map((k) => `<button type="button" class="rare-chip" data-kind="${k}" title="${t('見に行く')}">${RARE[k].name}</button>`)
         .join('');
-      this.text.innerHTML = `<b>話題</b>${buttons}<span class="rare-boost"></span>`;
+      this.text.innerHTML = `<b>${t('話題')}</b>${buttons}<span class="rare-boost"></span>`;
       this.boost = this.text.querySelector('.rare-boost');
       this.lastPct = -1;
     }
     if (pct !== this.lastPct && this.boost) {
       this.lastPct = pct;
-      this.boost.textContent = `来園者 +${pct}%`;
+      this.boost.textContent = t('来園者 +{0}%', pct);
     }
   }
 }

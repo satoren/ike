@@ -20,6 +20,8 @@ describe('中継', () => {
     expect(toEntry({ ...base, kind: 'toString' }, 0)).toBeNull();
     expect(toEntry({ ...base, message: 'a' }, 0)).toBeNull();
     expect(toEntry(base, 0).env['ランク']).toBe('★2');
+    expect(toEntry({ ...base, locale: 'en' }, 0).env['言語']).toBe('en');
+    expect(toEntry(base, 0).env['言語']).toBeUndefined();
   });
 
   it('日付の区切りは日本時間', () => {

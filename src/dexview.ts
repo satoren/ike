@@ -1,6 +1,7 @@
 import './dex.css';
 import { icons } from './icons';
-import { DEX, DEX_BOOST_PER_ENTRY, DEX_GROUPS, type Dex, type DexEntry, type DexGroup, type DexId } from './dex';
+import { DEX, DEX_BOOST_PER_ENTRY, DEX_GROUP_LABEL, DEX_GROUPS, type Dex, type DexEntry, type DexGroup, type DexId } from './dex';
+import { t } from './i18n';
 
 /** 一覧の 1 項目と、最後に書いた内容 */
 interface Item {
@@ -50,8 +51,8 @@ export class DexPanel {
     this.button.type = 'button';
     this.button.className = 'dex-btn card';
     this.button.setAttribute('aria-expanded', 'false');
-    this.button.setAttribute('aria-label', '生き物図鑑');
-    this.button.title = '生き物図鑑';
+    this.button.setAttribute('aria-label', t('生き物図鑑'));
+    this.button.title = t('生き物図鑑');
     this.button.innerHTML = `${icons.book}<span class="dex-count"></span>`;
     this.count = this.button.querySelector('.dex-count')!;
     root.appendChild(this.button);
@@ -59,13 +60,13 @@ export class DexPanel {
     this.panel = document.createElement('section');
     this.panel.className = 'dex-panel card';
     this.panel.hidden = true;
-    this.panel.setAttribute('aria-label', '生き物図鑑');
+    this.panel.setAttribute('aria-label', t('生き物図鑑'));
     this.panel.innerHTML = `
       <div class="dex-head">
         <span class="dex-head-icon">${icons.book}</span>
-        <b>生き物図鑑</b>
+        <b>${t('生き物図鑑')}</b>
         <span class="dex-total"></span>
-        <button type="button" class="dex-close" aria-label="閉じる">${icons.close}</button>
+        <button type="button" class="dex-close" aria-label="${t('閉じる')}">${icons.close}</button>
       </div>
       <p class="dex-sub"></p>
       <div class="dex-body"></div>`;
@@ -121,8 +122,8 @@ export class DexPanel {
     const per = Math.round(DEX_BOOST_PER_ENTRY * mult * 100);
     this.sub.textContent =
       dex.count >= dex.total
-        ? `図鑑が完成しました。評判が広まり、来園者 +${dex.count * per}%`
-        : `1種見つけるごとに評判が広まり、来園者が ${per}% 増えます（いま +${dex.count * per}%）`;
+        ? t('図鑑が完成しました。評判が広まり、来園者 +{0}%', dex.count * per)
+        : t('1種見つけるごとに評判が広まり、来園者が {0}% 増えます（いま +{1}%）', per, dex.count * per);
 
     if (this.items.size === 0) this.build();
     for (const group of DEX_GROUPS) {
@@ -143,7 +144,7 @@ export class DexPanel {
       if (seenDay !== undefined && item.now !== now) {
         item.now = now;
         item.go!.hidden = now <= 0;
-        item.go!.textContent = `いま ${now}`;
+        item.go!.textContent = t('いま {0}', now);
         item.away!.hidden = now > 0;
       }
     }
@@ -155,7 +156,7 @@ export class DexPanel {
     for (const group of DEX_GROUPS) {
       const h = document.createElement('h3');
       h.className = 'dex-group';
-      h.textContent = group;
+      h.textContent = DEX_GROUP_LABEL[group];
       const small = document.createElement('small');
       h.appendChild(small);
       this.groupCounts.set(group, small);
@@ -180,24 +181,24 @@ export class DexPanel {
       <span class="dex-icon">${seen ? icons[ICON[e.id]] : '?'}</span>
       <span class="dex-text"><b></b><span class="dex-note"></span></span>
       <span class="dex-side"></span>`;
-    li.querySelector('b')!.textContent = seen ? e.name : '？？？';
+    li.querySelector('b')!.textContent = seen ? e.name : t('？？？');
     li.querySelector('.dex-note')!.textContent = seen ? e.note : e.hint;
     const side = li.querySelector('.dex-side')!;
     item.go = item.away = undefined;
     if (!seen) {
-      side.innerHTML = `<small>発見で +${e.bonus}G</small>`;
+      side.innerHTML = `<small>${t('発見で +{0}G', e.bonus)}</small>`;
       return;
     }
     const go = document.createElement('button');
     go.type = 'button';
     go.className = 'dex-go';
     go.dataset.go = e.id;
-    go.title = '見に行く';
+    go.title = t('見に行く');
     const away = document.createElement('span');
     away.className = 'dex-away';
-    away.textContent = 'いまは居ない';
+    away.textContent = t('いまは居ない');
     const day = document.createElement('small');
-    day.textContent = `${seenDay}日目に発見`;
+    day.textContent = t('{0}日目に発見', seenDay);
     side.append(go, away, day);
     item.go = go;
     item.away = away;

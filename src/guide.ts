@@ -1,3 +1,4 @@
+import { t } from './i18n';
 /**
  * はじめの案内（描画から独立）。
  * 新しく始めた人に、池を掘る→木を植える→道をのばす→集める→売る→目標を見る、を 1つずつ案内する。
@@ -28,12 +29,12 @@ export interface GuideStep {
 }
 
 export const GUIDE_STEPS: GuideStep[] = [
-  { id: 'dig', title: '池を広げる', how: '「地形」の「掘る」で、池のふちをなぞって掘りましょう', target: 'land', goal: 40, unit: 'マス' },
-  { id: 'tree', title: '木を植える', how: '「自然」で、池のまわりに木を植えましょう。水辺の木は生き物を呼びます', target: 'nature', goal: 5, unit: '本' },
-  { id: 'path', title: '遊歩道をのばす', how: '「建てる」の遊歩道で、出入口の道から続けてなぞりましょう。つながった道を客が歩きます', target: 'build', goal: 10, unit: 'マス' },
-  { id: 'collect', title: '木の実を集める', how: '「集める」で実のなった木をなぞると、かごに入ります', target: 'collect', goal: 3, unit: '個' },
-  { id: 'sell', title: 'かごの中身を売る', how: 'かごの「売る」でお金になります。採りすぎると魅力が下がるので、ほどほどに', target: 'basket', goal: 1, unit: '回' },
-  { id: 'goals', title: '次の目標を見る', how: '左上の★を押すと、園のランクを上げる目標が見られます', target: 'rank', goal: 1, unit: '回' },
+  { id: 'dig', title: t('池を広げる'), how: t('「地形」の「掘る」で、池のふちをなぞって掘りましょう'), target: 'land', goal: 40, unit: t('マス') },
+  { id: 'tree', title: t('木を植える'), how: t('「自然」で、池のまわりに木を植えましょう。水辺の木は生き物を呼びます'), target: 'nature', goal: 5, unit: t('本') },
+  { id: 'path', title: t('遊歩道をのばす'), how: t('「建てる」の遊歩道で、出入口の道から続けてなぞりましょう。つながった道を客が歩きます'), target: 'build', goal: 10, unit: t('マス') },
+  { id: 'collect', title: t('木の実を集める'), how: t('「集める」で実のなった木をなぞると、かごに入ります'), target: 'collect', goal: 3, unit: t('個') },
+  { id: 'sell', title: t('かごの中身を売る'), how: t('かごの「売る」でお金になります。採りすぎると魅力が下がるので、ほどほどに'), target: 'basket', goal: 1, unit: t('回') },
+  { id: 'goals', title: t('次の目標を見る'), how: t('左上の★を押すと、園のランクを上げる目標が見られます'), target: 'rank', goal: 1, unit: t('回') },
 ];
 
 /** 1つ終えるごとのごほうび（G） */
