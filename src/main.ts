@@ -79,6 +79,8 @@ import { FaunaView } from './faunaview';
 import { Dex, type DexId } from './dex';
 import { DexPanel } from './dexview';
 import { Market } from './market';
+import { Guests, type GuestMix, type GuestPark } from './guests';
+import { GuestPanel } from './guestview';
 import { GUIDE_REWARD, Guide, type GuideNow } from './guide';
 import { GuideView } from './guideview';
 import { Yearbook } from './yearbook';
@@ -221,6 +223,9 @@ const dex = new Dex();
 // 日替わりのお願い
 const requests = new Requests();
 const market = new Market();
+const guests = new Guests();
+/** いまの来園者の内わけ（毎フレーム、魅力を計算したあとに決め直す） */
+let guestMix: GuestMix | null = null;
 const guide = new Guide();
 const yearbook = new Yearbook();
 const poachers = new Poachers(map, WATER_LEVEL);
@@ -349,6 +354,7 @@ const rareBadge = new RareBadge((kind) => focusRare(kind));
 const foodwebPanel = new FoodWebPanel(document.querySelector('#hud .basket'));
 const rankBadge = new RankBadge(document.querySelector<HTMLElement>('#hud .brand')!, document.getElementById('hud')!);
 const dexPanel = new DexPanel(document.getElementById('hud')!, (id) => focusCreature(id));
+const guestPanel = new GuestPanel(document.getElementById('hud')!, (kind) => guests.setFocus(kind));
 const guideView = new GuideView(document.getElementById('hud')!, () => {
   guide.skip();
   hud.flash('案内をやめました。「？」の遊び方から、もう一度始められます');
@@ -924,6 +930,7 @@ function snapshot(): SaveData {
     requests: requests.snapshot(),
     market: market.snapshot(),
     guide: guide.snapshot(),
+    guests: guests.snapshot(),
     yearbook: yearbook.snapshot(),
     state: {
       money: state.money,
@@ -971,6 +978,7 @@ function restore(data: SaveData): void {
     speed: clampSpeed(data.state.speed),
   });
   guide.restore(data.guide);
+  guests.restore(data.guests);
   yearbook.restore(data.yearbook, calendarOf(state.day).year, progress.rank.stars);
   hud.setYearReview(yearbook.state.last !== null);
   speedButton.set(state.speed);
@@ -985,6 +993,11 @@ function restore(data: SaveData): void {
   habitat = habitatNow();
   biotope = biotopeNow();
   scenic = paths.scenicValue(WATER_LEVEL);
+}
+
+/** 入園料。ランクの倍率に加えて、客層ごとの払いの違い（釣り券・撮影料）が掛かる */
+function ticketIncome(visitors: number): number {
+  return Math.round(visitors * TICKET_PRICE * progress.rank.ticket * (guestMix?.spend ?? 1));
 }
 
 /** はじめの案内の判定に使う、いまの園の数字 */
@@ -1204,7 +1217,7 @@ function parkNow(
     safety: appeal.safety,
     pressure: state.pressure,
     incident: state.incident > 0.05,
-    income: Math.round(appeal.visitors * TICKET_PRICE * progress.rank.ticket),
+    income: ticketIncome(appeal.visitors),
   };
 }
 
@@ -1432,14 +1445,34 @@ function frame(): void {
   }
   const boost = rareBoost(rare.state);
   const bonus = seasonalBonus(cal.season, habitat);
-  const evaluate = () =>
-    applySeason(
+  const evaluate = () => {
+    const base = applySeason(
       // 図鑑が埋まるほど評判が広まり、客が増える
       applyRareBoost(computeAppeal(habitat, wildlife, state.pressure, state.incident, access), boost * dex.boostWith(facilities.dexBoost)),
       cal.season,
       seasonState.weather,
       bonus,
     );
+    // 来園者をタイプに分ける。求めるものがそろっている客層ほど多く来る
+    const park: GuestPark = {
+      visitors: base.visitors,
+      safety: base.safety,
+      incidentPenalty: base.incidentPenalty,
+      pressurePenalty: base.penalty,
+      rests: facilities.count('rest'),
+      towers: facilities.count('tower'),
+      pathCells: paths.connectedCount,
+      treesNearWater: habitat.treesNearWater,
+      waterCells: habitat.waterCells,
+      deepCells: habitat.deepCells,
+      fish: wild.fish,
+      birds: foodweb.count('kingfisher') + foodweb.count('heron'),
+      species: dex.count,
+      rare: rare.state.sightings.length > 0,
+    };
+    guestMix = guests.mix(park);
+    return { ...base, visitors: guestMix.total };
+  };
   let appeal = evaluate();
   lastVisitors = appeal.visitors;
 
@@ -1499,7 +1532,7 @@ function frame(): void {
   if (state.dayTimer >= SECONDS_PER_DAY) {
     state.dayTimer -= SECONDS_PER_DAY;
     state.day++;
-    const income = Math.round(appeal.visitors * TICKET_PRICE * progress.rank.ticket);
+    const income = ticketIncome(appeal.visitors);
     const shopIncome = facilities.shopIncome(appeal.visitors);
     state.money += income + shopIncome;
     progress.earn(income + shopIncome);
@@ -1522,7 +1555,7 @@ function frame(): void {
     if (nightOpenTime > 0) {
       const share = Math.min(1, nightOpenTime / Math.max(nightTime, 0.001));
       const nightGuests = Math.floor(nightVisitors(appeal.visitors, true) * share);
-      const nightIncome = Math.round(nightGuests * TICKET_PRICE * progress.rank.ticket);
+      const nightIncome = ticketIncome(nightGuests);
       dayVisitors += nightGuests;
       yearbook.earn('tickets', nightIncome);
       const cost = lightingCost(lanterns);
@@ -1653,6 +1686,7 @@ function frame(): void {
       );
     }
     guideView.update(guide.progress(guideNow()));
+    if (guestMix) guestPanel.update(guestMix);
   }
 
   rangerPanel.update(rangers.count, state.money);

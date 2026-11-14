@@ -7,6 +7,7 @@ import type { Bird, Weed } from './foodweb';
 import type { Poacher } from './poachers';
 import type { MarketState } from './market';
 import type { GuideState } from './guide';
+import type { GuestsState } from './guests';
 import type { YearbookState } from './yearbook';
 import type { Facility } from './facilities';
 import type { ProgressState } from './progress';
@@ -62,6 +63,8 @@ export interface SaveData {
   guide?: GuideState;
   /** 1年のまとめ（古い保存データには無い） */
   yearbook?: YearbookState;
+  /** 呼びこむ客層（古い保存データには無い） */
+  guests?: GuestsState;
   state: {
     money: number;
     day: number;
