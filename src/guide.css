@@ -1,0 +1,161 @@
+/* ---------- はじめの案内 ---------- */
+.guide {
+  position: absolute;
+  top: calc(84px + var(--sa-t, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 8px 8px 8px 12px;
+  pointer-events: auto;
+}
+.guide[hidden] {
+  display: none;
+}
+/* クマの警報が出ているときは、その下へ */
+.bear-alert:not([hidden]) ~ .guide {
+  top: calc(132px + var(--sa-t, 0px));
+}
+/* 案内が出ているあいだ、通知はその下へ（狭い画面では通知は下に出るので動かさない） */
+@media (min-width: 641px) and (min-height: 501px) {
+  .guide:not([hidden]) ~ .toasts {
+    top: calc(158px + var(--sa-t, 0px));
+  }
+  .bear-alert:not([hidden]) ~ .guide:not([hidden]) ~ .toasts {
+    top: calc(206px + var(--sa-t, 0px));
+  }
+}
+
+.guide-step {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--leaf-tint);
+  color: var(--leaf-deep);
+  font-size: 11.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.guide-body {
+  min-width: 0;
+}
+.guide-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+}
+.guide-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--leaf-deep);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.guide-how {
+  margin: 1px 0 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+.guide-bar {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.guide-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--leaf);
+  transition: width 0.3s ease-out;
+}
+.guide-skip {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-soft);
+}
+.guide-skip:hover {
+  background: var(--line);
+}
+.guide-skip svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* 案内が指している道具やパネルを、輪で光らせる */
+.guide-target {
+  animation: guide-pulse 1.4s ease-in-out infinite;
+}
+@keyframes guide-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px var(--coin), 0 0 0 2px rgba(210, 154, 38, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 2px var(--coin), 0 0 0 9px rgba(210, 154, 38, 0.28);
+  }
+}
+
+/* 狭い画面では、道具の並びが横スクロールの枠の中にあり、外側の輪が切れる。内側の輪と色で光らせる */
+@keyframes guide-pulse-inset {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 2px var(--coin);
+    background-color: rgba(210, 154, 38, 0);
+  }
+  50% {
+    box-shadow: inset 0 0 0 2px var(--coin);
+    background-color: rgba(210, 154, 38, 0.2);
+  }
+}
+@media (max-width: 640px), (max-height: 500px) {
+  .tool.guide-target {
+    animation-name: guide-pulse-inset;
+    border-radius: 14px;
+  }
+}
+
+/* 狭い画面では、上の数字の下に幅いっぱいで出す。通知は下に出るので動かさない */
+@media (max-width: 640px) {
+  .guide,
+  .bear-alert:not([hidden]) ~ .guide {
+    top: calc(158px + var(--sa-t, 0px));
+    width: calc(100vw - 20px);
+    max-width: none;
+    gap: 8px;
+    padding: 6px 6px 6px 10px;
+  }
+  .guide-line {
+    font-size: 13px;
+  }
+  .guide-how {
+    font-size: 11.5px;
+  }
+}
+
+/* 横持ちのスマホ：高さが足りないので、やり方の説明を省く */
+@media (max-height: 500px) and (min-width: 641px) {
+  .guide {
+    top: calc(64px + var(--sa-t, 0px));
+  }
+  .guide-how {
+    display: none;
+  }
+}
+
+/* 地図を広く見ているあいだは隠す */
+#hud.map-mode .guide {
+  display: none;
+}

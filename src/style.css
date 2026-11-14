@@ -902,6 +902,27 @@ kbd {
   font-size: 11px;
 }
 
+.help-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.help-more button {
+  padding: 6px 11px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--leaf-deep);
+  background: var(--leaf-tint);
+}
+
+.help-more button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .help-save {
   display: flex;
   align-items: center;

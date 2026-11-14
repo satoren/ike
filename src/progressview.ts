@@ -11,6 +11,8 @@ function stars(n: number): string {
  * 上部のランク表示（★と目標の達成数）と、押すと開く目標の一覧。
  */
 export class RankBadge {
+  /** 目標のパネルを開いたときに呼ぶ（はじめの案内が使う） */
+  onOpen?: () => void;
   private readonly button: HTMLButtonElement;
   private readonly panel: HTMLElement;
   private readonly list: HTMLElement;
@@ -46,6 +48,7 @@ export class RankBadge {
 
   toggle(open: boolean): void {
     this.panel.hidden = !open;
+    if (open) this.onOpen?.();
     this.button.setAttribute('aria-expanded', String(open));
     this.button.classList.remove('ping');
     if (open) this.place();

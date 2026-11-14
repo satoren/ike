@@ -79,6 +79,10 @@ import { FaunaView } from './faunaview';
 import { Dex, type DexId } from './dex';
 import { DexPanel } from './dexview';
 import { Market } from './market';
+import { GUIDE_REWARD, Guide, type GuideNow } from './guide';
+import { GuideView } from './guideview';
+import { Yearbook } from './yearbook';
+import { YearPanel } from './yearview';
 import { Requests, clientOf, describe, progressOf, type ParkNow, type RequestEvent } from './requests';
 import { RequestPanel } from './requestview';
 
@@ -217,6 +221,8 @@ const dex = new Dex();
 // 日替わりのお願い
 const requests = new Requests();
 const market = new Market();
+const guide = new Guide();
+const yearbook = new Yearbook();
 const poachers = new Poachers(map, WATER_LEVEL);
 const poacherView = new PoacherView(map, WATER_LEVEL);
 scene.add(poacherView.group);
@@ -309,6 +315,10 @@ const hud = new Hud({
   onFocusBear: () => focusBear(),
   onToggleNight: () => toggleNight(),
   onReset: () => resetGame(),
+  onGuideRestart: () => guide.start(guideNow()),
+  onYearReview: () => {
+    if (yearbook.state.last) yearPanel.show(yearbook.state.last);
+  },
   onPathErase: (on) => (pathErase = on),
   onFacilityChange: (kind) => {
     state.facility = kind;
@@ -339,6 +349,12 @@ const rareBadge = new RareBadge((kind) => focusRare(kind));
 const foodwebPanel = new FoodWebPanel(document.querySelector('#hud .basket'));
 const rankBadge = new RankBadge(document.querySelector<HTMLElement>('#hud .brand')!, document.getElementById('hud')!);
 const dexPanel = new DexPanel(document.getElementById('hud')!, (id) => focusCreature(id));
+const guideView = new GuideView(document.getElementById('hud')!, () => {
+  guide.skip();
+  hud.flash('案内をやめました。「？」の遊び方から、もう一度始められます');
+});
+const yearPanel = new YearPanel(document.getElementById('hud')!);
+rankBadge.onOpen = () => guide.note('goals');
 const requestPanel = new RequestPanel(document.getElementById('hud')!, {
   onDeliver: () => {
     const e = requests.deliver(state.inventory);
@@ -641,6 +657,7 @@ function collect(at: THREE.Vector3): void {
   }
   if (parts.length > 0) {
     hud.flash(`かごへ: ${parts.join('、')}`);
+    guide.note('collect', ITEM_ORDER.reduce((n, kind) => n + (got[kind] ?? 0), 0));
     const e = requests.noteHarvest();
     if (e) onRequestEvent(e);
   }
@@ -654,6 +671,7 @@ function collect(at: THREE.Vector3): void {
 function catchPoachers(caught: CreatureKind[][], who = ''): void {
   const reward = caught.length * POACHER.reward;
   state.money += reward;
+  yearbook.earn('rewards', reward);
   let released = 0;
   for (const loot of caught) {
     for (const kind of loot) if (ecosystem.spawn(kind, forest.trees)) released++;
@@ -734,6 +752,7 @@ function shoot(at: THREE.Vector3): void {
 
 function onBearKilled(message: string): void {
   state.inventory.bear++;
+  yearbook.note('bears');
   hud.flash(message, 'good');
   reviews.note('bearHunted');
 }
@@ -801,6 +820,8 @@ function sell(kind: ItemKind | 'all'): void {
     state.inventory[k] = 0;
   }
   if (total === 0) return;
+  guide.note('sell');
+  yearbook.earn('sales', total);
   state.money += total;
   progress.earn(total);
   hud.flash(`売り上げ +${total.toLocaleString()} G`, 'good');
@@ -902,6 +923,8 @@ function snapshot(): SaveData {
     dex: dex.snapshot(),
     requests: requests.snapshot(),
     market: market.snapshot(),
+    guide: guide.snapshot(),
+    yearbook: yearbook.snapshot(),
     state: {
       money: state.money,
       day: state.day,
@@ -947,6 +970,9 @@ function restore(data: SaveData): void {
     nightFoxes: data.state.nightFoxes ?? [],
     speed: clampSpeed(data.state.speed),
   });
+  guide.restore(data.guide);
+  yearbook.restore(data.yearbook, calendarOf(state.day).year, progress.rank.stars);
+  hud.setYearReview(yearbook.state.last !== null);
   speedButton.set(state.speed);
   refreshLanterns();
   camera.position.fromArray(data.camera.position);
@@ -959,6 +985,11 @@ function restore(data: SaveData): void {
   habitat = habitatNow();
   biotope = biotopeNow();
   scenic = paths.scenicValue(WATER_LEVEL);
+}
+
+/** はじめの案内の判定に使う、いまの園の数字 */
+function guideNow(): GuideNow {
+  return { waterCells: habitat.waterCells, trees: forest.trees.length, pathCells: paths.connectedCount };
 }
 
 function saveNow(): void {
@@ -976,6 +1007,10 @@ function resetGame(): void {
   if (saved) {
     restore(saved);
     hud.flash(`${saved.state.day}日目の続きから再開しました`, 'good');
+  } else {
+    // 新しく始めたときだけ、はじめの案内を出す
+    guide.start(guideNow());
+    yearbook.begin(1, progress.rank.stars);
   }
 }
 // タブを閉じる・切り替えるときにも保存する
@@ -1184,6 +1219,8 @@ function onRequestEvent(e: RequestEvent): void {
     case 'done':
       state.money += e.request.reward;
       progress.earn(e.request.reward);
+      yearbook.earn('rewards', e.request.reward);
+      yearbook.note('requests');
       hud.flash(`お願い達成！${client}から報酬 +${e.request.reward.toLocaleString()} G`, 'good');
       break;
     case 'failed':
@@ -1199,6 +1236,7 @@ function onRequestEvent(e: RequestEvent): void {
 function onRankUp(): void {
   const rank = progress.rank;
   state.money += rank.reward;
+  yearbook.earn('rewards', rank.reward);
   const el = document.createElement('div');
   el.className = 'rank-up card';
   el.setAttribute('role', 'status');
@@ -1322,6 +1360,7 @@ function frame(): void {
     state.incident = Math.min(2, state.incident + ATTACK.bearSeverity * bearEvents.attacked);
     hud.flash('クマが来園者を襲いました！魅力が大幅に下がります', 'bad');
     reviews.note('bearAttack');
+    yearbook.note('incidents', bearEvents.attacked);
     const e = requests.noteIncident();
     if (e) onRequestEvent(e);
   }
@@ -1329,6 +1368,7 @@ function frame(): void {
     state.incident = Math.min(2, state.incident + ATTACK.trapSeverity * bearEvents.guestsTrapped);
     hud.flash('来園者が罠にかかってけがをしました。遊歩道のそばの罠は危険です', 'bad');
     reviews.note('guestTrapped');
+    yearbook.note('incidents', bearEvents.guestsTrapped);
   }
   if (bearEvents.trapped > 0) {
     state.inventory.bear += bearEvents.trapped;
@@ -1423,6 +1463,7 @@ function frame(): void {
     state.incident = 1;
     hud.flash('キツネが来園者を襲いました！魅力が大きく下がります', 'bad');
     reviews.note('foxAttack');
+    yearbook.note('incidents');
     const e = requests.noteIncident();
     if (e) onRequestEvent(e);
     appeal = evaluate();
@@ -1462,6 +1503,9 @@ function frame(): void {
     const shopIncome = facilities.shopIncome(appeal.visitors);
     state.money += income + shopIncome;
     progress.earn(income + shopIncome);
+    yearbook.earn('tickets', income);
+    yearbook.earn('shop', shopIncome);
+    let dayVisitors = appeal.visitors;
     hud.flash(
       `${state.day - 1}日目の入園料  +${income.toLocaleString()} G${shopIncome > 0 ? `　売店 +${shopIncome.toLocaleString()} G` : ''}`,
       'good',
@@ -1477,7 +1521,10 @@ function frame(): void {
     // 夜も営業していれば、営業していた時間の分だけ夜の部の入園料が入り、電気代を払う
     if (nightOpenTime > 0) {
       const share = Math.min(1, nightOpenTime / Math.max(nightTime, 0.001));
-      const nightIncome = Math.round(Math.floor(nightVisitors(appeal.visitors, true) * share) * TICKET_PRICE * progress.rank.ticket);
+      const nightGuests = Math.floor(nightVisitors(appeal.visitors, true) * share);
+      const nightIncome = Math.round(nightGuests * TICKET_PRICE * progress.rank.ticket);
+      dayVisitors += nightGuests;
+      yearbook.earn('tickets', nightIncome);
       const cost = lightingCost(lanterns);
       state.money += nightIncome - cost;
       progress.earn(nightIncome);
@@ -1485,6 +1532,7 @@ function frame(): void {
     }
     nightOpenTime = 0;
     nightTime = 0;
+    yearbook.addDay(dayVisitors);
     // 駆除係の日給。払えなければ 1 人辞めていく
     if (rangers.count > 0) {
       if (state.money >= rangers.payroll) {
@@ -1535,6 +1583,11 @@ function frame(): void {
     hud.flash(`相場：${market.note()}`);
     // 朝ごとに、期限の過ぎたお願いを片付けて新しいお願いを受ける
     for (const e of requests.onNewDay(parkNow(appeal, wild))) onRequestEvent(e);
+    // 冬が終わって春になったら、1年のまとめを見せる
+    if (next.year !== cal.year) {
+      yearPanel.show(yearbook.closeYear(progress.rank.stars));
+      hud.setYearReview(true);
+    }
   }
 
   foodwebPanel.update({
@@ -1577,6 +1630,8 @@ function frame(): void {
     if (dexSynced) {
       for (const e of found) {
         state.money += e.bonus;
+        yearbook.earn('rewards', e.bonus);
+        yearbook.note('found');
         hud.flash(`図鑑に登録：${e.name}（${dex.count}/${dex.total}） 発見ボーナス +${e.bonus}G`, 'good');
         dexPanel.ping();
       }
@@ -1588,6 +1643,16 @@ function frame(): void {
     const now = parkNow(appeal, wild);
     for (const e of requests.update(now)) onRequestEvent(e);
     requestPanel.update(requests.active, requests.active ? progressOf(requests.active, now) : null, state.day);
+
+    // はじめの案内：終えた手順にごほうびを渡し、次の手順へ
+    for (const step of guide.update(guideNow())) {
+      state.money += GUIDE_REWARD;
+      hud.flash(
+        guide.active ? `できました：${step.title}（+${GUIDE_REWARD}G）` : `案内はここまでです（+${GUIDE_REWARD}G）。あとは目標を見ながら、自由に園を育てましょう`,
+        'good',
+      );
+    }
+    guideView.update(guide.progress(guideNow()));
   }
 
   rangerPanel.update(rangers.count, state.money);
