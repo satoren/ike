@@ -82,6 +82,7 @@ import { FaunaView } from './faunaview';
 import { Dex, type DexId } from './dex';
 import { DexPanel } from './dexview';
 import { Market } from './market';
+import { DEBT, dailyCosts, debtFactor } from './upkeep';
 import { Guests, type GuestMix, type GuestPark } from './guests';
 import { GuestPanel } from './guestview';
 import { GUIDE_REWARD, Guide, type GuideNow } from './guide';
@@ -631,8 +632,12 @@ function pick(): THREE.Vector3 | null {
   return hit ? hit.point : null;
 }
 
-function spend(cost: number): boolean {
-  if (state.money < cost) {
+/**
+ * お金を払う。essential（クマを撃つなど、園を守るための最低限のこと）は赤字でも払える。
+ * 赤字のあいだも、集める・売る・撤去・夜間営業をやめることはいつでもできる。
+ */
+function spend(cost: number, essential = false): boolean {
+  if (essential ? state.money < DEBT.floor : state.money < cost) {
     hud.flash('資金が足りません', 'bad');
     return false;
   }
@@ -822,7 +827,7 @@ function placeTrap(at: THREE.Vector3): void {
 }
 
 function shoot(at: THREE.Vector3): void {
-  if (!spend(SHOT_COST)) return;
+  if (!spend(SHOT_COST, true)) return;
   const result = bears.shoot(at.x, at.z);
   if (result === 'killed') {
     onBearKilled('クマを仕留めました！かごに入れました');
@@ -1109,6 +1114,19 @@ function ticketIncome(visitors: number): number {
 /** はじめの案内の判定に使う、いまの園の数字 */
 function guideNow(): GuideNow {
   return { waterCells: habitat.waterCells, trees: forest.trees.length, pathCells: paths.connectedCount };
+}
+
+/** その日の来園者（昼と夜の部の合計）に対する、案内係の人件費と維持費 */
+function todayCosts(visitors: number) {
+  return dailyCosts({
+    visitors,
+    rankTicket: progress.rank.ticket,
+    waterCells: habitat.waterCells,
+    pathCells: paths.connectedCount,
+    trees: forest.trees.length,
+    decor: decor.items.length,
+    facilities: facilities.counts(),
+  });
 }
 
 function saveNow(): void {
@@ -1579,7 +1597,9 @@ function frame(): void {
       rare: rare.state.sightings.length > 0,
     };
     guestMix = guests.mix(park);
-    return { ...base, visitors: guestMix.total };
+    // 赤字で手入れを後回しにしているあいだは、園が少し荒れて客が減る（それでも入園料は人件費を上回る）
+    const visitors = Math.floor(guestMix.total * debtFactor(state.money));
+    return { ...base, visitors };
   };
   let appeal = evaluate();
   lastVisitors = appeal.visitors;
@@ -1672,6 +1692,11 @@ function frame(): void {
       state.money += nightIncome - cost;
       progress.earn(nightIncome);
       hud.flash(`夜の部  +${nightIncome.toLocaleString()} G（電気代 -${cost} G）`, nightIncome >= cost ? 'good' : 'bad');
+      // 赤字のうえ夜の部も電気代に負けているなら、自動でライトアップをやめる
+      if (state.money < 0 && nightIncome < cost && state.nightOpen) {
+        state.nightOpen = false;
+        hud.flash('赤字なので、電気代に見合わない夜間営業をやめました', 'bad');
+      }
     }
     nightOpenTime = 0;
     nightTime = 0;
@@ -1686,6 +1711,16 @@ function frame(): void {
         hud.flash('給料が払えず、駆除係が 1 人辞めてしまいました', 'bad');
       }
     }
+    // 案内係の人件費と、池・道・施設の維持費。赤字のときは維持費を後回しにする（その代わり園が少し荒れる）
+    const costs = todayCosts(dayVisitors);
+    const deferred = state.money - costs.wages - costs.upkeep < 0;
+    state.money -= costs.wages + (deferred ? 0 : costs.upkeep);
+    hud.flash(
+      deferred
+        ? `人件費 -${costs.wages.toLocaleString()} G（案内係 ${costs.staff}人）　維持費は払えず後回し。売って立て直しましょう`
+        : `人件費 -${costs.wages.toLocaleString()} G（案内係 ${costs.staff}人）　維持費 -${costs.upkeep.toLocaleString()} G`,
+      deferred ? 'bad' : 'info',
+    );
     // 日が変わるとき、森が育っているほどクマが出やすい（冬は冬眠して出ない）
     // 前の日に足跡が見つかっていれば、そこからクマが現れる
     if (bears.sign) {
@@ -1799,6 +1834,7 @@ function frame(): void {
     if (guestMix) guestPanel.update(guestMix);
   }
 
+  market.premium = progress.rank.ticket;
   rangerPanel.update(rangers.count, state.money);
   hud.update({
     money: state.money,
@@ -1824,6 +1860,7 @@ function frame(): void {
     nightOpen: state.nightOpen,
     nightVisitors: nightVisitors(appeal.visitors, state.nightOpen),
     lightingCost: lightingCost(lanterns),
+    costs: todayCosts(appeal.visitors + nightVisitors(appeal.visitors, state.nightOpen)),
   });
 
   seasonBadge.update(cal, seasonState.weather, bonus);
